@@ -245,6 +245,37 @@ test("hosted celebration publication keeps own uploaded sound and rejects unsave
   }
 });
 
+test("verified shoutout input broadcasts a saved card and active catch-up binds its rule and profile", async t => {
+  const s = fixture(t), candidate = design();
+  candidate.rules = [{ id: "creator", name: "Creator shoutout", enabled: true,
+    trigger: { type: "shoutout", mode: "both", users: ["selected"], types: [], exclusions: ["excluded"] },
+    effect: { type: "shoutout", message: "See {name}", color: "#11AAFF", durationSeconds: 12 }, cooldownSeconds: 0 }];
+  assert.equal((await s.save(candidate)).status, 200);
+  const profile = { id: "456", login: "selected", displayName: "Selected", image: "", type: "regular" };
+  const input = { type: "shoutout", id: "signed-chat-1", mode: "automatic", ruleId: "creator", profile };
+  const sent = await processAutomationInput(s.env, "123", input, { now, fetcher: s.fetcher });
+  assert.equal(sent.status, "sent");
+  assert.equal(sent.event.expires, now + 12000);
+  assert.equal(sent.event.ruleId, "creator");
+  assert.deepEqual(sent.event.shoutout, profile);
+  assert.deepEqual(sent.event.effect, candidate.rules[0].effect);
+  assert.deepEqual((await s.call("active", { at: now + 1000 })).body.event.shoutout, profile);
+  assert.equal((await processAutomationInput(s.env, "123", input, { now: now + 1000, fetcher: s.fetcher })).replayed, true);
+  const receipt = s.db.prepare("SELECT event FROM automation_receipts WHERE channel='123'").get();
+  const saved = JSON.parse(receipt.event);
+  for (const tampered of [
+    { ...saved, ruleId: "other" },
+    { ...saved, shoutout: { ...profile, image: "https://evil.example/a.png" } },
+    { ...saved, expires: saved.created + 30000 },
+  ]) {
+    s.db.prepare("UPDATE automation_receipts SET event=?").run(JSON.stringify(tampered));
+    assert.equal((await s.call("active", { at: now + 1000 })).body.event, null);
+  }
+  s.db.prepare("UPDATE automation_receipts SET event=?").run(receipt.event);
+  assert.equal((await s.call("active", { at: now + 12000 })).body.event, null);
+  assert.equal((await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "shoutout", ruleId: "creator", profile } })).status, 409);
+});
+
 test("active catch-up authorizes before storage and supports GET only", async t => {
   const s = fixture(t);
   for (const options of [{ auth: null }, { auth: claims("456") }, { auth: { ...claims(), exp: now / 1000 } }, { from: "null" }, { from: "https://other.example" }])

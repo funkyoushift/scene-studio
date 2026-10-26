@@ -19,6 +19,8 @@ const output = path.join(outputs, folder);
 if (path.dirname(output) !== outputs) throw new Error("Export must stay inside outputs.");
 
 const required = [
+  "src/Shoutout.jsx", "src/ShoutoutControls.jsx", "src/shoutout.css", "src/shoutout-contract.mjs", "tests/shoutout-contract.test.mjs", "server/shoutout-service.mjs", "server/shoutout-schema.sql", "tests/shoutout-service.test.mjs",
+  "src/draft-workspace.mjs", "tests/draft-workspace.test.mjs",
   "src/hype-audio.mjs", "tests/hype-audio.test.mjs",
   "src/sounds.mjs", "src/sound-address.mjs", "src/sound-contract.mjs", "server/sound-service.mjs", "server/sound-schema.sql", "tests/sounds.test.mjs", "tests/sound-service.test.mjs",
   "package.json", "package-lock.json", "vite.config.js",
@@ -293,6 +295,7 @@ or credentials. Create the D1 database once, then copy its returned ID into conf
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/automation-schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/hype-schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/sound-schema.sql
+    node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/shoutout-schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/chat-triggers-schema.sql
     node scripts/cloudflare.mjs deploy
     node scripts/cloudflare.mjs secret put EXTENSION_SECRET

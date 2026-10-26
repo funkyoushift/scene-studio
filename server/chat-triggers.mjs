@@ -2,6 +2,7 @@
 // https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channelchatmessage
 // https://dev.twitch.tv/docs/eventsub/handling-webhook-events/
 import { getTriggerAuthorization, checkViewerModeration, ChatAuthorizationError } from "./chat-authorization.mjs";
+import { parseShoutoutCommand, trustedShoutoutActor, mayAttemptShoutout, processShoutoutChat } from "./shoutout-service.mjs";
 
 const utf8 = new TextEncoder();
 const validId = value => typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(value);
@@ -135,7 +136,7 @@ export function disconnectTriggerSubscription(env,channel,{fetcher=fetch,now=Dat
   });
 }
 
-export async function handleChatWebhook(request,env,channel,{processInput,hasMatchingKeywordRule,waitUntil,fetcher=fetch,now=Date.now(),clock=Date.now}={}) {
+export async function handleChatWebhook(request,env,channel,{processInput,hasMatchingKeywordRule,hasShoutoutCandidate,processShoutout=processShoutoutChat,waitUntil,fetcher=fetch,now=Date.now(),clock=Date.now}={}) {
   const startedAt=clock(),currentTime=()=>now+Math.max(0,clock()-startedAt);
   try {
     const callback=configuration(env,channel);
@@ -179,13 +180,36 @@ export async function handleChatWebhook(request,env,channel,{processInput,hasMat
     const work=(async()=>{
       let status="ignored";
       try {
-        if(await hasMatchingKeywordRule(env,channel,event.message.text)) {
+        const commandTarget=parseShoutoutCommand(event.message.text);
+        const commandAllowed=Boolean(commandTarget&&trustedShoutoutActor(event,channel));
+        const mode=commandTarget?(commandAllowed?"command":null):"automatic";
+        const chatterLogin=typeof event.chatter_user_login==="string"&&/^[a-z0-9_]{1,25}$/i.test(event.chatter_user_login)
+          ?event.chatter_user_login.toLowerCase():null;
+        const shoutoutCandidate=Boolean(mode&&typeof hasShoutoutCandidate==="function"&&
+          await hasShoutoutCandidate(env,channel,mode,mode==="command"?commandTarget:chatterLogin)&&
+          await mayAttemptShoutout(env,channel,mode,event.chatter_user_id,currentTime()));
+        const keywordCandidate=await hasMatchingKeywordRule(env,channel,event.message.text);
+        if(shoutoutCandidate||keywordCandidate) {
           const moderation=await checkViewerModeration(env,channel,event.chatter_user_id,fetcher,currentTime());
           const fresh=await getTriggerAuthorization(env,channel,{now:currentTime()});
           const current=await sql(env,"SELECT nonce,status FROM chat_trigger_subscriptions WHERE channel=?1",channel).first();
           if(moderation.allowed&&fresh.grantId===grant.grantId&&current?.nonce===row.nonce&&current.status==="enabled") {
-            const outcome=await processInput(env,channel,{type:"message",text:event.message.text,id:event.message_id},{now:currentTime(),fetcher});
-            status=["sent","uncertain","cooldown","no_match"].includes(outcome?.status)?outcome.status:"uncertain";
+            if(shoutoutCandidate) {
+              const outcome=await processShoutout(env,channel,{mode,messageId:event.message_id,
+                chatterId:event.chatter_user_id,targetLogin:commandTarget},{now:currentTime(),fetcher,processInput,
+                recheck:async()=>{
+                  try {
+                    const check=await getTriggerAuthorization(env,channel,{now:currentTime()});
+                    const live=await sql(env,"SELECT nonce,status FROM chat_trigger_subscriptions WHERE channel=?1",channel).first();
+                    return check.grantId===grant.grantId&&live?.nonce===row.nonce&&live.status==="enabled";
+                  }catch{return false;}
+                }});
+              if(["sent","uncertain","cooldown","denied"].includes(outcome?.status))status=outcome.status;
+            }
+            if(keywordCandidate&&status==="ignored") {
+              const outcome=await processInput(env,channel,{type:"message",text:event.message.text,id:event.message_id},{now:currentTime(),fetcher});
+              status=["sent","uncertain","cooldown","no_match"].includes(outcome?.status)?outcome.status:"uncertain";
+            }
           } else status="denied";
         }
       }catch{status="uncertain";} // Never replay uncertain side effects automatically.

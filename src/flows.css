@@ -86,3 +86,5 @@
 
 .flow-builder .flow-sidebar{max-height:75vh;overflow:auto}
 .flow-animation-picker summary{cursor:pointer;font-size:15px;font-weight:700;padding:12px;background:var(--flow-soft);border-radius:8px}.flow-animation-picker[open] summary{margin-bottom:12px}
+
+.flow-builder .flow-shoutout-controls{grid-column:1/-1}.flow-shoutout-controls p{font-size:14px;color:var(--flow-muted)}.flow-shoutout-controls fieldset{border:1px solid var(--flow-line);border-radius:9px;display:grid;gap:10px;padding:14px}.flow-shoutout-controls legend{font-size:12px;color:var(--flow-muted)}.flow-shoutout-controls textarea{width:100%;min-height:70px;resize:vertical;border:1px solid var(--flow-line);border-radius:8px;background:var(--flow-bg);color:var(--flow-text);padding:10px;font:14px system-ui}

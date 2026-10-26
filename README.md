@@ -167,6 +167,7 @@ or credentials. Create the D1 database once, then copy its returned ID into conf
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/automation-schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/hype-schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/sound-schema.sql
+    node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/shoutout-schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/chat-triggers-schema.sql
     node scripts/cloudflare.mjs deploy
     node scripts/cloudflare.mjs secret put EXTENSION_SECRET

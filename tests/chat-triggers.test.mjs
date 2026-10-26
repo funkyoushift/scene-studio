@@ -4,11 +4,14 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { CHAT_AUTH_SCHEMA, TRIGGER_SCOPES, startConnect, startTriggerConnect, completeConnect, getChatConnection, getTriggerAuthorization, disconnectChat, checkViewerModeration } from "../server/chat-authorization.mjs";
 import { ensureTriggerSubscription, getTriggerConnection, handleChatWebhook, disconnectTriggerSubscription, deriveChatWebhookSecret, cleanupChatTriggerReceipts, CHAT_TRIGGER_PENDING_TTL } from "../server/chat-triggers.mjs";
+import { processAutomationInput, hasMatchingKeywordRule } from "../server/automation-service.mjs";
+import { hasShoutoutCandidate } from "../server/shoutout-service.mjs";
+import { createAutomationState, validateAutomations } from "../src/automations.mjs";
 
 const now=Date.now(),origin="https://example.ext-twitch.tv",claims={role:"broadcaster",user_id:"123",channel_id:"123"};
 function fixture(t) {
- const db=new DatabaseSync(":memory:");db.exec(CHAT_AUTH_SCHEMA);db.exec(readFileSync(new URL("../server/chat-triggers-schema.sql",import.meta.url),"utf8"));t.after(()=>db.close());
- const env={CHAT_TRIGGERS_ENABLED:"true",EXTENSION_ORIGIN:origin,EXTENSION_SECRET:Buffer.alloc(32,7).toString("base64"),TWITCH_CHAT_CLIENT_ID:"testclient",TWITCH_CHAT_CLIENT_SECRET:"testsecret",PUBLIC_SERVICE_URL:"https://service.example",IMAGES:{prepare(query){return{bind(...args){const stmt=db.prepare(query),values=Object.fromEntries(args.map((value,index)=>[String(index+1),value]));return{first:async()=>stmt.get(values)||null,run:async()=>({meta:stmt.run(values)}),all:async()=>({results:stmt.all(values)})};}};}}};
+ const db=new DatabaseSync(":memory:");db.exec(CHAT_AUTH_SCHEMA);db.exec(readFileSync(new URL("../server/chat-triggers-schema.sql",import.meta.url),"utf8"));db.exec(readFileSync(new URL("../server/automation-schema.sql",import.meta.url),"utf8"));db.exec(readFileSync(new URL("../server/shoutout-schema.sql",import.meta.url),"utf8"));t.after(()=>db.close());
+ const env={CHAT_TRIGGERS_ENABLED:"true",AUTOMATIONS_ENABLED:"true",EXTENSION_ORIGIN:origin,EXTENSION_SECRET:Buffer.alloc(32,7).toString("base64"),EXTENSION_CLIENT_ID:"testclient",EXTENSION_OWNER:"999",TWITCH_CHAT_CLIENT_ID:"testclient",TWITCH_CHAT_CLIENT_SECRET:"testsecret",PUBLIC_SERVICE_URL:"https://service.example",IMAGES:{prepare(query){return{bind(...args){const stmt=db.prepare(query),values=Object.fromEntries(args.map((value,index)=>[String(index+1),value]));return{first:async()=>stmt.get(values)||null,run:async()=>({meta:stmt.run(values)}),all:async()=>({results:stmt.all(values)})};}};}}};
  const calls=[],effects=[],subscriptions=[];const options={scopes:[...TRIGGER_SCOPES],banned:false,failDelete:false,loseCreate:false,expired:false,refreshes:0,match:true,failEffect:false};
  const fetcher=async(address,init={})=>{
   assert.equal(init.redirect,"manual");calls.push({address,init});const url=new URL(address);
@@ -24,7 +27,9 @@ function fixture(t) {
   }
   if(url.pathname==="/oauth2/revoke")return new Response(null,{status:200});
   if(url.pathname==="/helix/moderation/banned")return Response.json({data:options.banned?[{user_id:"456",expires_at:""}]:[]});
-  if(url.pathname==="/helix/users")return Response.json({data:[{id:"456",login:"viewer"}]});
+  if(url.pathname==="/helix/users")return Response.json({data:[{id:"456",login:"viewer",display_name:"Viewer",broadcaster_type:"",profile_image_url:"https://static-cdn.jtvnw.net/jtv_user_pictures/viewer-profile_image-300x300.png"}]});
+  if(url.pathname==="/helix/streams")return Response.json({data:[{id:"stream-1",user_id:"123",type:"live"}]});
+  if(url.pathname==="/helix/extensions/pubsub")return new Response(null,{status:204});
   if(url.pathname==="/helix/eventsub/subscriptions") {
    assert.equal(init.headers.Authorization,"Bearer app-token");
    if(init.method==="POST") {
@@ -147,6 +152,51 @@ test("notifications acknowledge before deferred effects, deduplicate chat IDs, a
  const receipts=s.db.prepare("SELECT * FROM chat_trigger_receipts").all();assert.equal(receipts[0].status,"sent");assert.ok(!JSON.stringify(receipts).includes("private raw chat"));
  s.options.failEffect=true;const uncertain=await s.signed(),again=uncertain.clone();await s.handle(uncertain);await s.handle(again);
  assert.equal(s.effects.length,2);assert.equal(s.db.prepare("SELECT count(*) n FROM chat_trigger_receipts WHERE status='uncertain'").get().n,1);
+});
+
+test("signed shoutout commands require moderator badges, skip shared chat, and stop on grant loss",async t=>{
+ const s=fixture(t);await s.listen();s.options.match=false;
+ const delivered=[];
+ const processShoutout=async(_env,_channel,input,options)=>{assert.equal(await options.recheck(),true);delivered.push(input);return{status:"sent"};};
+ const extra={hasShoutoutCandidate:async()=>true,processShoutout};
+ const event=(messageId,badges=[],source)=>({broadcaster_user_id:"123",chatter_user_id:"456",chatter_user_login:"viewer",message_id:messageId,
+   badges,message:{text:"!so @selected"},...(source?{source_broadcaster_user_id:source}:{})});
+ const publicId=crypto.randomUUID();
+ assert.equal((await s.handle(await s.signed("notification",{event:event(publicId)}),extra)).status,204);
+ assert.equal(delivered.length,0,"a public !so command never becomes an automatic shoutout");
+ const modId=crypto.randomUUID(),modRequest=await s.signed("notification",{event:event(modId,[{set_id:"moderator",id:"1"}])});
+ const replay=modRequest.clone();
+ assert.equal((await s.handle(modRequest,extra)).status,204);
+ assert.deepEqual(delivered.map(item=>({mode:item.mode,targetLogin:item.targetLogin,messageId:item.messageId})),
+   [{mode:"command",targetLogin:"selected",messageId:modId}]);
+ await s.handle(replay,extra);assert.equal(delivered.length,1);
+ await s.handle(await s.signed("notification",{event:event(crypto.randomUUID(),[{set_id:"moderator",id:"1"}],"999")}),extra);
+ assert.equal(delivered.length,1);
+ s.options.scopes=["moderation:read"];
+ await s.handle(await s.signed("notification",{event:event(crypto.randomUUID(),[{set_id:"moderator",id:"1"}])}),extra);
+ assert.equal(delivered.length,1,"lost optional chat grant prevents delivery");
+ assert.ok(!JSON.stringify(s.db.prepare("SELECT * FROM chat_trigger_receipts").all()).includes("!so @selected"));
+});
+
+test("signed automatic first message resolves Twitch profile and broadcasts one saved shoutout",async t=>{
+ const s=fixture(t);await s.listen();
+ const design=validateAutomations({version:1,carousels:[],rules:[{id:"creator",name:"Creator",enabled:true,
+   trigger:{type:"shoutout",mode:"automatic",users:["viewer"],types:[],exclusions:[]},
+   effect:{type:"shoutout",message:"Visit {name}",color:"#22AAFF",durationSeconds:12},cooldownSeconds:0}]});
+ s.db.prepare("INSERT INTO automation_configs(channel,design,revision,owned_merch,updated,engine_state,next_tick) VALUES(?,?,?,?,?,?,?)")
+   .run("123",JSON.stringify(design),1,0,now,JSON.stringify(createAutomationState(now)),now+60000);
+ const overrides={processInput:processAutomationInput,hasMatchingKeywordRule,hasShoutoutCandidate};
+ const signed=()=>s.signed("notification",{event:{broadcaster_user_id:"123",chatter_user_id:"456",chatter_user_login:"viewer",message_id:crypto.randomUUID(),message:{text:"hello creator"}}});
+ assert.equal((await s.handle(await signed(),overrides)).status,204);
+ const event=JSON.parse(s.db.prepare("SELECT event FROM automation_receipts").get().event);
+ assert.equal(event.effect.type,"shoutout");assert.equal(event.ruleId,"creator");assert.equal(event.shoutout.login,"viewer");
+ assert.equal(event.shoutout.type,"regular");assert.equal(event.expires-event.created,12000);
+ assert.equal(s.db.prepare("SELECT count(*) AS n FROM shoutout_first_messages").get().n,1);
+ const before=s.calls.length;
+ assert.equal((await s.handle(await signed(),overrides)).status,204);
+ assert.equal(s.calls.length,before,"repeat chatter avoids provider requests while the stream cache is fresh");
+ assert.equal(s.db.prepare("SELECT count(*) AS n FROM automation_receipts").get().n,1);
+ assert.equal(s.db.prepare("SELECT count(*) AS n FROM shoutout_first_messages").get().n,1);
 });
 
 test("prefilter avoids provider work and moderation or grant changes prevent automation delivery",async t=>{

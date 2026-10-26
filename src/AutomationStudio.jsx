@@ -20,13 +20,17 @@ import { IMAGE_ORIGIN } from "./image-address.mjs";
 import { liveText, safeLiveContext } from "./live-context.mjs";
 import FlowBuilder from "./FlowBuilder.jsx";
 import Celebration from "./Celebration.jsx";
+import Shoutout from "./Shoutout.jsx";
+import { ShoutoutTriggerControls, ShoutoutCardControls } from "./ShoutoutControls.jsx";
 import CelebrationAudio from "./CelebrationAudio.jsx";
 import { HypeTrainDemo } from "./HypeTrain.jsx";
+import { automationDraftStorageKey, draftSlugFromSearch } from "./draft-workspace.mjs";
 
-const KEY = "scene-studio-automation-preview-v1";
 const uid = () => crypto.randomUUID();
 const emptyDesign = () => ({ version: 1, carousels: [], rules: [] });
 const twitchEditor = () => Boolean(window.Twitch?.ext && ["config", "dashboard"].includes(new URLSearchParams(location.search).get("mode")));
+const draftSlug = draftSlugFromSearch(location.search, { isViewer: location.pathname.endsWith("/viewer.html"), isConfig: twitchEditor() || location.pathname.endsWith("/config.html") });
+const KEY = automationDraftStorageKey(draftSlug);
 function initialDesign() {
   try {
     const saved = localStorage.getItem(KEY);
@@ -78,7 +82,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
   const authRef = useRef(null), loadGeneration = useRef(0), viewerRef = useRef(null);
   viewerRef.current = managed ? session?.viewer : window.Twitch?.ext?.viewer;
   const dirty = liveEditor && savedConfig && JSON.stringify(design) !== JSON.stringify(savedConfig.design);
-  const backUrl = liveEditor ? `./config.html${location.search}` : "./";
+  const backUrl = liveEditor ? `./config.html${location.search}` : `./${draftSlug ? `?draft=${encodeURIComponent(draftSlug)}` : ""}`;
   useEffect(() => { onDraftChange?.({ design, ready: !busy && (!liveEditor || Boolean(savedConfig)) }); }, [design, busy, liveEditor, savedConfig, onDraftChange]);
   useImperativeHandle(bundleApi, () => ({
     add(keys) {
@@ -268,7 +272,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
   useEffect(() => {
     if (
       active &&
-      now - active.startedAt >= (active.carousel?.displaySeconds ?? active.effect.appearance?.durationSeconds ?? 8) * 1000
+      now - active.startedAt >= (active.carousel?.displaySeconds ?? active.effect.durationSeconds ?? active.effect.appearance?.durationSeconds ?? 8) * 1000
     )
       setActive(null);
   }, [active, now]);
@@ -565,6 +569,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
                   <label>
                     When
                     <select
+                      disabled={r.trigger.type === "shoutout"}
                       aria-label={`Rule ${index + 1} trigger`}
                       value={r.trigger.type}
                       onChange={(e) =>
@@ -584,6 +589,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
                         })
                       }
                     >
+                      {r.trigger.type === "shoutout" && <option value="shoutout">Creator shoutout</option>}
                       <option value="keyword">
                         Chat says a word or phrase
                       </option>
@@ -594,6 +600,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
                       <option value="twitch">Twitch subscription or Hype Train event</option>
                     </select>
                   </label>
+                  {r.trigger.type === "shoutout" && <ShoutoutTriggerControls trigger={r.trigger} onChange={patch => updateRule(r.id, { trigger: { ...r.trigger, ...patch } })}/>}
                   {r.trigger.type === "external" && (
                     <label>
                       Event name
@@ -681,6 +688,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
                   <label>
                     Then
                     <select
+                      disabled={r.effect.type === "shoutout"}
                       aria-label={`Rule ${index + 1} effect`}
                       value={r.effect.type}
                       onChange={(e) =>
@@ -705,9 +713,10 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
                         Show an image carousel
                       </option>
                       <option value="celebrate">Celebrate on screen</option>
+                      {r.effect.type === "shoutout" && <option value="shoutout">Creator shoutout card</option>}
                     </select>
                   </label>
-                  {r.effect.type === "carousel" ? (
+                  {r.effect.type === "shoutout" ? <ShoutoutCardControls effect={r.effect} onChange={patch => updateRule(r.id, { effect: { ...r.effect, ...patch } })}/> : r.effect.type === "carousel" ? (
                     <label>
                       Which carousel
                       <select
@@ -1006,7 +1015,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
             <button onClick={() => setPreviewExpanded(value => !value)}>{previewExpanded ? "Close large preview" : "Expand preview"}</button>
           </div>
           {reducedMotion && <p className="preview-motion-note">Your device requests reduced motion. {previewFullMotion ? "Full animation is enabled in this preview only." : "Celebrations use a still version."} <button onClick={() => setPreviewFullMotion(value => !value)}>{previewFullMotion ? "Respect reduced motion" : "Preview full motion"}</button></p>}
-          <CelebrationAudio key={auth?.channelId || "preview"} preview eventId={active?.startedAt} sound={active?.effect.appearance?.sound} expires={active ? active.startedAt - offset.current + (active.effect.appearance?.durationSeconds ?? 8) * 1000 : undefined} />
+          <CelebrationAudio key={auth?.channelId || "preview"} preview eventId={active?.startedAt} sound={active?.effect.appearance?.sound} expires={active ? active.startedAt - offset.current + (active.effect.durationSeconds ?? active.effect.appearance?.durationSeconds ?? 8) * 1000 : undefined} />
           <div className="director-stage">
             <div className="stage-scenery">
               <span className="stream-tag">YOUR STREAM</span>
@@ -1019,8 +1028,9 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
               </h2>
               <p>Your moments appear when you decide.</p>
             </div>
+            {active?.effect.type === "shoutout" && <Shoutout profile={active.shoutout} effect={active.effect} onDismiss={() => setActive(null)}/> }
             {active?.effect.type === "celebrate" && (
-              <Celebration key={`${active.startedAt}-${previewFullMotion}`} eventId={String(active.startedAt)} message={liveText(active.effect.message, active.context)} appearance={active.effect.appearance} previewFullMotion={previewFullMotion} remainingSeconds={Math.max(.1, (active.effect.appearance?.durationSeconds ?? 8) - (now - active.startedAt) / 1000)} onDismiss={() => setActive(null)} />
+              <Celebration key={`${active.startedAt}-${previewFullMotion}`} eventId={String(active.startedAt)} message={liveText(active.effect.message, active.context)} appearance={active.effect.appearance} previewFullMotion={previewFullMotion} remainingSeconds={Math.max(.1, (active.effect.durationSeconds ?? active.effect.appearance?.durationSeconds ?? 8) - (now - active.startedAt) / 1000)} onDismiss={() => setActive(null)} />
             )}
             {shown && currentSlide && (
               <aside className="popup-carousel" aria-label="Carousel preview" style={shown.layout ? { left: `${shown.layout.x}%`, top: `${shown.layout.y}%`, right: "auto", bottom: "auto", width: `${shown.layout.width}%`, maxHeight: `${shown.layout.height}%`, zIndex: shown.layout.layer } : undefined}>

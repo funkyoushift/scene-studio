@@ -21,3 +21,13 @@ test('timer preview is due immediately; a disabled experience remains disabled',
   rule.enabled = false;
   assert.equal(previewExperienceRule(design, rule.id, { type: 'tick' }, 1000000).events.length, 0);
 });
+
+test('shoutout preview requires its selected rule and a safe sample profile', () => {
+  const design = { version: 1, carousels: [], rules: [{ id: 'creator', name: 'Creator shoutout', enabled: true,
+    trigger: { type: 'shoutout', mode: 'both', users: [], types: ['partner'], exclusions: [] },
+    effect: { type: 'shoutout', message: 'Visit {name}!', color: '#38bdf8', durationSeconds: 12 }, cooldownSeconds: 20 }] };
+  const event = { type: 'shoutout', id: 'preview-one', mode: 'automatic', ruleId: 'creator', profile: { id: '456', login: 'guest', displayName: 'Guest', image: '', type: 'partner' } };
+  assert.equal(previewExperienceRule(design, 'creator', event, 1000).events[0].shoutout.login, 'guest');
+  assert.equal(previewExperienceRule(design, 'creator', { ...event, ruleId: 'other' }, 1000).events.length, 0);
+  assert.throws(() => previewExperienceRule(design, 'creator', { ...event, profile: { ...event.profile, image: 'https://example.invalid/x.png' } }, 1000), /verified rule and Twitch profile/);
+});

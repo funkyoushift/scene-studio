@@ -8,6 +8,7 @@ import { developerRequest } from "./developer-service.mjs";
 import { automationRequest, tickAutomations, processAutomationInput, hasMatchingKeywordRule } from "./automation-service.mjs";
 import { soundRequest } from "./sound-service.mjs";
 import { getTriggerConnection, ensureTriggerSubscription, disconnectTriggerSubscription, handleChatWebhook, cleanupChatTriggerReceipts } from "./chat-triggers.mjs";
+import { hasShoutoutCandidate } from "./shoutout-service.mjs";
 import { getActivityConnection, ensureActivitySubscriptions, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "./twitch-events.mjs";
 const MAX_IMAGE = 200_000;
 export const MAX_IMAGES = 48;
@@ -186,7 +187,7 @@ export default {
       const webhook = url.pathname.match(/^\/eventsub\/chat\/([1-9][0-9]{0,19})$/);
       if (webhook) {
         if (env.CHAT_TRIGGERS_ENABLED !== "true") return json({error:"Chat triggers are not enabled."},404);
-        return handleChatWebhook(request,env,webhook[1],{processInput:processAutomationInput,hasMatchingKeywordRule,waitUntil:ctx ? promise=>ctx.waitUntil(promise) : undefined});
+        return handleChatWebhook(request,env,webhook[1],{processInput:processAutomationInput,hasMatchingKeywordRule,hasShoutoutCandidate,waitUntil:ctx ? promise=>ctx.waitUntil(promise) : undefined});
       }
       const automation = url.pathname.match(/^\/v1\/automations\/([1-9][0-9]{0,19})\/(config|fire|active|hype)$/);
       if (automation) {

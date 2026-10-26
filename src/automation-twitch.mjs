@@ -5,6 +5,7 @@ import { safeHypeState } from "./hype-state.mjs";
 import { validateCelebrationSound } from "./sound-contract.mjs";
 import { publishSound } from "./sounds.mjs";
 import { SOUND_ORIGIN } from "./sound-address.mjs";
+import { normalizeShoutoutEffect, safeShoutoutProfile } from "./shoutout-contract.mjs";
 
 export const AUTOMATION_CONFIG_BYTES = AUTOMATION_DESIGN_BYTES;
 const bytes = value => new TextEncoder().encode(value).length;
@@ -44,6 +45,17 @@ function matchesSavedCelebration(effect, option, channelId) {
     option.appearance?.durationSeconds === appearance.durationSeconds &&
     (!hasSound || (option.appearance.sound.preset === sound.preset && option.appearance.sound.volume === sound.volume &&
       (sound.preset !== "upload" || (option.appearance.sound.url === sound.url && option.appearance.sound.name === sound.name && option.appearance.sound.playback === sound.playback))));
+}
+function matchesSavedShoutout(event, design) {
+  const profile = safeShoutoutProfile(event.shoutout);
+  if (!profile || typeof event.ruleId !== "string" || !event.effect || Object.keys(event.effect).length !== 4) return null;
+  let effect;
+  try { effect = normalizeShoutoutEffect(event.effect); } catch { return null; }
+  const rule = design.rules.find(candidate => candidate.id === event.ruleId && candidate.enabled && candidate.trigger.type === "shoutout" && candidate.effect.type === "shoutout");
+  if (!rule || rule.effect.message !== effect.message || rule.effect.color !== effect.color || rule.effect.durationSeconds !== effect.durationSeconds ||
+      event.expires - event.created > effect.durationSeconds * 1000 ||
+      rule.trigger.exclusions.includes(profile.login)) return null;
+  return profile;
 }
 function celebrationEffects(design) {
   return design.rules.flatMap(rule => rule.effect.type === "choose" ? rule.effect.options : [rule.effect]).filter(effect => effect.type === "celebrate");
@@ -219,6 +231,10 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
       if (!config.design.carousels.some(c => c.id === effect.carouselId)) return;
     } else if (effect?.type === "celebrate") {
       if (!config.design.rules.some(r => r.enabled && (r.effect.type === "choose" ? r.effect.options : [r.effect]).some(option => matchesSavedCelebration(effect, option, id)))) return;
+    } else if (effect?.type === "shoutout") {
+      const profile = matchesSavedShoutout(event, config.design);
+      if (!profile) return;
+      event.shoutout = profile;
     } else return;
     if (event.created < latestCreated) return;
     latestCreated = event.created;

@@ -35,6 +35,7 @@ import { TEMPLATE_OPTIONS, INTERACTIVE_PRESET_OPTIONS, createTemplate, createInt
 import ExperienceHome from "./ExperienceHome.jsx";
 import { addExperiencePresets } from "./experience-presets.mjs";
 import { AUTOMATION_LIMITS, AUTOMATION_DESIGN_BYTES } from "./automations.mjs";
+import { blankDraftScene, draftSlugFromSearch, sceneDraftStorageKey } from "./draft-workspace.mjs";
 import {
   prepareImage,
   publishImages,
@@ -79,6 +80,9 @@ const descriptions = {
 };
 const isViewer = location.pathname.endsWith("/viewer.html");
 const isConfig = location.pathname.endsWith("/config.html");
+const draftSlug = draftSlugFromSearch(location.search, { isViewer, isConfig });
+const sceneStorageKey = sceneDraftStorageKey(draftSlug);
+const draftQuery = draftSlug ? `?draft=${encodeURIComponent(draftSlug)}` : "";
 const helper = window.Twitch?.ext;
 
 function Modal({ title, children, onClose, status }) {
@@ -550,6 +554,14 @@ function Editor() {
     [automationSession, setAutomationSession] = useState(null);
   const [scene, setScene] = useState(() => {
     if (isConfig) return starterScene();
+    if (draftSlug) {
+      try {
+        const saved = localStorage.getItem(sceneStorageKey);
+        return saved ? parseScene(saved) : blankDraftScene();
+      } catch {
+        return blankDraftScene();
+      }
+    }
     try {
       return parseScene(localStorage.getItem(STORAGE_KEY) || "");
     } catch {
@@ -638,7 +650,7 @@ function Editor() {
       return;
     }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(scene));
+      localStorage.setItem(sceneStorageKey, JSON.stringify(scene));
       setSaveStatus("Saved on this device");
     } catch {
       setSaveStatus("Device storage is full. Export your design.");
@@ -926,6 +938,7 @@ function Editor() {
   }
   return (
     <>
+    {homeOpen && draftSlug && <p className="hint" role="status">Local draft “{draftSlug}” · this workspace has its own scene and automation saves.</p>}
     {homeOpen && <ExperienceHome objects={scene.objects} flows={flowPages} channelName={profile?.login} live={isConfig} notice={notice} onDismissNotice={() => setNotice("")}
       onChooseWidget={addInteractivePreset}
       onChooseBundle={addLayoutBundle}
@@ -992,7 +1005,7 @@ function Editor() {
               Place clickable objects over your stream for viewers on Twitch. No
               OBS setup needed.
             </p>
-            {(import.meta.env.DEV || import.meta.env.VITE_PUBLIC_BUILDER) && !isConfig && <p><a href="./automations.html" target="_blank" rel="noopener noreferrer" style={{color:"#c2ec78"}}>Try carousels, triggers & developer mode ↗</a> <small>Separate prototype</small></p>}
+            {(import.meta.env.DEV || import.meta.env.VITE_PUBLIC_BUILDER) && !isConfig && <p><a href={`./automations.html${draftQuery}`} target="_blank" rel="noopener noreferrer" style={{color:"#c2ec78"}}>Try carousels, triggers & developer mode ↗</a> <small>Separate prototype</small></p>}
           </div>
         </div>
         <nav className="builder-steps" aria-label="Build your overlay">
@@ -1444,7 +1457,7 @@ function Editor() {
             <div className="modal-actions"><button className="primary" onClick={()=>applyImport(json)}>Apply design JSON</button><button onClick={download}>Export current design</button></div>
           </details>
           <details><summary>Object properties</summary><p>title, caption, detail, action, image, shape, motion, color, background, textColor, opacity (30–100), fontScale (70–160), radius (0–48), x, y, width and height. Positions and sizes are percentages. The objects array sets back-to-front layer order.</p></details>
-          <button onClick={()=>{setModal(null);if(isConfig){setAutomationVisited(true);setAutomationOpen(true);}else window.location.href='./automations.html';}}>Open carousels, chat rules & event simulator →</button>
+          <button onClick={()=>{setModal(null);if(isConfig){setAutomationVisited(true);setAutomationOpen(true);}else window.location.href=`./automations.html${draftQuery}`;}}>Open carousels, chat rules & event simulator →</button>
           <button onClick={()=>setModal('chat')}>Manage Twitch chat connection</button>
           <DeveloperPanel onEvent={()=>setNotice('Use the event simulator in Carousels & chat triggers to test your rules.')} />
         </div>

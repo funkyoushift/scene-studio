@@ -2,6 +2,7 @@
 // network requests, publishing, or effect rendering happen in this module.
 import { bytes, validateScene } from "./scene.mjs";
 import { validateCelebrationSound } from "./sound-contract.mjs";
+import { normalizeShoutoutTrigger, normalizeShoutoutEffect, safeShoutoutProfile } from "./shoutout-contract.mjs";
 
 export const AUTOMATION_LIMITS = Object.freeze({
   carousels: 32, slides: 6, rules: 64, pages: 48, chooseOptions: 6, messageCharacters: 2000,
@@ -203,11 +204,15 @@ export function validateAutomations(input) {
     } else if (source.type === "twitch") {
       if (!TWITCH_AUTOMATION_EVENTS.includes(source.event)) throw new Error("Choose a supported Twitch event.");
       trigger = { type: "twitch", event: source.event };
+    } else if (source.type === "shoutout") {
+      trigger = normalizeShoutoutTrigger(source);
     } else throw new Error("Choose a keyword, interval, or external trigger.");
     const target = record(raw.effect, "Effect");
     let effect;
     if (target.type === "celebrate") {
       effect = celebrationEffect(target);
+    } else if (target.type === "shoutout") {
+      effect = normalizeShoutoutEffect(target);
     } else if (target.type === "carousel") {
       const carouselId = text(target.carouselId, 64, "Target carousel ID", true);
       if (!carouselIds.has(carouselId)) throw new Error("Choose a carousel that exists in this design.");
@@ -226,6 +231,7 @@ export function validateAutomations(input) {
       });
       effect = { type: "choose", mode: target.mode, options };
     } else throw new Error("Choose a celebration or carousel effect.");
+    if ((trigger.type === "shoutout") !== (effect.type === "shoutout")) throw Error("Shoutout triggers must use a shoutout card, and shoutout cards need a shoutout trigger.");
     if (effect.type === "celebrate" && effect.appearance?.hypeLifecycle &&
         !(trigger.type === "twitch" && ["hype_begin", "hype_progress", "hype_end"].includes(trigger.event)))
       throw new Error("Hype lifecycle requires a Hype Train Twitch trigger.");
@@ -315,10 +321,17 @@ export function evaluateAutomations(input, previous, event, now, { random = Math
     : {};
   const stored = record(previous.lastFired, "Rule cooldown state");
   record(event, "Preview event");
-  if (!["message", "tick", "external", "twitch"].includes(event.type)) throw new Error("Choose a message, tick, or external/Twitch event.");
+  if (!["message", "tick", "external", "twitch", "shoutout"].includes(event.type)) throw new Error("Choose a message, tick, or external event, a Twitch event, or a verified shoutout.");
   const message = event.type === "message" ? text(event.text, AUTOMATION_LIMITS.messageCharacters, "Preview message") : "";
   const externalName = event.type === "external" ? externalEventName(event.name) : "";
   let twitchEvent = "";
+  let shoutoutProfile = null;
+  if (event.type === "shoutout") {
+    if (typeof event.id !== "string" || event.id.length < 1 || event.id.length > 256 || /\p{Cc}/u.test(event.id) ||
+        !["automatic", "command"].includes(event.mode) ||
+        typeof event.ruleId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(event.ruleId) || !(shoutoutProfile = safeShoutoutProfile(event.profile)))
+      throw Error("A shoutout preview needs a verified rule and Twitch profile.");
+  }
   if (event.type === "twitch") {
     if (!TWITCH_AUTOMATION_EVENTS.includes(event.event)) throw new Error("Choose a supported Twitch event.");
     if (typeof event.id !== "string" || event.id.length < 1 || event.id.length > 256 || /\p{Cc}/u.test(event.id))
@@ -343,6 +356,11 @@ export function evaluateAutomations(input, previous, event, now, { random = Math
         ? event.type === "external" && externalName === rule.trigger.event
         : rule.trigger.type === "twitch"
           ? event.type === "twitch" && twitchEvent === rule.trigger.event
+          : rule.trigger.type === "shoutout"
+            ? event.type === "shoutout" && event.ruleId === rule.id &&
+              (rule.trigger.mode === "both" || rule.trigger.mode === event.mode) &&
+              (event.mode === "command" || rule.trigger.users.includes(shoutoutProfile.login) || rule.trigger.types.includes(shoutoutProfile.type)) &&
+              !rule.trigger.exclusions.includes(shoutoutProfile.login)
           : event.type === "tick" && now - last >= rule.trigger.everySeconds * 1000;
     if (!matches) continue;
     Object.defineProperty(lastFired, rule.id, { value: now, writable: true, enumerable: true, configurable: true });
@@ -362,7 +380,8 @@ export function evaluateAutomations(input, previous, event, now, { random = Math
       }
       effect = effect.options[index];
     }
-    events.push({ ruleId: rule.id, name: rule.name, effect: { ...effect }, at: now });
+    events.push({ ruleId: rule.id, name: rule.name, effect: { ...effect }, at: now,
+      ...(effect.type === "shoutout" ? { shoutout: shoutoutProfile } : {}) });
   }
   const state = { startedAt, lastFired };
   if (Object.hasOwn(previous, "choiceIndexes") || Object.keys(choiceIndexes).length) state.choiceIndexes = choiceIndexes;

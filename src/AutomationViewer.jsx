@@ -4,6 +4,7 @@ import { watchAutomationEvents } from "./automation-twitch.mjs";
 import Celebration from "./Celebration.jsx";
 import CelebrationAudio from "./CelebrationAudio.jsx";
 import HypeTrain from "./HypeTrain.jsx";
+import Shoutout from "./Shoutout.jsx";
 import { hypeAudio } from "./hype-audio.mjs";
 
 // This component deliberately imports no editor CSS: html/body and the video
@@ -95,5 +96,6 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
       <small className="ss-live-credit">Created by @{creator.login} with Scene Studio</small>
     </aside>}
     {effect.type === "celebrate" && <Celebration key={active.event.eventId} eventId={active.event.eventId} message={text(effect.message)} appearance={effect.appearance} creator={creator.login} brandImage={brandImage} remainingSeconds={(active.event.expires - Date.now()) / 1000} onDismiss={() => setActive(null)} />}
+    {effect.type === "shoutout" && <Shoutout key={active.event.eventId} profile={active.event.shoutout} effect={effect} creator={creator.login} mobile={viewMode === "mobile"} onDismiss={() => setActive(null)} />}
   </div></>;
 }

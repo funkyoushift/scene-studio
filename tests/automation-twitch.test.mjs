@@ -191,6 +191,26 @@ test("viewer requires saved Hype music playback mode as well as MP3 address", as
   stop();
 });
 
+test("viewer admits only a saved shoutout rule and sanitized Twitch profile", async () => {
+  const saved = config();
+  const effect = { type: "shoutout", message: "Visit {name}!", color: "#38bdf8", durationSeconds: 12 };
+  saved.design.rules[0].trigger = { type: "shoutout", mode: "both", users: [], types: ["partner"], exclusions: ["blocked"] };
+  saved.design.rules[0].effect = effect;
+  const profile = { id: "456", login: "guest", displayName: "Guest", image: "https://static-cdn.jtvnw.net/jtv_user_pictures/guest-profile_image-300x300.png", type: "partner" };
+  const shown = [], h = helper();
+  const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async () => reply(saved), () => 2000);
+  await flush();
+  const base = { ruleId: "cheer", shoutout: profile, effect, expires: 13000 };
+  await send(h, event({ ...base, eventId: "valid-shoutout", shoutout: { ...profile, privateToken: "discard" } }));
+  await send(h, event({ ...base, eventId: "wrong-rule", ruleId: "other" }));
+  await send(h, event({ ...base, eventId: "changed-copy", effect: { ...effect, message: "Different" } }));
+  await send(h, event({ ...base, eventId: "untrusted-image", shoutout: { ...profile, image: "https://example.invalid/guest.png" } }));
+  await send(h, event({ ...base, eventId: "forged-duration", expires: 31000 }));
+  assert.deepEqual(shown.map(value => value.eventId), ["valid-shoutout"]);
+  assert.deepEqual(shown[0].shoutout, profile, "extra profile fields never reach the renderer");
+  stop();
+});
+
 test("fire uses a fresh event ID and preserves uncertain outcomes without automatic retry", async () => {
   const calls = [];
   const result = await fireAutomation(auth, { type: "celebrate", message: "Hooray" }, async (url, options) => { calls.push(JSON.parse(options.body)); return reply({ status: "uncertain" }); });

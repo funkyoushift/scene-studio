@@ -1,6 +1,7 @@
 import { AUTOMATION_DESIGN_BYTES, validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
 import { validateCelebrationSound } from "../src/sound-contract.mjs";
+import { normalizeShoutoutEffect, safeShoutoutProfile } from "../src/shoutout-contract.mjs";
 import { signPartyToken } from "./party-service.mjs";
 import { safeLiveContext, ruleEffects } from "../src/live-context.mjs";
 import { safeHypeState, HYPE_ACTIVE_MAX_MS, HYPE_END_MS } from "../src/hype-state.mjs";
@@ -151,6 +152,24 @@ async function activeMoment(env, channel, currentTime) {
     if (appearance === null) return result;
     effect = { type: "celebrate", message: event.effect.message, ...(appearance ? { appearance } : {}) };
   }
+  else if (event.effect?.type === "shoutout") {
+    let profile, saved;
+    try {
+      effect = normalizeShoutoutEffect(event.effect);
+      profile = safeShoutoutProfile(event.shoutout);
+      const savedRow = await stmt(env, "SELECT design,owned_merch FROM automation_configs WHERE channel=?1 AND revision=?2", channel, row.revision).first();
+      if (!savedRow) return result;
+      saved = hostedDesign(env, channel, JSON.parse(savedRow.design), savedRow.owned_merch === 1);
+    } catch { return result; }
+    const rule = saved.rules.find(item => item.id === event.ruleId && item.enabled && item.trigger.type === "shoutout");
+    if (!profile || !rule || JSON.stringify(rule.effect) !== JSON.stringify(effect) ||
+        rule.trigger.exclusions.includes(profile.login) ||
+        event.expires - event.created !== effect.durationSeconds * 1000) return result;
+    result.event = { type: event.type, eventId: event.eventId, channelId: channel,
+      revision: row.revision, created: event.created, expires: event.expires,
+      ruleId: rule.id, shoutout: profile, effect };
+    return result;
+  }
   else return result;
   // Return only the same public visual envelope as PubSub, never receipt data.
   result.event = { type: event.type, eventId: event.eventId, channelId: channel, revision: row.revision, created: event.created, expires: event.expires, effect };
@@ -254,7 +273,7 @@ async function processHypeLifecycle(env, channel, event, row, design, { now, fet
   try { await broadcast(env, channel, snapshot, fetcher, now); return { status: "sent", event: snapshot }; }
   catch { return { status: "uncertain", event: snapshot }; }
 }
-async function admittedEffect(env, channel, row, inputId, inputHash, effect, nextState, { now, fetcher, context }) {
+async function admittedEffect(env, channel, row, inputId, inputHash, effect, nextState, { now, fetcher, context, ruleId, shoutout }) {
   await stmt(env, "DELETE FROM automation_receipts WHERE expires<=?1", now).run();
   const existing = () => stmt(env, "SELECT input_hash,status,event FROM automation_receipts WHERE channel=?1 AND input_id=?2", channel, inputId).first();
   const old = await existing();
@@ -262,8 +281,9 @@ async function admittedEffect(env, channel, row, inputId, inputHash, effect, nex
     if (old.input_hash !== inputHash) fail(409, "input_conflict", "This input ID has already been used for a different event.");
     return receipt(old, true);
   }
-  const duration = effect.type === "carousel" ? JSON.parse(row.design).carousels.find(item => item.id === effect.carouselId).displaySeconds : effect.appearance?.durationSeconds ?? 8;
-  const event = { type: "scene-studio-automation", eventId: crypto.randomUUID(), channelId: channel, revision: row.revision, created: now, expires: now + duration * 1000, effect };
+  const duration = effect.type === "carousel" ? JSON.parse(row.design).carousels.find(item => item.id === effect.carouselId).displaySeconds : effect.type === "shoutout" ? effect.durationSeconds : effect.appearance?.durationSeconds ?? 8;
+  const event = { type: "scene-studio-automation", eventId: crypto.randomUUID(), channelId: channel, revision: row.revision, created: now, expires: now + duration * 1000,
+    ...(effect.type === "shoutout" ? { ruleId, shoutout } : {}), effect };
   const inserted = await stmt(env, `INSERT OR IGNORE INTO automation_receipts(channel,input_id,input_hash,event_id,revision,engine_state,event,created,expires,status)
     SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,'pending' WHERE
     EXISTS(SELECT 1 FROM automation_configs WHERE channel=?1 AND revision=?5 AND engine_revision=?10 AND (last_event_at<0 OR last_event_at<=?8-?11))
@@ -294,11 +314,14 @@ async function admittedEffect(env, channel, row, inputId, inputHash, effect, nex
 // Message text is used transiently for matching; it is never stored or broadcast.
 export async function processAutomationInput(env, channel, event, { now = Date.now(), fetcher = fetch } = {}) {
   enabled(env, channel); clock(now);
-  if (!event || !["message", "external", "tick", "twitch"].includes(event.type)) fail(400, "invalid_event", "Unsupported automation input.");
+  if (!event || !["message", "external", "tick", "twitch", "shoutout"].includes(event.type)) fail(400, "invalid_event", "Unsupported automation input.");
   if (event.type !== "tick" && (typeof event.id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(event.id))) fail(400, "event_id_required", "Pass a stable source event ID.");
   if (event.type === "message" && (typeof event.text !== "string" || event.text.length > 2000)) fail(400, "invalid_event", "Chat input must be at most 2000 characters.");
   if (event.type === "twitch" && !TWITCH_AUTOMATION_EVENTS.includes(event.event)) fail(400, "invalid_event", "Use a supported Twitch event.");
   if (event.type === "external" && (typeof event.name !== "string" || !/^[A-Za-z][A-Za-z0-9._-]{0,63}$/.test(event.name))) fail(400, "invalid_event", "Use a valid external event name.");
+  if (event.type === "shoutout" && (!["automatic", "command"].includes(event.mode) ||
+      typeof event.ruleId !== "string" || !/^[A-Za-z0-9_-]{1,64}$/.test(event.ruleId) ||
+      !safeShoutoutProfile(event.profile))) fail(400, "invalid_event", "Use a verified shoutout source and profile.");
   const row = await load(env, channel);
   if (!row) return { status: "no_match" };
   const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
@@ -310,7 +333,9 @@ export async function processAutomationInput(env, channel, event, { now = Date.n
   // Check receipts before cooldown evaluation, so an uncertain input cannot
   // become a different rule after its original rule enters cooldown.
   const inputId = `${event.type}:${event.type === "tick" ? Math.floor(now / 60000) : event.id}`;
-  const inputHash = await hash(JSON.stringify({ type: event.type, text: event.text ?? null, name: event.name ?? null, ...(event.type === "twitch" ? { event: event.event } : {}) }));
+  const inputHash = await hash(JSON.stringify({ type: event.type, text: event.text ?? null, name: event.name ?? null,
+    ...(event.type === "twitch" ? { event: event.event } : {}),
+    ...(event.type === "shoutout" ? { mode: event.mode, ruleId: event.ruleId, userId: event.profile.id } : {}) }));
   const old = await stmt(env, "SELECT input_hash,status,event FROM automation_receipts WHERE channel=?1 AND input_id=?2 AND expires>?3", channel, inputId, now).first();
   if (old) { if (old.input_hash !== inputHash) fail(409, "input_conflict", "This input ID has already been used for a different event."); return receipt(old, true); }
   const result = evaluateAutomations(design, previous, event, now);
@@ -318,7 +343,9 @@ export async function processAutomationInput(env, channel, event, { now = Date.n
   if (!selected) return { status: "no_match" };
   const nextState = { startedAt: previous.startedAt, lastFired: { ...previous.lastFired, [selected.ruleId]: now } };
   if (previous.choiceIndexes || result.state.choiceIndexes) nextState.choiceIndexes = { ...previous.choiceIndexes, ...(result.state.choiceIndexes?.[selected.ruleId] !== undefined ? { [selected.ruleId]: result.state.choiceIndexes[selected.ruleId] } : {}) };
-  return admittedEffect(env, channel, row, inputId, inputHash, selected.effect, nextState, { now, fetcher, context: event.type === "twitch" ? event.context : undefined });
+  return admittedEffect(env, channel, row, inputId, inputHash, selected.effect, nextState,
+    { now, fetcher, context: event.type === "twitch" ? event.context : undefined,
+      ...(event.type === "shoutout" ? { ruleId: selected.ruleId, shoutout: selected.shoutout } : {}) });
 }
 
 export async function hasMatchingKeywordRule(env, channel, text) {

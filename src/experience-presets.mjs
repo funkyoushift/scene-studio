@@ -1,6 +1,7 @@
 import { AUTOMATION_LIMITS, deriveLegacyAutomationPages, validateAutomations } from "./automations.mjs";
 
 export const EXPERIENCE_PRESETS = Object.freeze([
+  { key: "creator-shoutout", title: "Creator shoutout", description: "Welcome selected creators with their Twitch picture and a clickable channel card.", category: "Community", icon: "📣" },
   { key: "merch-carousel", title: "Merch carousel", description: "Show a rotating set of featured products when chat asks.", category: "Promotion", icon: "▣" },
   { key: "discord-invite", title: "Discord invite", description: "Share a community invite card when chat asks how to join.", category: "Community", icon: "◉" },
   { key: "subscriber-thanks", title: "Subscriber thanks", description: "Thank {subscriber} with a purple spotlight when they subscribe.", category: "Engagement", icon: "♡" },
@@ -32,6 +33,7 @@ export const EXPERIENCE_PRESETS = Object.freeze([
 ].map(Object.freeze));
 
 const definitions = {
+  "creator-shoutout": { trigger: { type: "shoutout", mode: "both", users: [], types: ["affiliate", "partner"], exclusions: [] }, name: "Welcome a creator", effect: { type: "shoutout", message: "Go say hello to {name}!", color: "#a3e635", durationSeconds: 15 }, cooldownSeconds: 60 },
   "merch-carousel": { carousel: { title: "Featured products", slides: [
     ["Featured item 1", "Add a product description."],
     ["Featured item 2", "Add a product description."],
@@ -114,7 +116,7 @@ export function addExperiencePreset(input, key) {
   for (const ruleKey of ruleKeys) {
     const ruleDefinition = definitions[ruleKey];
     const ruleId = nextId(`${ruleKey}-rule`, used);
-    const effect = ruleDefinition.carousel
+    const effect = ruleDefinition.effect ? structuredClone(ruleDefinition.effect) : ruleDefinition.carousel
       ? { type: "carousel", carouselId }
       : ruleDefinition.choice
         ? { type: "choose", mode: "random", options: structuredClone(ruleDefinition.choice) }

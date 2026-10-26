@@ -17,6 +17,32 @@ function fixture() {
   };
 }
 
+const shoutoutProfile = () => ({ id: "456", login: "guest", displayName: "Guest", image: "", type: "partner" });
+const shoutoutRule = () => ({ id: "shoutout", name: "Share a creator", enabled: true,
+  trigger: { type: "shoutout", mode: "both", users: ["Friend"], types: ["partner"], exclusions: ["blocked"] },
+  effect: { type: "shoutout", message: "Visit {name}!", color: "#aBc123", durationSeconds: 12 }, cooldownSeconds: 20 });
+
+test("shoutout rule is paired, normalized and only evaluates a verified profile for its selected rule", () => {
+  const input = fixture(); input.rules = [shoutoutRule()];
+  const clean = validateAutomations(input);
+  assert.deepEqual(clean.rules[0].trigger.users, ["friend"]);
+  const state = createAutomationState(0);
+  const event = { type: "shoutout", id: "signed-event", mode: "automatic", ruleId: "shoutout", profile: shoutoutProfile() };
+  const result = evaluateAutomations(clean, state, event, 1000);
+  assert.equal(result.events.length, 1, "partner type matches even when user list does not");
+  assert.deepEqual(result.events[0].shoutout, shoutoutProfile());
+  assert.equal(evaluateAutomations(clean, state, { ...event, ruleId: "other" }, 1000).events.length, 0);
+  assert.throws(() => evaluateAutomations(clean, state, { ...event, profile: null }, 1000), /verified rule and Twitch profile/);
+  const excluded = structuredClone(clean); excluded.rules[0].trigger.exclusions = ["guest"];
+  assert.equal(evaluateAutomations(excluded, state, event, 1000).events.length, 0);
+  const command = { ...event, mode: "command", profile: { ...shoutoutProfile(), type: "regular" } };
+  assert.equal(evaluateAutomations(clean, state, command, 1000).events.length, 1, "verified commands may target any non-excluded creator");
+  const wrongEffect = fixture(); wrongEffect.rules[0].effect = shoutoutRule().effect;
+  assert.throws(() => validateAutomations(wrongEffect), /Shoutout triggers/);
+  const wrongTrigger = fixture(); wrongTrigger.rules[0].trigger = shoutoutRule().trigger;
+  assert.throws(() => validateAutomations(wrongTrigger), /Shoutout triggers/);
+});
+
 test("automation imports normalize portable data while reusing the scene image and link boundary", () => {
   const input = fixture();
   input.script = "untrusted extra";
