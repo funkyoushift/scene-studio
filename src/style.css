@@ -1402,3 +1402,13 @@ body.viewer #root {
   .celebration i { animation:none !important; opacity:1; transform:rotate(var(--angle)) translateX(130px) rotate(calc(-1 * var(--angle))); }
   .celebration i:nth-of-type(n+9) { display:none; }
 }
+/* Publishing stays visible inside Twitch's scrollable configuration iframe. */
+.app-shell{padding-bottom:125px}
+.topbar{height:auto;min-height:80px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px}
+.top-actions{flex-wrap:wrap;justify-content:flex-end;min-width:0}
+.publish-bar{position:fixed;inset:auto 0 0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 24px;background:#182314f5;border-top:2px solid #a3d86a;box-shadow:0 -8px 28px #0004;backdrop-filter:blur(14px)}
+.publish-summary{min-width:0;max-width:800px}.publish-summary strong{font-size:15px;color:#e0f1cc}.publish-summary p{margin:5px 0 0;font-size:12px;line-height:1.45;color:#b4c3ac}
+.publish-bar-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}.publish-bar .primary{font-size:15px;min-height:46px;white-space:nowrap}.publish-bar button:disabled{opacity:.6;cursor:not-allowed}
+.publish-blocked{border-top-color:#efb86c;background:#292218f5}.publish-blocked .publish-summary strong{color:#ffdaa3}
+.toast{bottom:130px}
+@media(max-width:700px){.app-shell{padding-bottom:190px}.publish-bar{flex-direction:column;align-items:stretch;gap:10px;padding:12px}.publish-bar-actions{flex-wrap:wrap}.publish-bar-actions .primary{flex:1}.publish-summary strong{font-size:13px}.publish-summary p{font-size:11px}.toast{bottom:195px}.top-actions{justify-content:flex-start;width:100%}.topbar{min-height:66px}}

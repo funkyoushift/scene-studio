@@ -549,6 +549,11 @@ function Editor() {
     fileRef = useRef(null);
   sceneRef.current = scene;
   const object = scene.objects.find((o) => o.id === selected);
+  const previewLinks = scene.objects.filter(o => o.action === 'link');
+  let publishProblem = '';
+  try { validateScene(scene); } catch(error) { publishProblem = error.message; }
+  if (previewLinks.length) publishProblem = `${previewLinks.length} website-link object${previewLinks.length===1?' is':'s are'} preview-only in this version. Remove or change those actions before publishing to Twitch.`;
+  const cannotPublish = busy || Boolean(publishProblem) || (isConfig && (!authorized || !configReady || (scene.objects.length > 0 && (!linked || !profile))));
   useEffect(()=>{
     if(focusNewTitle.current && titleInput.current) {
       focusNewTitle.current=false;
@@ -720,6 +725,7 @@ function Editor() {
   async function saveTwitch() {
     if (busy) return;
     try {
+      if (publishProblem) throw new Error(publishProblem);
       if (!authorized || !helper)
         throw new Error(
           "Open the configuration page as the broadcaster in Twitch to save.",
@@ -805,10 +811,10 @@ function Editor() {
           <button onClick={() => setModal("present")}>Open viewer preview ↗</button>
           <button
             className="primary"
-            disabled={busy || (isConfig && (!authorized || !configReady))}
+            disabled={cannotPublish}
             onClick={isConfig ? saveTwitch : () => setModal("publish")}
           >
-            {busy ? "Working…" : isConfig ? "Save overlay" : "Use on Twitch"}{" "}
+            {busy ? "Publishing…" : "Publish to Twitch"}{" "}
             <span>→</span>
           </button>
         </div>
@@ -1192,7 +1198,7 @@ function Editor() {
         <footer className="app-footer">
           <span>Built for creators. Open to possibility.</span>
           <span>
-            {isConfig ? "Twitch test version" : "Local preview"} · no paid AI
+            {isConfig ? "Twitch test version" : "Browser preview"} · no paid AI
             calls
           </span>
         </footer>
@@ -1208,6 +1214,17 @@ function Editor() {
           </button>
         </div>
       )}
+      <section className={`publish-bar${publishProblem ? ' publish-blocked' : ''}`} aria-label="Publish your overlay">
+        <div className="publish-summary">
+          <strong>{publishProblem ? 'This draft is not ready to publish' : busy ? 'Publishing your overlay…' : isConfig ? saveStatus === 'Sent to Twitch' ? 'Update sent to Twitch' : saveStatus === 'Loaded from Twitch' ? 'Current Twitch configuration' : 'You have unpublished changes' : 'Your draft is not on Twitch yet'}</strong>
+          <p>{publishProblem || (isConfig ? !configReady ? 'Loading the channel’s saved configuration.' : !authorized ? 'Open this editor as the channel’s broadcaster on Twitch.' : scene.objects.length && !linked ? 'Connect your Twitch identity, then publish your changes.' : scene.objects.length && !profile ? 'Waiting for Twitch to confirm the channel.' : saveStatus === 'Sent to Twitch' ? 'Reopen configuration to verify the saved design. New edits need another publish.' : `Publishing updates ${profile?.login || 'this channel'} and sends the overlay to connected viewers.` : 'Open the publishing steps to move this draft into your channel’s Twitch configuration.')}</p>
+        </div>
+        <div className="publish-bar-actions">
+          {isConfig && authorized && !linked && <button onClick={()=>helper.actions.requestIdShare()}>Connect Twitch identity</button>}
+          {publishProblem && <button onClick={()=>setModal('publish')}>Why can’t I publish?</button>}
+          <button className="primary" disabled={cannotPublish} onClick={isConfig ? saveTwitch : ()=>setModal('publish')}>{busy ? 'Publishing…' : 'Publish to Twitch →'}</button>
+        </div>
+      </section>
       {modal === "present" && <Presentation scene={scene} viewport={viewport} onViewportChange={setViewport} onClose={()=>setModal(null)} />}
       {modal === "templates" && <Modal title="Start with something that feels like you" onClose={()=>setModal(null)}>
         <p>Choose a layout, then change any image, words, or position. Nothing changes on Twitch until you save there.</p>
@@ -1331,7 +1348,7 @@ function Editor() {
       </Modal>}
       {modal === "publish" && (
         <Modal
-          title="Your next stop: Twitch."
+          title="Publish your overlay to Twitch"
           status={notice}
           onClose={() => setModal(null)}
         >
@@ -1348,7 +1365,7 @@ function Editor() {
             </li>
             <li>Choose Import a design and select the file you exported.</li>
             <li>Check the channel name, connect your Twitch identity if asked,
-              then choose Save overlay.</li>
+              then choose Publish to Twitch (called “Save overlay” in the currently submitted 0.1.0 version).</li>
           </ol>
           <p>
             Saving uploads your images for viewers on the test channel.
@@ -1359,10 +1376,10 @@ function Editor() {
             <button className={isConfig ? "" : "primary"} onClick={download}>Export design</button>
             {isConfig && <button
               className="primary"
-              disabled={busy || !authorized || !configReady}
+              disabled={cannotPublish}
               onClick={saveTwitch}
             >
-              Save scene to Twitch
+              Publish to Twitch
             </button>}
           </div>
           {isConfig && helper && (

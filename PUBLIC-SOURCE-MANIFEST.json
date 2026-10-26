@@ -216,8 +216,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 54353,
-      "sha256": "f664966e2997eea2018169d012c8a033e59a4dc6ebd9ee9fe893d25924223485"
+      "bytes": 56657,
+      "sha256": "ab158a45dffa36860077b4ab775718f970a3a9ecee56768b35dfe94b828d9f94"
     },
     {
       "path": "src/party.mjs",
@@ -231,8 +231,8 @@
     },
     {
       "path": "src/style.css",
-      "bytes": 27637,
-      "sha256": "b78eec174f797e7599affa24aa7469203e6cc1685c2b0b055a89bfbcf6961866"
+      "bytes": 29059,
+      "sha256": "5f382cf535f110cd830f82635d7699a59a3c3558f35b708a1ef4b8de5e6a4ec3"
     },
     {
       "path": "src/templates.mjs",
