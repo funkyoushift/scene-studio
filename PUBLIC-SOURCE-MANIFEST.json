@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T18:11:00.902Z",
+  "createdUtc": "2026-10-26T18:35:16.573Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -321,8 +321,8 @@
     },
     {
       "path": "src/experience-home.css",
-      "bytes": 25886,
-      "sha256": "a5b492a620d46c8c67da817b2f964d66d2631654e181072e69f0d4d0a6582321"
+      "bytes": 27152,
+      "sha256": "2d0a7aa56d3341b77b53be8049a72eae662076f661b0d381224d90f1455b1f9c"
     },
     {
       "path": "src/experience-presets.mjs",
@@ -336,8 +336,8 @@
     },
     {
       "path": "src/ExperienceHome.jsx",
-      "bytes": 21839,
-      "sha256": "c11933f88fed3c6c6193ef813210a5d41abf447a315eb55bcd9fae71a3246faa"
+      "bytes": 24165,
+      "sha256": "d69d1c3925c34fb208a4ad30a283f824e0bf6154206e58128ed4f04903556a11"
     },
     {
       "path": "src/FlowBuilder.jsx",

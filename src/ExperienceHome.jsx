@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { INTERACTIVE_PRESET_OPTIONS } from "./templates.mjs";
 import { EXPERIENCE_PRESETS } from "./experience-presets.mjs";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -29,15 +29,19 @@ const guidedGoals = [
 ];
 
 export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onCheckBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, channelName, live = false, notice, onDismissNotice }) {
-  const [activeGroup, setActiveGroup] = useState("Viewer interactions");
-  const [liveSearch, setLiveSearch] = useState("");
-  const [liveCategory, setLiveCategory] = useState("All categories");
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [bundleError, setBundleError] = useState("");
   const [addingBundles, setAddingBundles] = useState(false);
   const [guidedGoal, setGuidedGoal] = useState("");
+  const [browseOpen, setBrowseOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryCategory, setLibraryCategory] = useState("All ideas");
+  const [librarySearch, setLibrarySearch] = useState("");
   const guidedActionRef = useRef(null);
+  const guidedHeadingRef = useRef(null);
+  const libraryHeadingRef = useRef(null);
+  const wasLibraryOpen = useRef(false);
   const selectedGoal = guidedGoals.find(goal => goal.id === guidedGoal);
   const matchingDraftExists = goal => {
     const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -65,16 +69,43 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
     { title: "Viewer interactions", description: "Things viewers can open, answer, or tap.", items: INTERACTIVE_PRESET_OPTIONS.map(item => ({ ...item, kind: "widget", category: item.category || "Viewer interaction", note: viewerNotes[item.key] })) },
     { title: "Live moments", description: "Show a response when something happens in chat or on stream.", items: EXPERIENCE_PRESETS.map(item => ({ ...item, kind: "flow", note: "Starter; connection may be required" })) },
   ];
-  const liveGroup = groups.find(group => group.title === "Live moments");
-  const liveCategories = ["All categories", ...new Set(liveGroup.items.map(item => item.category || "Other"))];
-  const normalizedSearch = liveSearch.trim().toLocaleLowerCase();
-  const liveResults = liveGroup.items.filter(item => {
-    const category = item.category || "Other";
-    const matchesCategory = liveCategory === "All categories" || category === liveCategory;
-    const searchable = `${item.title} ${item.description} ${category}`.toLocaleLowerCase();
-    return matchesCategory && (!normalizedSearch || searchable.includes(normalizedSearch));
+  const libraryCategories = ["All ideas", "Celebrations", "Games", "Community", "Showcases", "Custom"];
+  const categoryForItem = item => {
+    const key = item.key || "";
+    const sourceCategory = item.category || "";
+    if (sourceCategory === "Engagement" || ["celebration", "shared-party", "community-party", "chat-celebration", "subscriber-thanks", "resub-thanks", "gift-thanks", "hype-train", "hype-progress", "hype-finish", "random-party", "random-cheer"].includes(key)) return "Celebrations";
+    if (sourceCategory === "Gaming" || ["trivia", "tap-challenge", "game-goals", "build-notes", "loadout-notes", "modding-notes", "clue-hunt"].includes(key)) return "Games";
+    if (sourceCategory === "Community" || sourceCategory === "Stream info" || ["discord-invite", "welcome-chat", "lurk-note", "stream-rules", "community-guide", "streamer-info", "welcome", "info-card"].includes(key)) return "Community";
+    if (sourceCategory === "Promotion" || ["clickable-link", "photo-showcase", "featured-item", "merch-carousel"].includes(key)) return "Showcases";
+    return "Custom";
+  };
+  const libraryItems = groups.flatMap(group => group.items.map(item => ({ ...item, ideaCategory: categoryForItem(item) })));
+  const normalizedLibrarySearch = librarySearch.trim().toLocaleLowerCase();
+  const libraryResults = libraryItems.filter(item => {
+    const categoryMatch = libraryCategory === "All ideas" || item.ideaCategory === libraryCategory;
+    const searchMatch = !normalizedLibrarySearch || `${item.title} ${item.description} ${item.ideaCategory}`.toLocaleLowerCase().includes(normalizedLibrarySearch);
+    return categoryMatch && searchMatch;
   });
-  const resetLiveFilters = () => { setLiveSearch(""); setLiveCategory("All categories"); };
+  const resetLibraryFilters = () => { setLibrarySearch(""); setLibraryCategory("All ideas"); };
+  const revealLibrary = () => setLibraryOpen(true);
+  useEffect(() => {
+    if (libraryOpen) {
+      const frame = requestAnimationFrame(() => {
+        libraryHeadingRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+        libraryHeadingRef.current?.focus();
+      });
+      wasLibraryOpen.current = true;
+      return () => cancelAnimationFrame(frame);
+    }
+    if (wasLibraryOpen.current) {
+      const frame = requestAnimationFrame(() => {
+        guidedHeadingRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+        guidedHeadingRef.current?.focus();
+      });
+      wasLibraryOpen.current = false;
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [libraryOpen]);
   const toggleBundle = key => {
     setBundleError("");
     setSelectedBundles(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key]);
@@ -128,7 +159,7 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
 
     <section className="eh-guided" aria-labelledby="eh-guided-title">
       <span className="eh-kicker">A SIMPLE PLACE TO START</span>
-      <h2 id="eh-guided-title">Let’s set up one thing</h2>
+      <h2 ref={guidedHeadingRef} tabIndex={-1} id="eh-guided-title">Let’s set up one thing</h2>
       <p className="eh-guided-intro">Choose what you want viewers to do. We’ll open the matching starter so you can customize it.</p>
       <fieldset className="eh-goal-list">
         <legend className="eh-visually-hidden">What would you like to set up?</legend>
@@ -144,8 +175,14 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
       <p className="eh-draft-note">Setup changes stay in your draft until you publish. Your existing live setup stays in place while you edit.</p>
     </section>
 
-    <details className="eh-browse-all">
-      <summary>Browse all starters and tools</summary>
+    <nav className="eh-discovery-paths" aria-label="Other ways to start">
+      <button type="button" className="eh-discovery-card" onClick={revealLibrary}><span aria-hidden="true">⌕</span><b>Browse all ideas</b><small>Find a starter by category or search by name.</small></button>
+      <button type="button" className="eh-discovery-card" onClick={() => onOpenCanvas?.()}><span aria-hidden="true">＋</span><b>Create my own</b><small>Add and arrange your own interactive elements.</small></button>
+      <button type="button" className="eh-discovery-card" onClick={() => onOpenAI?.()}><span aria-hidden="true">✧</span><b>Build with AI</b><small>Use your AI account to create and review a design.</small></button>
+    </nav>
+
+    <details className="eh-browse-all" open={browseOpen} onToggle={event => setBrowseOpen(event.currentTarget.open)}>
+      <summary>Browse all tools and layouts</summary>
       <p>Explore the full library, curated layouts, canvas, and AI options.</p>
     <section className="eh-setup" aria-label="Choose how to start">
       <button type="button" className={`eh-setup-card eh-setup-layout${layoutPickerOpen ? " active" : ""}`} aria-expanded={layoutPickerOpen} onClick={() => setLayoutPickerOpen(open => !open)}>
@@ -188,34 +225,29 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
         {flows.map((flow, i) => <article className="eh-work-item" key={flow.id || `flow-${i}`}><span className="eh-work-icon eh-work-flow">✧</span><div className="eh-work-copy"><b>{flow.name || flow.title || "Live moment"}</b><span>Saved draft · Live moment{Array.isArray(flow.ruleIds) ? ` · ${flow.ruleIds.length} ${flow.ruleIds.length === 1 ? "rule" : "rules"}` : ""}</span></div><button type="button" onClick={() => onEditFlows?.(flow.id)}>Set up {flow.name || flow.title || "this draft"} <span>↗</span></button></article>)}
       </div> : <div className="eh-empty"><span className="eh-empty-icon">✧</span><div><b>Your experiences will show up here</b><p>Choose an idea above and press Set this up to begin.</p></div><button type="button" onClick={() => onOpenCanvas?.()}>Open scene canvas <span>↗</span></button></div>}
     </section>
-    <details className="eh-browse-library">
-      <summary>Browse all individual starters</summary>
-    <section className="eh-section eh-gallery">
-      <div className="eh-section-heading"><div><span className="eh-kicker">START WITH AN IDEA</span><h2>Choose something to add</h2></div><p>Every starter is editable. You can change the words and details later.</p></div>
-      <div className="eh-tabs" role="tablist" aria-label="Starter categories">
-        {groups.map(group => <button type="button" role="tab" aria-selected={activeGroup === group.title} className={activeGroup === group.title ? "active" : ""} key={group.title} onClick={() => setActiveGroup(group.title)}>{group.title}<span>{group.items.length}</span></button>)}
-      </div>
-      {groups.filter(group => group.title === activeGroup).map(group => <div className="eh-group" key={group.title}>
-        <div className="eh-group-heading"><p>{group.description}</p></div>
-        {group.title === "Live moments" && <div className="eh-library-tools">
-          <label className="eh-search-wrap"><span className="eh-search-icon" aria-hidden="true">⌕</span><span className="eh-visually-hidden">Search live moment starters</span>
-            <input type="search" value={liveSearch} onChange={event => setLiveSearch(event.target.value)} placeholder="Search title, description, or category" aria-label="Search live moment starters" />
+    <details className="eh-browse-library" open={libraryOpen} onToggle={event => setLibraryOpen(event.currentTarget.open)}>
+      <summary>Browse all ideas</summary>
+      <section className="eh-section eh-gallery" aria-labelledby="eh-library-title">
+        <div className="eh-section-heading"><div><span className="eh-kicker">START WITH AN IDEA</span><h2 ref={libraryHeadingRef} tabIndex={-1} id="eh-library-title">Explore the full starter library</h2></div><p>Choose a category or search. Select a starter to open its existing setup flow.</p></div>
+        <div className="eh-library-tools">
+          <label className="eh-search-wrap"><span className="eh-search-icon" aria-hidden="true">⌕</span><span className="eh-visually-hidden">Search all starter ideas</span>
+            <input type="search" value={librarySearch} onChange={event => setLibrarySearch(event.target.value)} placeholder="Search all ideas" aria-label="Search all starter ideas" />
           </label>
-          <span className="eh-result-count" role="status" aria-live="polite">{liveResults.length} {liveResults.length === 1 ? "starter" : "starters"}</span>
-          <div className="eh-category-chips" role="group" aria-label="Filter live moments by category">
-            {liveCategories.map(category => <button type="button" key={category} aria-pressed={liveCategory === category} className={liveCategory === category ? "active" : ""} onClick={() => setLiveCategory(category)}>{category}{category !== "All categories" && <span>{liveGroup.items.filter(item => (item.category || "Other") === category).length}</span>}</button>)}
+          <span className="eh-result-count" role="status" aria-live="polite">{libraryResults.length} {libraryResults.length === 1 ? "idea" : "ideas"}</span>
+          <div className="eh-category-chips" role="group" aria-label="Filter starter ideas by category">
+            {libraryCategories.map(category => <button type="button" key={category} aria-pressed={libraryCategory === category} className={libraryCategory === category ? "active" : ""} onClick={() => setLibraryCategory(category)}>{category}{category !== "All ideas" && <span>{libraryItems.filter(item => item.ideaCategory === category).length}</span>}</button>)}
           </div>
-          {(liveSearch || liveCategory !== "All categories") && <button type="button" className="eh-reset-filters" onClick={resetLiveFilters}>Reset filters</button>}
-        </div>}
-        {group.title === "Live moments" && liveResults.length === 0 ? <div className="eh-no-results" role="status"><b>No live moment starters found</b><p>Try a different word or category, or reset the filters to browse every starter.</p><button type="button" onClick={resetLiveFilters}>Reset search and category</button></div> : <div className="eh-cards">
-          {(group.title === "Live moments" ? liveResults : group.items).map((item, index) => <button type="button" className={`eh-card eh-card-${index % 5}`} key={`${item.kind}-${item.key}`} onClick={() => item.kind === "widget" ? onChooseWidget?.(item.key) : onChooseFlow?.(item.key)}>
+          {(librarySearch || libraryCategory !== "All ideas") && <button type="button" className="eh-reset-filters" onClick={resetLibraryFilters}>Clear filters</button>}
+        </div>
+        {libraryResults.length === 0 ? <div className="eh-no-results" role="status"><b>No ideas found</b><p>Try another search or category.</p><button type="button" onClick={resetLibraryFilters}>Show all ideas</button></div> : <div className="eh-cards">
+          {libraryResults.map((item, index) => <button type="button" className={`eh-card eh-card-${index % 5}`} key={`${item.kind}-${item.key}`} onClick={() => item.kind === "widget" ? onChooseWidget?.(item.key) : onChooseFlow?.(item.key)}>
             <span className={`eh-card-illustration eh-visual eh-visual-${item.key}`} aria-hidden="true"><span className="eh-visual-icon">{item.icon}</span>{item.key === "trivia" && <span className="eh-answer-chips"><i>A</i><i>B</i><i>C</i></span>}{item.key === "tap-challenge" && <span className="eh-goal-meter"><i /></span>}{["merch-carousel", "photo-showcase", "discord-invite"].includes(item.key) && <span className="eh-card-stack"><i /><i /><i /></span>}{["shared-party", "hype-train", "chat-celebration", "subscriber-thanks", "custom-popup", "celebration"].includes(item.key) && <span className="eh-confetti"><i>✦</i><i>•</i><i>✧</i><i>•</i></span>}{["info-card", "clickable-link"].includes(item.key) && <span className="eh-info-lines"><i /><i /><i /></span>}</span>
-            <span className="eh-card-content"><span className="eh-card-category">{item.category || "Viewer interaction"}</span><span className="eh-card-title">{item.title}</span><span className="eh-card-description">{item.description}</span><span className="eh-card-note">{item.note || (item.kind === "flow" ? "Starter" : "Ready to personalize")}</span></span>
+            <span className="eh-card-content"><span className="eh-card-category">{item.ideaCategory}</span><span className="eh-card-title">{item.title}</span><span className="eh-card-description">{item.description}</span><span className="eh-card-note">{item.note || (item.kind === "flow" ? "Starter" : "Ready to personalize")}</span></span>
             <span className="eh-card-arrow" aria-hidden="true">↗</span>
           </button>)}
         </div>}
-      </div>)}
-    </section>
+      </section>
+      <button type="button" className="eh-return-guided" onClick={() => { setLibraryOpen(false); setGuidedGoal(""); }}>Back to guided setup</button>
     </details>
 
     <footer className="eh-footer"><span>Build at your own pace. You can preview changes before you publish.</span><button type="button" onClick={() => onOpenAdvanced?.()}>More tools <span>↗</span></button></footer>

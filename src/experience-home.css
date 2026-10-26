@@ -94,6 +94,14 @@
 .eh-browse-all,.eh-browse-library{margin:0 0 14px;padding:12px 15px;border:1px solid var(--eh-line);border-radius:11px;background:var(--eh-panel)}.eh-browse-all>summary,.eh-browse-library>summary{color:var(--eh-accent);font-size:14px;font-weight:750;cursor:pointer}.eh-browse-all>p{margin:5px 0 0;color:var(--eh-muted);font-size:12px}.eh-browse-all[open],.eh-browse-library[open]{padding-bottom:16px}.eh-browse-all .eh-setup{margin-top:13px}.eh-browse-all .eh-layout-picker{margin-top:8px}.eh-browse-library .eh-gallery{margin-top:13px}
 .eh-work-item button{max-width:45%;overflow:hidden;text-overflow:ellipsis}
 @media(max-width:560px){.eh-guided{padding:16px}.eh-guided h2{font-size:20px}.eh-goal-list{grid-template-columns:1fr}.eh-goal-option{padding:10px}.eh-work-item button{max-width:42%;white-space:normal}}
+.eh-discovery-paths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:-10px 0 20px}
+.eh-discovery-card{display:grid;grid-template-columns:34px 1fr;align-items:center;column-gap:10px;min-height:74px;padding:11px 14px;text-align:left;border:1px solid var(--eh-line);border-radius:11px;background:var(--eh-panel);color:var(--eh-text);cursor:pointer}
+.eh-discovery-card:hover,.eh-discovery-card:focus-visible{border-color:var(--eh-accent);background:var(--eh-selection);outline:3px solid var(--eh-accent);outline-offset:2px}
+.eh-discovery-card>span{grid-row:span 2;display:grid;place-items:center;width:32px;height:32px;border-radius:9px;background:var(--eh-soft);color:var(--eh-accent);font-size:21px}
+.eh-discovery-card>b{font-size:14px}.eh-discovery-card>small{font-size:12px;color:var(--eh-muted);line-height:1.35}
+.eh-return-guided{margin-top:15px;padding:9px 12px;border:1px solid var(--eh-line);border-radius:8px;background:var(--eh-panel);color:var(--eh-accent);font:700 13px/1.2 "DM Sans",system-ui,sans-serif;cursor:pointer}
+.eh-return-guided:focus-visible{outline:3px solid var(--eh-accent);outline-offset:2px}
+@media(max-width:560px){.eh-discovery-paths{grid-template-columns:1fr;gap:7px}.eh-discovery-card{min-height:65px}}
 
 .eh-hero{min-height:140px;padding-top:18px;padding-bottom:18px;margin-bottom:18px}.eh-hero h1{font-size:clamp(23px,3vw,30px)}.eh-hero-art{transform:scale(.8);transform-origin:right center}.eh-steps{margin-top:12px}
 .experience-home .eh-goal-option{color:var(--eh-text)}

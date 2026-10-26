@@ -88,6 +88,10 @@ test("unknown account status never becomes regular; invalid profile image is bla
   s.state.type = undefined;
   assert.equal((await s.run({ mode: "automatic", messageId: "unknown-1", chatterId: "789" })).status, "no_match");
   assert.equal(s.state.sent.length, 0);
+  s.state.unknown = true;
+  assert.equal((await s.run({ mode: "command", messageId: "deleted-1", targetLogin: "selected" })).status, "no_match",
+    "a deleted or unresolved user is never presented as a regular creator");
+  s.state.unknown = false;
   s.state.type = "";
   s.state.image = "https://evil.example/profile.png";
   assert.equal((await s.run({ mode: "automatic", messageId: "regular-1", chatterId: "456" })).status, "sent");
