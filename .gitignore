@@ -1,0 +1,10 @@
+node_modules/
+dist/
+site-dist/
+outputs/
+.wrangler/
+.env*
+.dev.vars*
+!.env.example
+.codex-remote-attachments/
+server/env.d.ts

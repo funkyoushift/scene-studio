@@ -1,0 +1,28 @@
+{
+  "name": "scene-studio-contest",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5186 --strictPort",
+    "dev:api": "node scripts/developer-bridge.mjs",
+    "build:prototype": "node scripts/build-prototype.mjs",
+    "build:pages": "node scripts/build-pages.mjs",
+    "build": "vite build",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/manrope": "^5.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261025.1",
+    "@vitejs/plugin-react": "6.1.2",
+    "prettier": "^3.9.10",
+    "sharp": "^0.35.5",
+    "vite": "8.3.5",
+    "wrangler": "^4.152.0"
+  }
+}

@@ -1,0 +1,318 @@
+{
+  "format": 1,
+  "createdUtc": "2026-10-26T00:07:37.867Z",
+  "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
+  "generated": [
+    "wrangler.jsonc",
+    ".gitignore",
+    "README.md",
+    ".github/workflows/pages.yml"
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/pages.yml",
+      "bytes": 1171,
+      "sha256": "2a7b27ba205200723c72fcaa3e2c450fa9760609fb1bbe55ec95773949027116"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 125,
+      "sha256": "4939a00005595e38f7c3f4401284e2ede0414bee95408c9b7cf5bb3d168c7960"
+    },
+    {
+      "path": "assets/branding/discovery-300x200.png",
+      "bytes": 12999,
+      "sha256": "68d5fdab9b80ac7265b47455c47d38ae3c24b0b371e77f69e6b41a8b932a7a50"
+    },
+    {
+      "path": "assets/branding/discovery.svg",
+      "bytes": 1032,
+      "sha256": "e858ab70c634f9ea00b0105c9a5c5a47f621eca4926203c91bb86326f2394a4d"
+    },
+    {
+      "path": "assets/branding/icon-100.png",
+      "bytes": 2255,
+      "sha256": "2ed3d63949309091ad74c326a11ddffd1daf6a03bd181622711d0479ddb1d5f7"
+    },
+    {
+      "path": "assets/branding/icon-24.png",
+      "bytes": 651,
+      "sha256": "c0687eab7d053b24012b5818a8ff32bf1bbe62f94275c925305c30da07cdb514"
+    },
+    {
+      "path": "assets/branding/icon-300.png",
+      "bytes": 7984,
+      "sha256": "442e40d5060120e692330f9f32f5baf2581694d1c9d19c0fa73df0dd7845d47f"
+    },
+    {
+      "path": "assets/branding/icon-512.png",
+      "bytes": 16448,
+      "sha256": "54cebba71a1dc0a9805f172e09103a09bd4d2c252d18c6c1af5f33a8e2a1e192"
+    },
+    {
+      "path": "assets/branding/mark.svg",
+      "bytes": 623,
+      "sha256": "21be767f6b2745ffb49fd770a2d740b7cfa31aa0d9d07bb216fef7c24177a6b1"
+    },
+    {
+      "path": "assets/merch/hoodie.png",
+      "bytes": 37604,
+      "sha256": "0c2da348fb71e2b9155d45db5e97c5a316c732b121bb4c1aaace128f7fc5f6d6"
+    },
+    {
+      "path": "assets/merch/mug.png",
+      "bytes": 35063,
+      "sha256": "5657d30e57c47ca1860be96d654e0bbfb10e08a84a82cf4d8deeb0906033c7fb"
+    },
+    {
+      "path": "assets/merch/shirt.png",
+      "bytes": 37940,
+      "sha256": "8916726248b489a4cc0f84661bb0fa32b124f51c73ecb05fc331a855f530995d"
+    },
+    {
+      "path": "assets/merch/SOURCES.md",
+      "bytes": 485,
+      "sha256": "b7ed097de758165dd8ec1531cdaefbe4d7c3b89744716ecd6f28005f8473a931"
+    },
+    {
+      "path": "automations.html",
+      "bytes": 341,
+      "sha256": "4190aa0d58ac7a57df423cfb1d2e85647c380b0fcf5f8ad348d079562b030a09"
+    },
+    {
+      "path": "config.html",
+      "bytes": 401,
+      "sha256": "7a4d0798f79aa6b0154d5f3546b24e429926065bb8523550d7fe7120b3b61b33"
+    },
+    {
+      "path": "designs/funkyourev-party.json",
+      "bytes": 1826,
+      "sha256": "de3274bbc1e4b69c68871729ad65b53bd2971cb515af3fbab18bf81c7cdd130c"
+    },
+    {
+      "path": "designs/funkyoushift-merch-preview.json",
+      "bytes": 150330,
+      "sha256": "38b0711e87ee6134f8212c3c1c55ae10746796ccc3b93ce62b30c19cee3a2ed7"
+    },
+    {
+      "path": "index.html",
+      "bytes": 330,
+      "sha256": "539f59652e1173629c3c64ba0a38a1da015481cd5a6a81de444ffa36a0369432"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 78399,
+      "sha256": "369bed80749455451a02a4e193cbf685401effe24b747a16f9e66229387eaa86"
+    },
+    {
+      "path": "package.json",
+      "bytes": 773,
+      "sha256": "555241d03e973b0ecdb37a80b73c386be8a48d7ff5af01c097029f88bceda6f3"
+    },
+    {
+      "path": "README.md",
+      "bytes": 5379,
+      "sha256": "176ac0412ba97090fe20b8cb7647cba9646c9826fc02839a6108e2ee384e558c"
+    },
+    {
+      "path": "scripts/build-pages.mjs",
+      "bytes": 448,
+      "sha256": "06e5699ea0fa0e471a3c12edc3e304259e1b0c149918362d87a61dc50485db42"
+    },
+    {
+      "path": "scripts/build-prototype.mjs",
+      "bytes": 326,
+      "sha256": "926c035b05d201491bb2d241b3db65aab6e30bf84f278f4b29c811dfeaadb5ac"
+    },
+    {
+      "path": "scripts/cloudflare.mjs",
+      "bytes": 718,
+      "sha256": "0eb61850e57186f09335bdb187eae8b84fec4d21e3e1cc635e05ce29c1edee41"
+    },
+    {
+      "path": "scripts/developer-bridge.mjs",
+      "bytes": 11572,
+      "sha256": "218e9bfcfe461a4876e8b2cd6721b8596bf04a84b15c81c998ae6212f61182d2"
+    },
+    {
+      "path": "scripts/export-public.mjs",
+      "bytes": 15321,
+      "sha256": "630cc4a38ff7b4a683780448262385204f583867aea651091ab5cb2e8759e00d"
+    },
+    {
+      "path": "scripts/make-branding.mjs",
+      "bytes": 2405,
+      "sha256": "1be7272214808e0e885c928c627ae631711ed65ccaa89942cef328e285ea66fc"
+    },
+    {
+      "path": "scripts/make-channel-designs.mjs",
+      "bytes": 3699,
+      "sha256": "86a2425feb7eb46cae3aa2cf929b88ec15b1f71266cdad73df85bbf033594412"
+    },
+    {
+      "path": "scripts/package-twitch.ps1",
+      "bytes": 1617,
+      "sha256": "e0ce8b0fadcdb298dca79c789e2864ad5f5cf73e42482f4e9abbb6997603de67"
+    },
+    {
+      "path": "server/chat-authorization.mjs",
+      "bytes": 22569,
+      "sha256": "bd79d878e22bcecf51b97c9eaab9c5da0ec88fdc35c068e37c91e6771ed41826"
+    },
+    {
+      "path": "server/image-worker.mjs",
+      "bytes": 12606,
+      "sha256": "d93fcf57ee91a0b78a5b0222bf21c4bfa9f95ccc877e95c5fa6cc8c7b5c9502e"
+    },
+    {
+      "path": "server/party-service.mjs",
+      "bytes": 10372,
+      "sha256": "4da7d713520022dd59ef1217f13b9d97a5f6ef152545db933059c891a78e441a"
+    },
+    {
+      "path": "server/public-pages.mjs",
+      "bytes": 10523,
+      "sha256": "284d473cb760c1422b7cee7b8f6a8c95ee7164483d88255c034fbca608d7b51e"
+    },
+    {
+      "path": "server/schema.sql",
+      "bytes": 1634,
+      "sha256": "3bbb0e0b336fe1ebc5a4bae37ad83da8b4db6c1c968e346978d595228dea19a1"
+    },
+    {
+      "path": "src/automation-entry.jsx",
+      "bytes": 335,
+      "sha256": "236e1e2dc36ae094d26d8a43cf01b041d3e1ea987fd35d9d9f244237e6f976f1"
+    },
+    {
+      "path": "src/automations.css",
+      "bytes": 11908,
+      "sha256": "1a5b6fe769537abcda5d31cd5f2c1410a9d4c88c3861a83502a566f7119fa838"
+    },
+    {
+      "path": "src/automations.mjs",
+      "bytes": 9415,
+      "sha256": "24b9fda002ab7a415fdb2146943eb1e000c78700d7ba4bbd1fd2451fe8791ed2"
+    },
+    {
+      "path": "src/AutomationStudio.jsx",
+      "bytes": 34971,
+      "sha256": "c3628abd949ad71e9059f5c867c5b7c4637c15ab2c9787cafdb877eb4b1c45e4"
+    },
+    {
+      "path": "src/DeveloperPanel.jsx",
+      "bytes": 10182,
+      "sha256": "debd639fb75de54ec36315a9b83661b68d02fc4826607f4c01aa694631159c01"
+    },
+    {
+      "path": "src/image-address.mjs",
+      "bytes": 503,
+      "sha256": "e005d600a73842673e150c387ff0fbdee17c1d206f360ab3c3e4214cb11b4d9c"
+    },
+    {
+      "path": "src/images.mjs",
+      "bytes": 5292,
+      "sha256": "0e6f895a03785ddab61c13313c9d2d30e6270a37ffffb3490bab3747b894ee9a"
+    },
+    {
+      "path": "src/main.jsx",
+      "bytes": 54353,
+      "sha256": "f664966e2997eea2018169d012c8a033e59a4dc6ebd9ee9fe893d25924223485"
+    },
+    {
+      "path": "src/party.mjs",
+      "bytes": 1078,
+      "sha256": "455b50699bff4edb7b1a54f16537d73851092619dd166a2425b068e6d21893f0"
+    },
+    {
+      "path": "src/scene.mjs",
+      "bytes": 7390,
+      "sha256": "0dab6802259acb86c53ee9a193e6bbdb92430951e67c85dfb34140335899eff4"
+    },
+    {
+      "path": "src/style.css",
+      "bytes": 27637,
+      "sha256": "b78eec174f797e7599affa24aa7469203e6cc1685c2b0b055a89bfbcf6961866"
+    },
+    {
+      "path": "src/templates.mjs",
+      "bytes": 6974,
+      "sha256": "5c7c7cae2c0e3107f7a4def12e0043b42dfbe614b565d27b5ea2e50474efd8db"
+    },
+    {
+      "path": "src/twitch.mjs",
+      "bytes": 7118,
+      "sha256": "a16a80e77443e866240ef3dfe8828688cd7583d0d69811bfe85ab2eaf5901818"
+    },
+    {
+      "path": "tests/automations.test.mjs",
+      "bytes": 13625,
+      "sha256": "b60efc889a2006400f77f43e8ec864b2dc94a2d1db0820b02e3d7c18c61be87d"
+    },
+    {
+      "path": "tests/chat-authorization.test.mjs",
+      "bytes": 17009,
+      "sha256": "2f00708470c2a273fbedb504b47ac285113221d742fcbeec5e4670eacdf2e732"
+    },
+    {
+      "path": "tests/chat-ui.test.mjs",
+      "bytes": 5933,
+      "sha256": "d02b916f49415b312b8d347dcff3f55c0d490de48dbe63f1546851d02171fda2"
+    },
+    {
+      "path": "tests/developer-bridge.test.mjs",
+      "bytes": 10672,
+      "sha256": "d0d5934dd66abc595eda215a278b674c0514337aaa2d23fd8ffb7fc9aee453c2"
+    },
+    {
+      "path": "tests/image-client.test.mjs",
+      "bytes": 2773,
+      "sha256": "656e154ec16a4792a40bc8b0392831244bad4505e7d9a2ef8731cf63843d5a88"
+    },
+    {
+      "path": "tests/images.test.mjs",
+      "bytes": 9740,
+      "sha256": "4a3788b5e7dde3081a057d8c9d302d515f5f8c5e400dd59a03bd6501db131f4b"
+    },
+    {
+      "path": "tests/party.test.mjs",
+      "bytes": 12541,
+      "sha256": "bc3f7bf5f220a1412579373f1a2672783a94ccfc8f7256600fe63bda881fcd6b"
+    },
+    {
+      "path": "tests/scene.test.mjs",
+      "bytes": 2664,
+      "sha256": "e6ec865a3428b7a47cd450c5ec0ab97002c153f3dc1237fddc5b8258d43beb0e"
+    },
+    {
+      "path": "tests/templates.test.mjs",
+      "bytes": 2401,
+      "sha256": "a055153d4e78835e2bb29eddbceca626f6e82d703d3ef61d0ccffb43ac428efa"
+    },
+    {
+      "path": "tests/twitch.test.mjs",
+      "bytes": 2199,
+      "sha256": "f33fd5f05db4a0124e477bfabccafd388d272ddf0b8840ab433f1c4a963958dd"
+    },
+    {
+      "path": "viewer.html",
+      "bytes": 433,
+      "sha256": "1a58cd5c887062fcb3b46b7f3f3946722047765a93a7d21ff9b971110c7e666c"
+    },
+    {
+      "path": "vite.config.js",
+      "bytes": 392,
+      "sha256": "8f9b2c941d1413637a565c0546b69980adc866d180bb3343d67a5b6f9d94172b"
+    },
+    {
+      "path": "wrangler.jsonc",
+      "bytes": 1135,
+      "sha256": "637f10a0e214a46e085c811586c25260fed2829f23142b7a3d209dbf9992a8fb"
+    }
+  ],
+  "scan": {
+    "copiedGitHistory": false,
+    "credentialPatternHits": 0,
+    "note": "Bounded pattern scan plus explicit allowlist; not a complete security audit."
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "scene-studio-images",
+  "main": "server/image-worker.mjs",
+  "account_id": "REPLACE_WITH_YOUR_CLOUDFLARE_ACCOUNT_ID",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": {
+    "enabled": false
+  },
+  "triggers": {
+    "crons": [
+      "* * * * *"
+    ]
+  },
+  "vars": {
+    "PUBLIC_PAGES": "false",
+    "PUBLIC_IMAGES": "false",
+    "PUBLIC_CHAT": "false",
+    "TWITCH_CHAT_CLIENT_ID": "REPLACE_WITH_YOUR_TWITCH_CHAT_CLIENT_ID",
+    "EXTENSION_ORIGIN": "https://REPLACE_WITH_YOUR_EXTENSION_CLIENT_ID.ext-twitch.tv",
+    "PUBLIC_SERVICE_URL": "https://REPLACE_WITH_YOUR_WORKER_HOST.workers.dev",
+    "TEST_CHANNELS": "",
+    "PARTY_CHANNELS": "",
+    "PARTY_TEST_VIEWERS": "{}",
+    "EXTENSION_CLIENT_ID": "REPLACE_WITH_YOUR_EXTENSION_CLIENT_ID",
+    "EXTENSION_OWNER": "REPLACE_WITH_YOUR_TWITCH_USER_ID",
+    "EXTENSION_VERSION": "0.1.0"
+  },
+  "d1_databases": [
+    {
+      "binding": "IMAGES",
+      "database_name": "scene-studio-images",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+    }
+  ]
+}

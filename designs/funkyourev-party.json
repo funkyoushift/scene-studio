@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "name": "FunkYouRev — The Unnecessary Party Department",
+  "objects": [
+    {
+      "id": "rev-emergency-ducks",
+      "action": "party",
+      "preset": "ducks",
+      "icon": "spark",
+      "shape": "card",
+      "color": "#facc15",
+      "width": 27,
+      "height": 20,
+      "x": 5,
+      "y": 67,
+      "image": "",
+      "title": "Release the ducks",
+      "caption": "",
+      "detail": "",
+      "url": ""
+    },
+    {
+      "id": "rev-emergency-disco",
+      "action": "party",
+      "preset": "disco",
+      "icon": "spark",
+      "shape": "card",
+      "color": "#e879f9",
+      "width": 27,
+      "height": 20,
+      "x": 36.5,
+      "y": 67,
+      "image": "",
+      "title": "Emergency disco",
+      "caption": "",
+      "detail": "",
+      "url": ""
+    },
+    {
+      "id": "rev-confetti-cannon",
+      "action": "party",
+      "preset": "confetti",
+      "icon": "spark",
+      "shape": "card",
+      "color": "#38bdf8",
+      "width": 27,
+      "height": 20,
+      "x": 68,
+      "y": 67,
+      "image": "",
+      "title": "Confetti cannon",
+      "caption": "",
+      "detail": "",
+      "url": ""
+    },
+    {
+      "id": "rev-party-instructions",
+      "action": "reveal",
+      "icon": "info",
+      "shape": "pill",
+      "color": "#c4b5fd",
+      "width": 38,
+      "height": 10,
+      "x": 31,
+      "y": 88,
+      "image": "",
+      "title": "How this works",
+      "caption": "A very unserious control room",
+      "detail": "Pick your ridiculous moment. Scene Studio posts a preset message in chat and sends a silent celebration to viewers with the extension open. No Bits or payment. Link your Twitch identity when asked and wait 20 seconds between clicks. Channel bans and timeouts apply. The streamer can disconnect optional chat at any time.",
+      "url": ""
+    }
+  ]
+}

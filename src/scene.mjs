@@ -1,0 +1,192 @@
+import { hostedImage } from "./image-address.mjs";
+import { PARTY_PRESETS } from "./party.mjs";
+export const STORAGE_KEY = "scene-studio-draft-v1";
+export const MAX_OBJECTS = 12;
+export const MAX_IMPORT_BYTES = 2_000_000;
+export const ACTIONS = ["reveal", "counter", "celebrate", "party", "link"];
+export const ICONS = [
+  "spark",
+  "heart",
+  "star",
+  "gift",
+  "info",
+  "bolt",
+  "message",
+  "link",
+];
+export const id = () => crypto.randomUUID();
+export const bytes = (text) => new TextEncoder().encode(text).length;
+export function newObject(kind = "reveal") {
+  const presets = {
+    party: {title:"Emergency ducks",caption:"Celebrate together + post in chat",icon:"spark",detail:"",preset:"ducks"},
+    reveal: {
+      title: "A little about me",
+      caption: "Click to discover",
+      icon: "info",
+      detail:
+        "Your story, your schedule, your next big idea. Make this space yours.",
+    },
+    counter: {
+      title: "Send some love",
+      caption: "Tap to add a heart",
+      icon: "heart",
+      detail: "Thanks for being here!",
+    },
+    celebrate: {
+      title: "Make some noise",
+      caption: "Tap for a celebration",
+      icon: "spark",
+      detail: "You made this moment!",
+    },
+    link: {
+      title: "Explore more",
+      caption: "Open a website ↗",
+      icon: "link",
+      detail: "Add an HTTPS link in the editor.",
+    },
+  };
+  return {
+    id: id(),
+    action: kind,
+    ...presets[kind],
+    x: 6,
+    y: 65,
+    width: 26,
+    height: 24,
+    color: "#a3e635",
+    shape: "card",
+    image: "",
+    url: "",
+  };
+}
+export function starterScene() {
+  const a = newObject("reveal");
+  const b = {
+    ...newObject("celebrate"),
+    x: 69,
+    y: 68,
+    width: 25,
+    height: 21,
+    color: "#c4b5fd",
+    title: "Your moment",
+    caption: "Click to celebrate",
+  };
+  return { version: 1, name: "My first scene", objects: [a, b] };
+}
+function fail(message) {
+  throw new Error(message);
+}
+function string(value, max, label) {
+  if (typeof value !== "string" || value.length > max)
+    fail(`${label} must be text of at most ${max} characters.`);
+  return value;
+}
+function range(value, min, max, label) {
+  if (!Number.isFinite(value) || value < min || value > max)
+    fail(`${label} must be between ${min} and ${max}.`);
+  return value;
+}
+export function safeLink(value) {
+  if (!value) return "";
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    fail("Use a full HTTPS website address.");
+  }
+  if (url.protocol !== "https:" || url.username || url.password)
+    fail("Links must use HTTPS without embedded credentials.");
+  return url.href;
+}
+export function validateScene(input) {
+  if (!input || input.version !== 1 || !Array.isArray(input.objects))
+    fail("This is not a Scene Studio version 1 design.");
+  if (input.objects.length > MAX_OBJECTS)
+    fail(`A scene can contain up to ${MAX_OBJECTS} objects.`);
+  const ids = new Set();
+  const scene = {
+    version: 1,
+    name: string(input.name, 80, "Scene name"),
+    objects: input.objects.map((o) => {
+      if (!o || typeof o !== "object") fail("Invalid object.");
+      const key = string(o.id, 64, "Object ID");
+      if (!key || ids.has(key)) fail("Object IDs must be unique and nonempty.");
+      ids.add(key);
+      if (!ACTIONS.includes(o.action) || !ICONS.includes(o.icon))
+        fail("Unknown interaction or icon.");
+      if(o.action === "party" && !Object.hasOwn(PARTY_PRESETS,o.preset ?? "ducks")) fail("Choose a supported celebration.");
+      if (!["card", "pill", "circle", "showcase", "sticker"].includes(o.shape))
+        fail("Unknown appearance.");
+      if (!/^#[0-9a-f]{6}$/i.test(o.color)) fail("Use a six-digit hex color.");
+      const width = range(o.width, 10, 80, "Width"),
+        height = range(o.height, 10, 60, "Height");
+      const x = range(o.x, 0, 100 - width, "Horizontal position"),
+        y = range(o.y, 0, 100 - height, "Vertical position");
+      const image = string(o.image ?? "", 700_000, "Image");
+      if (
+        image &&
+        !/^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*$/.test(
+          image,
+        ) &&
+        !hostedImage(image)
+      )
+        fail("Images must be uploaded PNG, JPEG, WebP, or GIF files.");
+      return {
+        id: key,
+        action: o.action,
+        ...(o.action === "party" ? {preset:o.preset ?? "ducks"} : {}),
+        icon: o.icon,
+        shape: o.shape,
+        color: o.color,
+        width,
+        height,
+        x,
+        y,
+        image,
+        title: string(o.title, 70, "Title"),
+        caption: string(o.caption, 100, "Caption"),
+        detail: string(o.detail, 1200, "Detail"),
+        url: safeLink(string(o.url ?? "", 1000, "Link")),
+      };
+    }),
+  };
+  if (bytes(JSON.stringify(scene)) > MAX_IMPORT_BYTES)
+    fail("This scene is too large. Use smaller images.");
+  return scene;
+}
+export function parseScene(text) {
+  if (bytes(text) > MAX_IMPORT_BYTES)
+    fail("File too large. Keep designs under 2 MB.");
+  let input;
+  try {
+    input = JSON.parse(text);
+  } catch {
+    fail("The design is not valid JSON. Import a Scene Studio export.");
+  }
+  return validateScene(input);
+}
+export function moveObject(object, x, y) {
+  return {
+    ...object,
+    x: Math.min(100 - object.width, Math.max(0, Math.round(x * 10) / 10)),
+    y: Math.min(100 - object.height, Math.max(0, Math.round(y * 10) / 10)),
+  };
+}
+export function twitchContent(scene) {
+  const clean = validateScene(scene);
+  if (clean.objects.some((o) => o.image && !hostedImage(o.image)))
+    fail("Save your overlay to upload these images to image hosting first.");
+  if (clean.objects.some((o) => o.action === "link"))
+    fail(
+      "Website-link objects are preview-only until permitted destinations are reviewed.",
+    );
+  const content = JSON.stringify(clean);
+  if (bytes(content) > 5000)
+    fail(
+      "Twitch scenes must fit within 5 KB. Shorten the text or remove an object.",
+    );
+  return content;
+}
+export function aiPrompt(scene) {
+  return `Create a Scene Studio design as JSON only. This is configuration for an existing Twitch extension, not executable code. No HTML, JavaScript, CSS, scripts, URLs to images, or new action types. Version 1, name (max 80 characters), objects array (max 12). Every object needs unique id, title (max 70), caption (max 100), detail (max 1200), action (reveal/counter/celebrate/party/link), icon (spark/heart/star/gift/info/bolt/message/link), shape (card/pill/circle/showcase/sticker; showcase places an image above a readable caption; sticker displays an uploaded image without a background or visible text), color (#RRGGBB), x/y/width/height (percentage numbers). Width 10–80, height 10–60, x 0–100-width, y 0–100-height. image must be empty. url must be empty unless action is link, then HTTPS only. Website links are local preview only pending Twitch review. counter and celebrate affect only the clicking viewer. party sends a shared celebration and fixed chat message; it requires preset (ducks/disco/confetti), currently works only on enabled private test channels for invited accounts, and cannot send custom chat text. Do not invent other presets. Keep compact JSON under 5000 UTF-8 bytes for Twitch. Modify this design based on my request, keeping existing IDs where possible:\n${JSON.stringify({ ...scene, objects: scene.objects.map((o) => ({ ...o, image: "" })) })}\n\nMy request: `;
+}
