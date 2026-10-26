@@ -125,6 +125,21 @@ test("legacy objects add no appearance defaults or extra serialized bytes", () =
   assert.equal(twitchContent(scene), before);
 });
 
+test("popupOnly is optional, boolean-only, and round-trips when enabled", () => {
+  const scene = starterScene();
+  const legacy = validateScene(scene);
+  assert.equal(Object.hasOwn(legacy.objects[0], "popupOnly"), false);
+  scene.objects[0].popupOnly = true;
+  const saved = parseScene(twitchContent(scene));
+  assert.equal(saved.objects[0].popupOnly, true);
+  scene.objects[0].popupOnly = false;
+  assert.equal(parseScene(twitchContent(scene)).objects[0].popupOnly, false);
+  for (const value of [null, 0, 1, "true", {}, []]) {
+    scene.objects[0].popupOnly = value;
+    assert.throws(() => validateScene(scene), /popupOnly/);
+  }
+});
+
 test("custom icons count Unicode codepoints and image fit survives Twitch saves", () => {
   for (const customIcon of ["", "🦆".repeat(8), "👩‍🚀", "<3"]) for (const imageFit of ["cover", "contain", "icon"]) {
     const scene = starterScene();

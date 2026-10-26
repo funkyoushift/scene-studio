@@ -86,7 +86,7 @@ if (packageJson.scripts?.["build:pages"] !== "node scripts/build-pages.mjs") {
 
 const config = JSON.parse(await readFile(path.join(root, "wrangler.jsonc"), "utf8"));
 const configKeys = new Set(["$schema", "name", "main", "account_id", "compatibility_date", "workers_dev", "preview_urls", "observability", "triggers", "vars", "d1_databases"]);
-const varKeys = new Set(["PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "MERCH_TEST_STORES"]);
+const varKeys = new Set(["PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "MERCH_TEST_STORES", "POPUP_TEST_LINKS"]);
 for (const key of Object.keys(config)) {
   if (!configKeys.has(key)) throw new Error(`Wrangler setting needs explicit export approval: ${key}`);
 }
@@ -101,7 +101,7 @@ config.account_id = "REPLACE_WITH_YOUR_CLOUDFLARE_ACCOUNT_ID";
 config.d1_databases[0].database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID";
 Object.assign(config.vars, {
   PUBLIC_CHAT: "false", PUBLIC_IMAGES: "false", PUBLIC_PAGES: "false",
-  DEVELOPER_API_ENABLED: "false", AUTOMATIONS_ENABLED: "false", CHAT_TRIGGERS_ENABLED: "false", MERCH_TEST_STORES: "{}",
+  DEVELOPER_API_ENABLED: "false", AUTOMATIONS_ENABLED: "false", CHAT_TRIGGERS_ENABLED: "false", MERCH_TEST_STORES: "{}", POPUP_TEST_LINKS: "{}",
   TWITCH_CHAT_CLIENT_ID: "REPLACE_WITH_YOUR_TWITCH_CHAT_CLIENT_ID",
   EXTENSION_CLIENT_ID: "REPLACE_WITH_YOUR_EXTENSION_CLIENT_ID",
   EXTENSION_OWNER: "REPLACE_WITH_YOUR_TWITCH_USER_ID",

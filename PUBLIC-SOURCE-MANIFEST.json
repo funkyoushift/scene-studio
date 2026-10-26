@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T03:36:17.772Z",
+  "createdUtc": "2026-10-26T04:00:19.067Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -141,8 +141,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 21451,
-      "sha256": "b6b4ceedc1080b8174d41fb9382d0e0bb4ee608eb19393e8d2195615f69ab817"
+      "bytes": 21495,
+      "sha256": "3136c67ea619b53c77ea457e40cfb935507ef76a8acb6c0cf8a5bf0dac72d647"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -166,8 +166,8 @@
     },
     {
       "path": "server/automation-service.mjs",
-      "bytes": 20393,
-      "sha256": "6f7f5fb74266adc9b65d90062632a1c63e8d7db32218722f34dffaa306a2c479"
+      "bytes": 20999,
+      "sha256": "3dd39911d536ccdc836c41fdcc4df25ba71cb1f0325dbf4c793181b5a55d493c"
     },
     {
       "path": "server/chat-authorization.mjs",
@@ -231,13 +231,13 @@
     },
     {
       "path": "src/automations.mjs",
-      "bytes": 9803,
-      "sha256": "b4862415199e7c1d21e7789a53c22fc80cdd3f7a43c61d3eeb07880cb861539e"
+      "bytes": 9804,
+      "sha256": "e10d864b1b628bbe1e2a9bf1d0ffba3580b1a6a23f014eb84423b7d322bc22c4"
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 50318,
-      "sha256": "de576125bc6b4fb8ced4a272b119a85ce5666ab0b9ebfeab1fa0620aa749469a"
+      "bytes": 50319,
+      "sha256": "f5a73606a638fc27546bfb3499ee75562eedfa58baf3bcd3ecff4e7c98de7e48"
     },
     {
       "path": "src/AutomationViewer.jsx",
@@ -261,8 +261,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 67231,
-      "sha256": "4162d92e9081fb717207605a96a64dc34c42258c14b83d833eb7527302322346"
+      "bytes": 67561,
+      "sha256": "d3710d1340a338f2b05455940bff3bb43439850000b3f28e3b9657baeed33273"
     },
     {
       "path": "src/mobile-entry.jsx",
@@ -276,8 +276,8 @@
     },
     {
       "path": "src/MobileViewer.jsx",
-      "bytes": 11780,
-      "sha256": "7851db4742e38bb2a9134d38c0423b5e70e687fb9f8715402063d4b0455b5ac1"
+      "bytes": 11814,
+      "sha256": "fe47d9a1cac7003202ef0cf65a3255a8dea82c3655e020834f47b036da331d3c"
     },
     {
       "path": "src/party.mjs",
@@ -286,8 +286,8 @@
     },
     {
       "path": "src/scene.mjs",
-      "bytes": 10768,
-      "sha256": "e92ab1d6d60f289108b12cdb3db9c1acf60ac11291f831a248367d59a546d6a5"
+      "bytes": 11002,
+      "sha256": "b246ae84ebc654e0171d396d2e32deb371ea2826b389f69e8e0628010ab12793"
     },
     {
       "path": "src/style.css",
@@ -311,8 +311,8 @@
     },
     {
       "path": "tests/automation-service.test.mjs",
-      "bytes": 21638,
-      "sha256": "22af51941813272ed8e3b76e1a073fb89712070a97b489bc5dab93d0d879c469"
+      "bytes": 22547,
+      "sha256": "dcb8ae4f404b8dd7ada906761f827429ff8cb31964a6c97cd7b595c4576e48d3"
     },
     {
       "path": "tests/automation-twitch.test.mjs",
@@ -321,8 +321,8 @@
     },
     {
       "path": "tests/automations.test.mjs",
-      "bytes": 14913,
-      "sha256": "09a6d85d30c3092b3dc52eb10275800247cb52e06d1c6ee8bb0e379e435f2882"
+      "bytes": 15757,
+      "sha256": "f03c0b67f7dfb7df61a394800be2f6df1c0ec7681f9fb48b9c4ae52d6a8a712e"
     },
     {
       "path": "tests/chat-authorization.test.mjs",
@@ -381,8 +381,8 @@
     },
     {
       "path": "tests/mobile-viewer.test.mjs",
-      "bytes": 7401,
-      "sha256": "94c1403746ef023a28c4d2c5128835be1ec2cbb18949f5d7058d0f734570024d"
+      "bytes": 7746,
+      "sha256": "9045e14a0d2f92ef3e025d5e1c5f96de44b67af8e33eaabe9b2a0ca24263e910"
     },
     {
       "path": "tests/party.test.mjs",
@@ -391,8 +391,8 @@
     },
     {
       "path": "tests/scene.test.mjs",
-      "bytes": 7820,
-      "sha256": "565d6beeb2ee9d2d09b39177428bd1350b5850f9ee0287fd554043c237f4e95c"
+      "bytes": 8459,
+      "sha256": "8aa3a52a47650ee6e96f291bb246928edf91ddbdf40b2b711f308b38d91fab7c"
     },
     {
       "path": "tests/templates.test.mjs",
@@ -416,8 +416,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 1339,
-      "sha256": "2812b7e241c0d6a9b040fc0d57aa6705b3f602455957f74cd8d4cb88f1b0c71f"
+      "bytes": 1369,
+      "sha256": "8c615da9aa95851e55b67e3984adb590ca907cb763e7589c877b62f7142be515"
     }
   ],
   "scan": {

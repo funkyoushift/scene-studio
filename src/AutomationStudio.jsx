@@ -450,7 +450,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               <div className="section-heading">
                 <h2>If this, then that.</h2>
                 <button
-                  disabled={design.rules.length >= 8}
+                  disabled={design.rules.length >= 12}
                   onClick={() =>
                     setDesign((d) => ({
                       ...d,
@@ -699,7 +699,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               <div className="section-heading">
                 <h2>Images with somewhere to go.</h2>
                 <button
-                  disabled={design.carousels.length >= 3}
+                  disabled={design.carousels.length >= 6}
                   onClick={() => {
                     const id = uid();
                     setDesign((d) => ({

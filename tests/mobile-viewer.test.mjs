@@ -22,6 +22,11 @@ function setup() {
   return { objects, scene, state, controller };
 }
 
+test("popup-only objects do not cover the idle mobile view", () => {
+  const object={...newObject('reveal'),title:'Hidden until chat',popupOnly:true};
+  const html=renderToStaticMarkup(React.createElement(MobileObjectCards,{scene:{version:1,name:'Popups',objects:[object]},onActivate(){}}));
+  assert.doesNotMatch(html,/Hidden until chat/);
+});
 test("mobile website objects render user-activated HTTPS links with an external indicator", () => {
   const object = {...newObject('link'), title:'Community', url:'https://www.twitch.tv/funkyoushift'};
   const html = renderToStaticMarkup(React.createElement(MobileObjectCards,{scene:{version:1,name:'Links',objects:[object]},onActivate(){}}));

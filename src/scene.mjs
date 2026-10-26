@@ -173,6 +173,11 @@ export function validateScene(input) {
       return {
         id: key,
         action: o.action,
+        ...(Object.hasOwn(o, "popupOnly") && o.popupOnly !== undefined
+          ? typeof o.popupOnly === "boolean"
+            ? { popupOnly: o.popupOnly }
+            : fail("popupOnly must be true or false.")
+          : {}),
         ...(o.action === "party" ? {preset:o.preset ?? "ducks"} : {}),
         icon: o.icon,
         shape: o.shape,

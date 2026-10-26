@@ -31,6 +31,7 @@
     "AUTOMATIONS_ENABLED": "false",
     "CHAT_TRIGGERS_ENABLED": "false",
     "MERCH_TEST_STORES": "{}",
+    "POPUP_TEST_LINKS": "{}",
     "DEVELOPER_API_ENABLED": "false"
   },
   "d1_databases": [

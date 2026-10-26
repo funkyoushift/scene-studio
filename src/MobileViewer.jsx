@@ -67,7 +67,7 @@ export function MobileObjectCards({ scene, counts = {}, onActivate }) {
   const [images, setImages] = useState({});
   useEffect(() => { setImages(old => Object.fromEntries(scene.objects.filter(item => old[item.id]).map(item => [item.id, true]))); }, [scene]);
   return <section className="mobile-objects" aria-label="Channel objects">
-    {scene.objects.map(object => {
+    {scene.objects.filter(object=>!object.popupOnly).map(object => {
       const destination = object.action === 'link' ? safeLink(object.url) : '';
       const Control = destination ? 'a' : 'button';
       return <article key={object.id} className="mobile-object" style={{ "--object-accent": object.color, ...objectAppearance(object) }}>

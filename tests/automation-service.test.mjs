@@ -146,6 +146,18 @@ test("hosted designs require same-channel hosted images, minute timers, and expl
   assert.equal((await s.save(other, { channel: "456", input: { design: other, expectedRevision: 0, ownedMerch: true } })).status, 400);
 });
 
+test("popup destinations require an exact channel mapping and ownership", async t => {
+  const s=fixture(t), candidate=design();
+  candidate.carousels[0].slides[0].url='https://discord.gg/funksbth';
+  s.env.POPUP_TEST_LINKS=JSON.stringify({'123':['https://discord.gg/funksbth']});
+  assert.equal((await s.save(candidate)).status,400);
+  for(const url of ['https://discord.gg/another','https://discord.gg/funksbth?ref=other','https://discord.gg/funksbth#other']) {
+    const wrong=structuredClone(candidate);wrong.carousels[0].slides[0].url=url;
+    assert.equal((await s.save(wrong,{input:{design:wrong,expectedRevision:0,ownedMerch:true}})).status,400);
+  }
+  assert.equal((await s.save(candidate,{channel:'456',input:{design:candidate,expectedRevision:0,ownedMerch:true}})).status,400);
+  assert.equal((await s.save(candidate,{input:{design:candidate,expectedRevision:0,ownedMerch:true}})).status,200);
+});
 test("manual actions only broadcast saved effects and duplicates never resend", async t => {
   const s = fixture(t); await s.save(); s.sent.length = 0;
   const input = { eventId: crypto.randomUUID(), type: "carousel", carouselId: "merch" };

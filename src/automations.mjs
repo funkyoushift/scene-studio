@@ -3,7 +3,7 @@
 import { MAX_IMPORT_BYTES, bytes, validateScene } from "./scene.mjs";
 
 export const AUTOMATION_LIMITS = Object.freeze({
-  carousels: 3, slides: 6, rules: 8, messageCharacters: 2000,
+  carousels: 6, slides: 6, rules: 12, messageCharacters: 2000,
   displaySeconds: Object.freeze([2, 300]),
   everySeconds: Object.freeze([5, 3600]),
   cooldownSeconds: Object.freeze([0, 3600]),

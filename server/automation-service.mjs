@@ -54,12 +54,21 @@ function allowedStore(env, channel, value) {
     url.origin === base.origin && !url.username && !url.password && !url.search && !url.hash &&
     basePath[1].toLowerCase() === product[1].toLowerCase());
 }
+function allowedChannelLink(env, channel, value) {
+  try {
+    const mapping=JSON.parse(env.POPUP_TEST_LINKS || '{}');
+    if(!mapping || Array.isArray(mapping) || !Object.hasOwn(mapping,channel) || !Array.isArray(mapping[channel]) || mapping[channel].length>12) return false;
+    const url=new URL(value);
+    if(url.protocol!=='https:' || url.username || url.password || url.search || url.hash) return false;
+    return mapping[channel].some(entry=>typeof entry==='string' && new URL(entry).href===url.href);
+  } catch { return false; }
+}
 function hostedDesign(env, channel, raw, ownedMerch) {
   let design; try { design = validateAutomations(raw); } catch (error) { fail(400, "invalid_design", error.message); }
   for (const carousel of design.carousels) for (const slide of carousel.slides) {
     if (slide.image && !hostedImage(slide.image, channel)) fail(400, "image_not_owned", "Upload every image to this channel before saving automations.");
-    if (slide.url && (ownedMerch !== true || !allowedStore(env, channel, slide.url)))
-      fail(400, "store_not_allowed", "Declare ownership and use this test channel’s configured Streamlabs store; sponsor and affiliate links are excluded.");
+    if (slide.url && (ownedMerch !== true || (!allowedStore(env, channel, slide.url) && !allowedChannelLink(env,channel,slide.url))))
+      fail(400, "store_not_allowed", "Confirm ownership and use this channel’s configured popup destinations or Streamlabs store; sponsor and affiliate links are excluded.");
   }
   if (design.rules.some(rule => rule.trigger.type === "interval" && rule.trigger.everySeconds < 60)) fail(400, "interval_too_short", "Hosted timers must be at least 60 seconds.");
   if (utf8.encode(JSON.stringify(design)).length > HOSTED_AUTOMATION_LIMITS.designBytes) fail(413, "design_too_large", "Keep the hosted automation design within 16 KB.");

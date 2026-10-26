@@ -81,6 +81,20 @@ test("automation validation enforces counts, IDs, references, supported actions 
   assert.deepEqual(validateAutomations({ version: 1, carousels: [], rules: [] }), { version: 1, carousels: [], rules: [] });
 });
 
+test("automation limits accept six carousels and twelve rules, then reject excess", () => {
+  const base = fixture();
+  const accepted = structuredClone(base);
+  accepted.carousels = Array.from({ length: 6 }, (_, i) => ({ ...structuredClone(base.carousels[0]), id: `c${i}` }));
+  accepted.rules = Array.from({ length: 12 }, (_, i) => ({ ...structuredClone(base.rules[0]), id: `r${i}` }));
+  assert.equal(validateAutomations(accepted).carousels.length, 6);
+  assert.equal(validateAutomations(accepted).rules.length, 12);
+  accepted.carousels.push({ ...structuredClone(accepted.carousels[0]), id: "c6" });
+  assert.throws(() => validateAutomations(accepted), /Carousels/);
+  accepted.carousels.pop();
+  accepted.rules.push({ ...structuredClone(accepted.rules[0]), id: "r12" });
+  assert.throws(() => validateAutomations(accepted), /Rules/);
+});
+
 test("keyword matching is case-insensitive and literal with Unicode-aware word boundaries", () => {
   assert.equal(keywordMatches("Well, HELLO there!", "hello", "word"), true);
   assert.equal(keywordMatches("shelloworld", "hello", "word"), false);

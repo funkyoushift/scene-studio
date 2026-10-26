@@ -325,7 +325,7 @@ function Scene({
           </span>
         </div>
       )}
-      {scene.objects.map((o) => (
+      {scene.objects.filter(o=>editing || !o.popupOnly).map((o) => (
         <div
           key={o.id}
           className="scene-object-frame"
@@ -1194,6 +1194,7 @@ function Editor() {
                   </span>
                 </label>}
                 <label>Custom icon or emoji<input value={object.customIcon ?? ''} placeholder="🎮 or your own symbol" onChange={e=>update({customIcon:Array.from(e.target.value).slice(0,8).join('')})} /><small>Leave blank to use a preset. Upload a logo below and choose “Custom image icon” to use your own artwork.</small></label>
+                <label><input type="checkbox" checked={object.popupOnly===true} onChange={e=>update({popupOnly:e.target.checked})} /> Hide from the always-visible overlay<small>Use Carousels & chat triggers to show a timed popup. This checkbox alone does not create a chat rule.</small></label>
                 <label className="upload">
                   {object.image ? "Replace image" : "Add your own image"}
                   <input
