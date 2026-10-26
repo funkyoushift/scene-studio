@@ -18,6 +18,7 @@ import {
   id,
   moveObject,
   newObject,
+  objectAppearance,
   parseScene,
   safeLink,
   starterScene,
@@ -27,6 +28,7 @@ import "./style.css";
 import { PARTY_PRESETS } from "./party.mjs";
 import AutomationViewer from "./AutomationViewer.jsx";
 import AutomationStudio from "./AutomationStudio.jsx";
+import DeveloperPanel from "./DeveloperPanel.jsx";
 import { TEMPLATE_OPTIONS, createTemplate } from "./templates.mjs";
 import {
   prepareImage,
@@ -337,6 +339,7 @@ function Scene({
         >
         <div className={`scene-object-motion motion-${!editing && ["float", "pulse", "sway"].includes(o.motion) ? o.motion : "none"}`}>
         <button
+          style={objectAppearance(o)}
           aria-label={editing ? `Edit ${o.title}` : o.title}
           title={[o.title, o.caption].filter(Boolean).join(" — ")}
           className={`scene-object ${o.shape} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""}`}
@@ -831,7 +834,7 @@ function Editor() {
   return (
     <>
     <div hidden={automationOpen}>
-    <div className="app-shell" style={publishBarHeight == null ? undefined : { "--publish-bar-height": `${publishBarHeight}px` }}>
+    <div className={`app-shell editor-refresh${isConfig ? ' is-twitch-config' : ''}`} style={publishBarHeight == null ? undefined : { "--publish-bar-height": `${publishBarHeight}px` }}>
       <header className="topbar">
         <a className="brand" href={isConfig ? "./config.html" : "./"}>
           <span>✳</span> scene<span className="brand-light">studio</span>
@@ -852,8 +855,7 @@ function Editor() {
               Connect Twitch identity
             </button>
           )}
-          <button onClick={download}>Export design ↗</button>
-          <button onClick={() => setModal("chat")}>Optional chat</button>
+          {isConfig && <button onClick={()=>{setJson(JSON.stringify(scene,null,2));setNotice('');setModal('expert');}}>Expert mode & API</button>}
           <button disabled={busy || (isConfig && !authorized)} onClick={() => {
             if (isConfig) { setAutomationVisited(true); setAutomationOpen(true); }
             else window.location.href = './automations.html';
@@ -870,6 +872,14 @@ function Editor() {
         </div>
       </header>
       <main>
+        <div className="editor-toolbar">
+          <div><h1>Build your overlay</h1><p>Add an object, drag it into place, then publish.</p></div>
+          <nav className="editor-mode-tabs" aria-label="Editor tools">
+            <button onClick={()=>setModal('templates')}>Starting layouts</button>
+            <button onClick={()=>{setJson('');setModal('ai');}}>Create with AI</button>
+            <button onClick={()=>{setJson(JSON.stringify(scene,null,2));setNotice('');setModal('expert');}}>Expert mode & API</button>
+          </nav>
+        </div>
         <div className="intro">
           <div>
             <span className="eyebrow">
@@ -899,6 +909,9 @@ function Editor() {
         </nav>
         <div className="workspace">
           <aside className="library">
+            <details className="object-library" open={isConfig ? undefined : true}>
+            <summary>Add an object or starting layout ＋</summary>
+            <button onClick={()=>setModal('templates')}>Choose a starting layout</button>
             <div className="panel-heading">
               <h2>Add an object</h2>
               <span>01</span>
@@ -955,6 +968,7 @@ function Editor() {
                 }}
               />
             </div>
+            </details>
           </aside>
           <section className="canvas-panel">
             <div className="canvas-toolbar">
@@ -1042,7 +1056,7 @@ function Editor() {
           </section>
           <aside className="inspector">
             <div className="panel-heading">
-              <h2>Make it yours</h2>
+              <h2>Object settings</h2>
               <span>02</span>
             </div>
             {object ? (
@@ -1116,6 +1130,13 @@ function Editor() {
                 )}
                 {object.action === "party" && <button onClick={() => setModal("chat")}>Set up optional chat</button>}
                 <div className="divider" />
+                <section className="inspector-section" aria-label="Object appearance">
+                <h3>Appearance</h3>
+                <div className="style-presets" aria-label="Quick styles">
+                  <button onClick={()=>update({background:'#17102b',textColor:'#ffffff',color:'#a970ff',radius:18,opacity:100,fontScale:100})}>Neon</button>
+                  <button onClick={()=>update({background:'#ffffff',textColor:'#17141f',color:'#6441a5',radius:12,opacity:100,fontScale:100})}>Clean</button>
+                  <button onClick={()=>update({background:'#071e28',textColor:'#baf7ff',color:'#22d3ee',radius:4,opacity:90,fontScale:110})}>Arcade</button>
+                </div>
                 <div className="control-pair">
                   <label>
                     Shape
@@ -1149,6 +1170,14 @@ function Editor() {
                   </select>
                   <small>Plays in the viewer preview. Objects stay still while you place them. Reduced-motion preferences are respected.</small>
                 </label>
+                <div className="control-pair">
+                  <label>Background<input type="color" value={object.background ?? '#172019'} onChange={e=>update({background:e.target.value})} /></label>
+                  <label>Text color<input type="color" value={object.textColor ?? '#ffffff'} onChange={e=>update({textColor:e.target.value})} /></label>
+                </div>
+                <label>Text size <span className="value">{object.fontScale ?? 100}%</span><input type="range" min="70" max="160" value={object.fontScale ?? 100} onChange={e=>update({fontScale:Number(e.target.value)})} /></label>
+                <label>Opacity <span className="value">{object.opacity ?? 100}%</span><input type="range" min="30" max="100" value={object.opacity ?? 100} onChange={e=>update({opacity:Number(e.target.value)})} /></label>
+                <label>Corner radius <span className="value">{object.radius ?? 14}px</span><input type="range" min="0" max="48" value={object.radius ?? 14} onChange={e=>update({radius:Number(e.target.value)})} /></label>
+                </section>
                 {object.action !== "party" && <label>
                   Icon
                   <span className="icon-picker">
@@ -1216,6 +1245,13 @@ function Editor() {
                     onChange={(e) => update({ height: Number(e.target.value) })}
                   />
                 </label>
+                <details className="inspector-section"><summary>Exact position & layer order</summary>
+                  <div className="control-pair">
+                    <label>Left (%)<input type="number" min="0" max={100-object.width} step="0.1" value={object.x} onChange={e=>{if(e.target.value!=='')update({x:Number(e.target.value)});}} /></label>
+                    <label>Top (%)<input type="number" min="0" max={100-object.height} step="0.1" value={object.y} onChange={e=>{if(e.target.value!=='')update({y:Number(e.target.value)});}} /></label>
+                  </div>
+                  <div className="object-actions"><button onClick={()=>commit({...scene,objects:[...scene.objects.filter(o=>o.id!==object.id),object]})}>Bring to front</button><button onClick={()=>commit({...scene,objects:[object,...scene.objects.filter(o=>o.id!==object.id)]})}>Send to back</button></div>
+                </details>
                 <div className="object-actions">
                   <button
                     onClick={() => {
@@ -1287,6 +1323,20 @@ function Editor() {
         </div>
       </section>
       {modal === "present" && <Presentation scene={scene} viewport={viewport} onViewportChange={setViewport} onClose={()=>setModal(null)} />}
+      {modal === 'expert' && <Modal title="Expert mode" onClose={()=>setModal(null)} status={notice}>
+        <div className="expert-tools">
+          <p>Edit the complete design, set exact placement and layer order in Object settings, or connect your own tools.</p>
+          <details open><summary>Design JSON · import, edit and validate</summary>
+            <p>Supports all object properties below. Apply updates the draft; Publish to Twitch sends it live. Executable HTML, JavaScript and CSS are not supported.</p>
+            <textarea aria-label="Expert design JSON" rows={14} spellCheck={false} value={json} onChange={e=>setJson(e.target.value)} />
+            <div className="modal-actions"><button className="primary" onClick={()=>applyImport(json)}>Apply design JSON</button><button onClick={download}>Export current design</button></div>
+          </details>
+          <details><summary>Object properties</summary><p>title, caption, detail, action, image, shape, motion, color, background, textColor, opacity (30–100), fontScale (70–160), radius (0–48), x, y, width and height. Positions and sizes are percentages. The objects array sets back-to-front layer order.</p></details>
+          <button onClick={()=>{setModal(null);if(isConfig){setAutomationVisited(true);setAutomationOpen(true);}else window.location.href='./automations.html';}}>Open carousels, chat rules & event simulator →</button>
+          <button onClick={()=>setModal('chat')}>Manage Twitch chat connection</button>
+          <DeveloperPanel onEvent={()=>setNotice('Use the event simulator in Carousels & chat triggers to test your rules.')} />
+        </div>
+      </Modal>}
       {modal === "templates" && <Modal title="Start with something that feels like you" onClose={()=>setModal(null)}>
         <p>Choose a layout, then change any image, words, or position. Nothing changes on Twitch until you save there.</p>
         <div className="template-options">{TEMPLATE_OPTIONS.map(t=><button key={t.key} onClick={()=>chooseTemplate(t.key)}>

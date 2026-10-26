@@ -7,6 +7,7 @@ import {
   safeLink,
   moveObject,
   twitchContent,
+  objectAppearance,
 } from "../src/scene.mjs";
 
 test("portable exports round-trip without retaining executable extra properties", () => {
@@ -84,4 +85,37 @@ test("Twitch packaging enforces byte size and unsupported feature gates", () => 
   clean.objects[0].image = "";
   for (const o of clean.objects) o.detail = "💚".repeat(600);
   assert.throws(() => twitchContent(clean), /5 KB/);
+});
+
+test("optional appearance round-trips through Twitch and produces only bounded inline styles", () => {
+  const scene = starterScene();
+  Object.assign(scene.objects[0], { background: "#123AbC", textColor: "#FFFFFF", opacity: 30, fontScale: 160, radius: 0, style: "position:fixed", css: "url(https://example.com)" });
+  const saved = parseScene(twitchContent(scene)).objects[0];
+  assert.deepEqual(objectAppearance(saved), { backgroundColor: "#123AbC", color: "#FFFFFF", opacity: 0.3, borderRadius: "0px", "--object-font-scale": 1.6 });
+  assert.equal(saved.background, "#123AbC"); assert.equal(saved.opacity, 30); assert.equal(saved.radius, 0);
+  assert.equal(saved.style, undefined); assert.equal(saved.css, undefined);
+  assert.deepEqual(objectAppearance({ opacity: 100, fontScale: 70, radius: 48, position: "fixed" }), { opacity: 1, borderRadius: "48px", "--object-font-scale": 0.7 });
+});
+
+test("legacy objects add no appearance defaults or extra serialized bytes", () => {
+  const scene = validateScene(starterScene()), before = JSON.stringify(scene);
+  assert.deepEqual(objectAppearance(scene.objects[0]), {});
+  for (const object of scene.objects) for (const field of ["background", "textColor", "opacity", "fontScale", "radius"]) assert.equal(Object.hasOwn(object, field), false);
+  assert.equal(twitchContent(scene), before);
+  scene.objects[0].opacity = undefined;
+  assert.equal(twitchContent(scene), before);
+});
+
+test("appearance validation rejects CSS injection, coercion, nonfinite and out-of-range values", () => {
+  for (const [field, values] of [
+    ["background", ["red", "#fff", "#000000;background:url(x)", {}, null]],
+    ["textColor", ["var(--text)", "#12345678", 123]],
+    ["opacity", [29, 101, "50", null, NaN, Infinity]],
+    ["fontScale", [69, 161, "100", -Infinity]],
+    ["radius", [-1, 49, "10px", NaN]],
+  ]) for (const value of values) {
+    const scene = starterScene(); scene.objects[0][field] = value;
+    assert.throws(() => validateScene(scene));
+    assert.throws(() => objectAppearance({ [field]: value }));
+  }
 });

@@ -88,6 +88,29 @@ function range(value, min, max, label) {
     fail(`${label} must be between ${min} and ${max}.`);
   return value;
 }
+function appearanceValues(object) {
+  if (!object || typeof object !== "object" || Array.isArray(object)) fail("Invalid object appearance.");
+  const values = {};
+  for (const field of ["background", "textColor"]) {
+    if (!Object.hasOwn(object, field) || object[field] === undefined) continue;
+    if (typeof object[field] !== "string" || !/^#[0-9a-f]{6}$/i.test(object[field])) fail(`${field} must be a six-digit hex color.`);
+    values[field] = object[field];
+  }
+  for (const [field, min, max] of [["opacity", 30, 100], ["fontScale", 70, 160], ["radius", 0, 48]]) {
+    if (!Object.hasOwn(object, field) || object[field] === undefined) continue;
+    values[field] = range(object[field], min, max, field);
+  }
+  return values;
+}
+export function objectAppearance(object) {
+  const values = appearanceValues(object), style = {};
+  if (values.background !== undefined) style.backgroundColor = values.background;
+  if (values.textColor !== undefined) style.color = values.textColor;
+  if (values.opacity !== undefined) style.opacity = values.opacity / 100;
+  if (values.radius !== undefined) style.borderRadius = `${values.radius}px`;
+  if (values.fontScale !== undefined) style["--object-font-scale"] = values.fontScale / 100;
+  return style;
+}
 export function safeLink(value) {
   if (!value) return "";
   let url;
@@ -142,6 +165,7 @@ export function validateScene(input) {
         shape: o.shape,
         motion: o.motion ?? "none",
         color: o.color,
+        ...appearanceValues(o),
         width,
         height,
         x,

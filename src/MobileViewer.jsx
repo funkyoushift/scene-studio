@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { channelProfile, readTwitchScene, sendParty, watchTwitchScene } from "./twitch.mjs";
 import { PARTY_PRESETS, partyEvent } from "./party.mjs";
 import AutomationViewer from "./AutomationViewer.jsx";
+import { objectAppearance } from "./scene.mjs";
 
 const symbols = { spark: "✦", heart: "♡", star: "☆", gift: "◇", info: "i", bolt: "ϟ", message: "☏", link: "↗" };
 
@@ -66,7 +67,7 @@ export function MobileObjectCards({ scene, counts = {}, onActivate }) {
   const [images, setImages] = useState({});
   useEffect(() => { setImages(old => Object.fromEntries(scene.objects.filter(item => old[item.id]).map(item => [item.id, true]))); }, [scene]);
   return <section className="mobile-objects" aria-label="Channel objects">
-    {scene.objects.map(object => <article key={object.id} className="mobile-object" style={{ "--object-accent": object.color }}>
+    {scene.objects.map(object => <article key={object.id} className="mobile-object" style={{ "--object-accent": object.color, ...objectAppearance(object) }}>
       <button className="mobile-object-action" onClick={() => onActivate(object.id)}>
       <span className="mobile-object-symbol" aria-hidden="true">{object.action === "party" ? PARTY_PRESETS[object.preset ?? "ducks"].symbol : symbols[object.icon] || "✦"}</span>
       <span className="mobile-object-copy"><strong>{object.title}</strong>
