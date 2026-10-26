@@ -133,3 +133,21 @@
 .flow-test > div { display:block;flex:1; }
 .flow-test > button { flex-shrink:0;min-width:128px; }
 .flow-test b { font-size:12px; }
+.director .live-save-status { margin:0 4vw 12px;color:#b9cbbd;font-size:13px; }
+.director .live-automation-panel > summary { cursor:pointer;font-weight:700; }
+.director .live-automation-panel[open] > summary { margin-bottom:16px; }
+.director.live-flow-editor .director-top { position:sticky;top:0;z-index:25;padding:10px 20px;gap:8px;flex-wrap:wrap;background:#0e1118; }
+.director.live-flow-editor .director-top > a { font-size:17px;white-space:nowrap; }
+.director.live-flow-editor .director-top .draft-badge { display:none; }
+.director.live-flow-editor .director-top button,.director.live-flow-editor .import-control { font-size:12px;padding:9px 12px; }
+.director.live-flow-editor.flow-first .director-intro,.director.live-flow-editor.flow-first .paste-design { display:none; }
+.director.live-flow-editor .live-save-status { margin:10px 20px 8px;font-size:12px; }
+.director.live-flow-editor .live-automation-panel { margin:0 20px 12px;padding:12px; }
+.director.live-flow-editor .director-grid { padding:0 20px 24px; }
+.director.live-flow-editor .flow-builder { padding:14px 12px; }
+.director.live-flow-editor .flow-head h1 { font-size:20px; }
+.director.live-flow-editor .flow-head { padding-bottom:10px; }
+.director.live-flow-editor .flow-head p { margin:4px 0;font-size:11px; }
+.director.live-flow-editor .flow-layout { margin-top:12px; }
+.director.live-flow-editor .control-panel > nav button { padding:8px;font-size:11px; }
+.director[data-editor-theme="light"].live-flow-editor .director-top { background:#fff; }

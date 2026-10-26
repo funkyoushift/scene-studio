@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T07:15:11.003Z",
+  "createdUtc": "2026-10-26T07:29:22.731Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -246,8 +246,8 @@
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 56341,
-      "sha256": "dc38c8c71edeabb7cc98cc8d31033ff7f24a042352b739c7402fb997a94be90d"
+      "bytes": 56782,
+      "sha256": "f14b0d038e1fcc44b2f833633b792b21c8ace83b060acfefb4ef2e6fc38b671d"
     },
     {
       "path": "src/AutomationViewer.jsx",
@@ -266,13 +266,13 @@
     },
     {
       "path": "src/FlowBuilder.jsx",
-      "bytes": 25369,
-      "sha256": "edce25dc2f098e2076c96f195d0f4b644d892ed443c52c980a6b5febdaa38881"
+      "bytes": 25362,
+      "sha256": "936597f13b78bf222e8d0681faacf14304d46e3bc50d957b8e937ddb02c001d5"
     },
     {
       "path": "src/flows.css",
-      "bytes": 15194,
-      "sha256": "a416fa2030011a136e2a228ef58a63ddd2d28fd21c27c0405fdf7ae1dc2709b3"
+      "bytes": 16713,
+      "sha256": "23cafc753b6b0114c4b78b03fe50dbaba0d2c3f2c9afd55f64784fe0500e4b2d"
     },
     {
       "path": "src/image-address.mjs",

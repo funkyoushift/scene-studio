@@ -390,7 +390,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
         shown.slides.length
     ];
   return (
-    <div className="director">
+    <div className={`director${liveEditor ? " live-flow-editor" : ""}${tab === "builder" ? " flow-first" : ""}`}>
       <header className={`director-top${liveEditor ? " live-director-top" : ""}`}>
         <a href={backUrl} onClick={event => { if (onBack) { event.preventDefault(); onBack(); } else if (dirty && !window.confirm("Leave without saving this channel's automation edits?")) event.preventDefault(); }}>← Scene Studio objects</a>
         <span className="draft-badge">{liveEditor ? "TWITCH CHANNEL AUTOMATIONS" : "NEXT VERSION · INTERACTIVE PREVIEW"}</span>
@@ -433,7 +433,9 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
         <button disabled={busy || !pastedDesign.trim() || (liveEditor && !savedConfig)} onClick={() => { try { applyDesignText(pastedDesign); } catch (error) { setNotice(error.message); setImportStatus(error.message); } }}>Apply pasted design</button>
         <p role="status" aria-live="polite">{importStatus}</p>
       </details>
-      {liveEditor && <section className="live-automation-panel" aria-label="Live channel controls">
+      {liveEditor && <p className="live-save-status" role="status">{liveStatus}</p>}
+      {liveEditor && <details className="live-automation-panel" aria-label="Live channel controls" open={!linked}>
+        <summary>{linked ? "Channel connections & live test controls" : "Connect Twitch to publish"}</summary>
         <h2>{channelName ? `@${channelName}` : auth ? `Twitch channel ${auth.channelId}` : "Your Twitch channel"}</h2>
         <p>This editor loads only this channel's saved design. Your separate browser preview draft is not imported automatically.</p>
         {!linked && <div><p>Connect your Twitch identity to save designs, fire viewer effects or authorize chat triggers. You can inspect the channel's settings first.</p><button disabled={!auth || busy} onClick={() => { try { window.Twitch.ext.actions.requestIdShare(); } catch { setLiveStatus("Twitch could not open identity sharing. Try reopening the extension configuration."); } }}>Connect Twitch identity</button></div>}
@@ -446,7 +448,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
         <div className="live-automation-actions"><button disabled={!auth || !linked || busy} onClick={() => chatConnection(true, false, true)}>Connect subscriptions & Hype Trains</button><button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, false, true)}>Refresh event status</button>{activityStatus?.authorized && !activityStatus?.connected && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, true, true)}>Retry event listeners</button>}{activityStatus?.authorized && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, false, true, true)}>Disconnect event listeners</button>}</div>
         {activityStatus && <p role="status">Twitch events: {activityStatus.connected ? "connected" : "not connected"}. {Array.isArray(activityStatus.events) ? `${activityStatus.events.filter(e => e.connected).length} of 6 listeners ready.` : ""} {activityStatus.reconnectRequired ? "Authorization required." : ""} {typeof activityStatus.status === "string" ? activityStatus.status : ""}</p>}
         {savedConfig?.revision > 0 && <><h3>Fire a saved action on Twitch</h3><p>These buttons use saved revision {savedConfig.revision}, not unsaved edits. They send a real viewer effect; they do not post a chat message.</p><div className="live-automation-actions">{savedConfig.design.carousels.map(c => <button disabled={busy || !linked} key={c.id} onClick={() => fireLive({ type: "carousel", carouselId: c.id })}>Fire on Twitch · {c.title}</button>)}{savedConfig.design.rules.filter(r => r.enabled && r.effect.type === "celebrate").map(r => <button disabled={busy || !linked} key={r.id} onClick={() => fireLive({ type: "celebrate", message: r.effect.message })}>Fire on Twitch · {r.name}</button>)}</div></>}
-      </section>}
+      </details>}
       <main className={`director-grid${tab === "builder" ? " flow-director-grid" : ""}`} inert={busy ? true : undefined}>
         <section className="control-panel">
           <nav aria-label="Edit automation">
@@ -474,7 +476,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               design={design}
               setDesign={setDesign}
               onUpdateCarousel={updateCarouselById}
-              evaluate={evaluate}
+              evaluate={event => { setActive(null); setQueue([]); engine.current = createAutomationState(Date.now() + offset.current); setPreviewExpanded(true); evaluate(event); }}
               onOpenDetails={(nextTab, targetId) => { if (targetId) setCarouselId(targetId); setTab(nextTab); }}
             />
           ) : tab === "rules" ? (
