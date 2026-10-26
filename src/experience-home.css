@@ -96,3 +96,4 @@
 @media(max-width:560px){.eh-guided{padding:16px}.eh-guided h2{font-size:20px}.eh-goal-list{grid-template-columns:1fr}.eh-goal-option{padding:10px}.eh-work-item button{max-width:42%;white-space:normal}}
 
 .eh-hero{min-height:140px;padding-top:18px;padding-bottom:18px;margin-bottom:18px}.eh-hero h1{font-size:clamp(23px,3vw,30px)}.eh-hero-art{transform:scale(.8);transform-origin:right center}.eh-steps{margin-top:12px}
+.experience-home .eh-goal-option{color:var(--eh-text)}
