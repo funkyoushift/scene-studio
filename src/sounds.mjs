@@ -37,7 +37,8 @@ function wav(samples) {
 
 /** Decode locally, downmix and convert the first fifteen seconds to canonical mono PCM. */
 export async function prepareSound(file, { fullTrack = false } = {}) {
-  if (!file || typeof file.arrayBuffer !== "function" || !Number.isFinite(file.size) || file.size <= 0 || file.size > (fullTrack ? MAX_MP3_BYTES : MAX_INPUT) || !["audio/mpeg", "audio/mp3", "audio/wav", "audio/wave", "audio/x-wav"].includes(file.type)) throw Error(fullTrack ? "Choose an MP3 under 1.5 MB for the full Hype Train track." : ERROR);
+  if (!file || typeof file.arrayBuffer !== "function" || !Number.isFinite(file.size) || file.size <= 0 || file.size > (fullTrack ? MAX_MP3_BYTES : MAX_INPUT)) throw Error(fullTrack ? "Choose an MP3 under 1.5 MB for the full Hype Train track." : ERROR);
+  // File.type is advisory and may be empty or OS-specific. Validate bytes and decode instead.
   const input = new Uint8Array(await file.arrayBuffer());
   if (input.length > (fullTrack ? MAX_MP3_BYTES : MAX_INPUT)) throw Error(fullTrack ? "Choose an MP3 under 1.5 MB for the full Hype Train track." : ERROR);
   const isWave = input.length >= 12 && String.fromCharCode(...input.slice(0, 4)) === "RIFF" && String.fromCharCode(...input.slice(8, 12)) === "WAVE";

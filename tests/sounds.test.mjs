@@ -108,3 +108,19 @@ test("full-track publishing uses MPEG content type and preserves loop metadata",
   });
   assert.deepEqual(output, { ...sound, url: `${IMAGE_ORIGIN}/sounds/123/${hash}.mp3` });
 });
+
+
+test("valid MP3 bytes are prepared despite missing or nonstandard OS MIME labels", async () => {
+  const previous = globalThis.AudioContext;
+  globalThis.AudioContext = class {
+    async decodeAudioData() { return { sampleRate: 16000, length: 160, numberOfChannels: 1, getChannelData() { return new Float32Array(160); } }; }
+    async close() {}
+  };
+  try {
+    for (const type of ["", "audio/x-mp3", "application/octet-stream", "Audio/MPEG"]) {
+      const prepared = await prepareSound({ ...mp3File(), type });
+      assert.ok(localSoundBytes(prepared.url).length > 44);
+    }
+    await assert.rejects(prepareSound(sampleFile("", "not audio", "Pretend.mp3")), /not a playable/);
+  } finally { globalThis.AudioContext = previous; }
+});

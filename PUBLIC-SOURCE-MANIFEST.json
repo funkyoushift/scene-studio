@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T19:13:45.973Z",
+  "createdUtc": "2026-10-26T19:26:02.531Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -481,8 +481,8 @@
     },
     {
       "path": "src/sounds.mjs",
-      "bytes": 7839,
-      "sha256": "0c292dd261316dde9f0c8f314050fe03322ee1b31e5a49bf0635a4886eeed9d5"
+      "bytes": 7945,
+      "sha256": "4555eb577d8e5328a2de8a18ab625da60976cf3be9c9c9792ecb5a20441d6237"
     },
     {
       "path": "src/starter-library.css",
@@ -686,8 +686,8 @@
     },
     {
       "path": "tests/sounds.test.mjs",
-      "bytes": 5777,
-      "sha256": "1272e9f0478f30b78f268ee7e998a67c860d05ef3b15dbd720ed68e87820edcf"
+      "bytes": 6643,
+      "sha256": "a5221ef32b52fd5d7a17d7219c770b0a6b53e94129cde27d807198e47f9b26a7"
     },
     {
       "path": "tests/templates.test.mjs",
