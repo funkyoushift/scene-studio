@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T17:51:23.274Z",
+  "createdUtc": "2026-10-26T17:57:22.031Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -321,8 +321,8 @@
     },
     {
       "path": "src/experience-home.css",
-      "bytes": 21208,
-      "sha256": "db9e1fbc2af34c4aac7bd07b6a798bec7fb93cbfb59e61d9a649925bed6cc7c7"
+      "bytes": 22838,
+      "sha256": "a58bb6d45c0f30a30f7f2e51042c6ce30f5dc213a1ba96ac5063719a972190af"
     },
     {
       "path": "src/experience-presets.mjs",
@@ -346,8 +346,8 @@
     },
     {
       "path": "src/flows.css",
-      "bytes": 25276,
-      "sha256": "79d276a343c1bb3f716a4ab8e1372d484a21dd0144662349465d04cfe826b92c"
+      "bytes": 26070,
+      "sha256": "901aa186d76af58a023eaa0a4ab33ca518a17fd08427c2a17e6861192c88082f"
     },
     {
       "path": "src/hype-audio.mjs",
@@ -646,8 +646,8 @@
     },
     {
       "path": "tests/shoutout-service.test.mjs",
-      "bytes": 7265,
-      "sha256": "8161f9d0b6bf0c39effdf00fe60d07ce8e70da9298dbc117b2ede3362963a6c4"
+      "bytes": 7514,
+      "sha256": "c818a34c0a09a2c575a44ed60bc6d4ae7505acdf4cdf284d789d76b90c65797f"
     },
     {
       "path": "tests/sound-service.test.mjs",
