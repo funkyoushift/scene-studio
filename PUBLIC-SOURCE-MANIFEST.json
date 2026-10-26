@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T14:24:06.635Z",
+  "createdUtc": "2026-10-26T14:30:57.095Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -341,8 +341,8 @@
     },
     {
       "path": "src/style.css",
-      "bytes": 51203,
-      "sha256": "c06283143da76be6294ce348ceaf4dff9bdc0c8f5b48cbfa25a825bc5d93db5c"
+      "bytes": 51208,
+      "sha256": "576ca1a8c54dd804b5448bb0ad8162935911cd1bb4e94c769c8bc7b668e89bd8"
     },
     {
       "path": "src/templates.mjs",
@@ -361,8 +361,8 @@
     },
     {
       "path": "src/widgets.css",
-      "bytes": 2244,
-      "sha256": "9cf96445d443f1909c577acc4949ed709e1450811f7f568c678830a6a289c403"
+      "bytes": 2313,
+      "sha256": "f5d6f24c5f67d8ae8b2e8794001af3c37bd7eb7b6a9ee5c9b34b769294271dab"
     },
     {
       "path": "tests/automation-router.test.mjs",

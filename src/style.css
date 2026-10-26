@@ -1584,7 +1584,7 @@ body.viewer #root {
 .app-shell .object-library { width:100%; }
 .app-shell .object-library > summary { cursor:pointer; font-weight:700; min-height:36px; display:list-item; padding:8px 4px; }
 .app-shell .object-library[open] > button { margin:6px 0 10px; }
-.app-shell:not(.is-twitch-config) .object-library > summary { display:none; }
+.app-shell:not(.is-twitch-config) .object-library > summary { display:list-item; }
 .app-shell.is-twitch-config .editor-toolbar { display:none; }
 .app-shell.is-twitch-config .channel-identity { display:none; }
 .app-shell.is-twitch-config .library { padding:4px 12px; }

@@ -74,6 +74,6 @@
   .widget-quiz legend { grid-column: 1; }
 }
 .scene-object.interactive-object { display:block;overflow:auto;text-align:left;padding:12px; }
-.scene-object.interactive-object .interactive-widget { margin-top:6px;gap:6px; }
+.scene-object.interactive-object .interactive-widget { margin-top:6px;gap:6px;font-size:calc(clamp(12px,1.6cqw,20px) * var(--object-font-scale,1)); }
 .scene-object.interactive-object .object-copy { position:relative;z-index:1; }
 .scene-object.interactive-object .interactive-widget { position:relative;z-index:1; }
