@@ -342,7 +342,7 @@ function Scene({
           style={objectAppearance(o)}
           aria-label={editing ? `Edit ${o.title}` : o.title}
           title={[o.title, o.caption].filter(Boolean).join(" — ")}
-          className={`scene-object ${o.shape} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""}`}
+          className={`scene-object ${o.shape} image-fit-${o.imageFit ?? 'cover'} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""}`}
           onClick={() => activate(o)}
           onPointerDown={(e) => {
             if (!editing || e.button !== 0) return;
@@ -412,7 +412,7 @@ function Scene({
           }}
         >
           {o.image && <img src={o.image} alt="" draggable="false" />}
-          <span className="object-icon">{o.action === "party" ? PARTY_PRESETS[o.preset??"ducks"].symbol : symbols[o.icon]}</span>
+          <span className="object-icon">{o.customIcon || (o.action === "party" ? PARTY_PRESETS[o.preset??"ducks"].symbol : symbols[o.icon])}</span>
           <span className="object-copy">
             <strong>{o.title}</strong>
             <span>
@@ -514,7 +514,7 @@ function Viewer() {
       stop();
     };
   }, []);
-  return <><AutomationViewer helper={helper} auth={automationAuth} creator={creator} />{scene && (creator || scene.objects.length === 0) ? (
+  return <><AutomationViewer helper={helper} auth={automationAuth} creator={creator} brandImage={scene?.objects.find(o=>o.image && o.imageFit==='icon')?.image} />{scene && (creator || scene.objects.length === 0) ? (
     <>
       <Scene scene={scene} sharedEvent={sharedEvent} beforeParty={()=>{
         if(!helper.viewer.isLinked) {helper.actions.requestIdShare();throw new Error("Link your identity, then click again to celebrate and post in chat.");}
@@ -1186,13 +1186,14 @@ function Editor() {
                         aria-label={`${icon} icon`}
                         aria-pressed={object.icon === icon}
                         className={object.icon === icon ? "chosen" : ""}
-                        onClick={() => update({ icon })}
+                        onClick={() => update({ icon, customIcon:'' })}
                       >
                         {symbols[icon]}
                       </button>
                     ))}
                   </span>
                 </label>}
+                <label>Custom icon or emoji<input value={object.customIcon ?? ''} placeholder="🎮 or your own symbol" onChange={e=>update({customIcon:Array.from(e.target.value).slice(0,8).join('')})} /><small>Leave blank to use a preset. Upload a logo below and choose “Custom image icon” to use your own artwork.</small></label>
                 <label className="upload">
                   {object.image ? "Replace image" : "Add your own image"}
                   <input
@@ -1205,6 +1206,7 @@ function Editor() {
                     }}
                   />
                 </label>
+                <label>Image display<select value={object.imageFit ?? 'cover'} onChange={e=>update({imageFit:e.target.value})}><option value="cover">Background photo · fill</option><option value="contain">Background photo · fit whole image</option><option value="icon">Custom image icon · beside text</option></select></label>
                 <p className="hint">
                   We resize your image automatically. Saving makes it public for
                   viewers. Animations become still images.

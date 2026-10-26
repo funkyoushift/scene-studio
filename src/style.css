@@ -1602,3 +1602,9 @@ body.viewer #root {
   resize:vertical;
   tab-size:2;
 }
+.scene-object.has-image.image-fit-contain img { object-fit:contain; }
+.scene-object.has-image.image-fit-icon { gap:5%; }
+.scene-object.has-image.image-fit-icon img { position:relative;inset:auto;flex:0 0 24%;width:24%;height:auto;max-height:90%;object-fit:contain;opacity:1;border-radius:12%; }
+.scene-object.has-image.image-fit-icon .object-icon { display:none; }
+.scene-object.showcase.has-image.image-fit-icon { display:flex; }
+.scene-object.showcase.has-image.image-fit-icon .object-copy { padding:0; }

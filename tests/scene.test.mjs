@@ -117,10 +117,36 @@ test("optional appearance round-trips through Twitch and produces only bounded i
 test("legacy objects add no appearance defaults or extra serialized bytes", () => {
   const scene = validateScene(starterScene()), before = JSON.stringify(scene);
   assert.deepEqual(objectAppearance(scene.objects[0]), {});
-  for (const object of scene.objects) for (const field of ["background", "textColor", "opacity", "fontScale", "radius"]) assert.equal(Object.hasOwn(object, field), false);
+  for (const object of scene.objects) for (const field of ["background", "textColor", "opacity", "fontScale", "radius", "customIcon", "imageFit"]) assert.equal(Object.hasOwn(object, field), false);
   assert.equal(twitchContent(scene), before);
   scene.objects[0].opacity = undefined;
+  scene.objects[0].customIcon = undefined;
+  scene.objects[0].imageFit = undefined;
   assert.equal(twitchContent(scene), before);
+});
+
+test("custom icons count Unicode codepoints and image fit survives Twitch saves", () => {
+  for (const customIcon of ["", "🦆".repeat(8), "👩‍🚀", "<3"]) for (const imageFit of ["cover", "contain", "icon"]) {
+    const scene = starterScene();
+    Object.assign(scene.objects[0], { customIcon, imageFit });
+    const object = parseScene(twitchContent(scene)).objects[0];
+    assert.equal(object.customIcon, customIcon); assert.equal(object.imageFit, imageFit);
+    assert.equal(object.icon, scene.objects[0].icon, "custom text does not replace the preset icon");
+  }
+  const invalidPreset = starterScene();
+  invalidPreset.objects[0].customIcon = "🦆"; invalidPreset.objects[0].icon = "custom";
+  assert.throws(() => validateScene(invalidPreset), /Unknown interaction or icon/);
+});
+
+test("custom icon and image fit reject invalid types, controls and bidi formatting", () => {
+  for (const customIcon of [null, {}, 5, ["x"], "🦆".repeat(9), "a\nb", "\u0000", "\u007f", "\u0085", "\u202eabc", "\u202d", "\u2066x\u2069", "\u061c"]) {
+    const scene = starterScene(); scene.objects[0].customIcon = customIcon;
+    assert.throws(() => validateScene(scene), /Custom icon/);
+  }
+  for (const imageFit of [null, {}, 3, "fill", "COVER", "url(https://example.com)"]) {
+    const scene = starterScene(); scene.objects[0].imageFit = imageFit;
+    assert.throws(() => validateScene(scene), /image fit/);
+  }
 });
 
 test("appearance validation rejects CSS injection, coercion, nonfinite and out-of-range values", () => {

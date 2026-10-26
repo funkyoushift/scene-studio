@@ -102,6 +102,19 @@ function appearanceValues(object) {
   }
   return values;
 }
+function objectMediaOptions(object) {
+  const values = {};
+  if (Object.hasOwn(object, "customIcon") && object.customIcon !== undefined) {
+    if (typeof object.customIcon !== "string" || [...object.customIcon].length > 8 || /[\p{Cc}\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(object.customIcon))
+      fail("Custom icon must contain at most 8 Unicode characters without control or bidirectional formatting characters.");
+    values.customIcon = object.customIcon;
+  }
+  if (Object.hasOwn(object, "imageFit") && object.imageFit !== undefined) {
+    if (!["cover", "contain", "icon"].includes(object.imageFit)) fail("Choose cover, contain, or icon for image fit.");
+    values.imageFit = object.imageFit;
+  }
+  return values;
+}
 export function objectAppearance(object) {
   const values = appearanceValues(object), style = {};
   if (values.background !== undefined) style.backgroundColor = values.background;
@@ -166,6 +179,7 @@ export function validateScene(input) {
         motion: o.motion ?? "none",
         color: o.color,
         ...appearanceValues(o),
+        ...objectMediaOptions(o),
         width,
         height,
         x,
@@ -214,5 +228,5 @@ export function twitchContent(scene) {
   return content;
 }
 export function aiPrompt(scene) {
-  return `Create a Scene Studio design as JSON only. This is configuration for an existing Twitch extension, not executable code. No HTML, JavaScript, CSS, scripts, URLs to images, or new action types. Version 1, name (max 80 characters), objects array (max 12). Every object needs unique id, title (max 70), caption (max 100), detail (max 1200), action (reveal/counter/celebrate/party/link), icon (spark/heart/star/gift/info/bolt/message/link), shape (card/pill/circle/showcase/sticker; showcase places an image above a readable caption; sticker displays an uploaded image without a background or visible text), motion (none/float/pulse/sway; defaults to none), color (#RRGGBB), x/y/width/height (percentage numbers). Width 10–80, height 10–60, x 0–100-width, y 0–100-height. Optional appearance: background and textColor (#RRGGBB), opacity (number 30–100), fontScale (number 70–160), radius (number 0–48 pixels); omit these unless requested. image must be empty. url must be empty unless action is link, then a nonempty full HTTPS address without embedded credentials is required. HTTPS links can publish in the current 0.4 Hosted Test version; Twitch public review restrictions on social and commerce links still apply, and technical acceptance is not policy approval. counter and celebrate affect only the clicking viewer. party sends a shared celebration and fixed chat message; it requires preset (ducks/disco/confetti), an enabled channel, linked viewer identity and moderation checks, and cannot send custom chat text. Do not invent other presets. Object JSON does not enable chat-keyword, subscription, or Hype Train triggers; those require separately implemented and connected integrations. Keep compact JSON under 5000 UTF-8 bytes for Twitch. Modify this design based on my request, keeping existing IDs where possible:\n${JSON.stringify({ ...scene, objects: scene.objects.map((o) => ({ ...o, image: "" })) })}\n\nMy request: `;
+  return `Create a Scene Studio design as JSON only. This is configuration for an existing Twitch extension, not executable code. No HTML, JavaScript, CSS, scripts, URLs to images, or new action types. Version 1, name (max 80 characters), objects array (max 12). Every object needs unique id, title (max 70), caption (max 100), detail (max 1200), action (reveal/counter/celebrate/party/link), icon (spark/heart/star/gift/info/bolt/message/link), shape (card/pill/circle/showcase/sticker; showcase places an image above a readable caption; sticker displays an uploaded image without a background or visible text), motion (none/float/pulse/sway; defaults to none), color (#RRGGBB), x/y/width/height (percentage numbers). Width 10–80, height 10–60, x 0–100-width, y 0–100-height. Optional appearance: background and textColor (#RRGGBB), opacity (number 30–100), fontScale (number 70–160), radius (number 0–48 pixels); omit these unless requested. Optional customIcon is plain text or emoji, at most 8 Unicode codepoints, with no control or bidirectional formatting characters; empty is allowed. It overrides the displayed symbol but does not replace the required preset icon field. Optional imageFit is cover, contain, or icon; omit it unless requested. image must be empty. url must be empty unless action is link, then a nonempty full HTTPS address without embedded credentials is required. HTTPS links can publish in the current 0.4 Hosted Test version; Twitch public review restrictions on social and commerce links still apply, and technical acceptance is not policy approval. counter and celebrate affect only the clicking viewer. party sends a shared celebration and fixed chat message; it requires preset (ducks/disco/confetti), an enabled channel, linked viewer identity and moderation checks, and cannot send custom chat text. Do not invent other presets. Object JSON does not enable chat-keyword, subscription, or Hype Train triggers; those require separately implemented and connected integrations. Keep compact JSON under 5000 UTF-8 bytes for Twitch. Modify this design based on my request, keeping existing IDs where possible:\n${JSON.stringify({ ...scene, objects: scene.objects.map((o) => ({ ...o, image: "" })) })}\n\nMy request: `;
 }

@@ -72,7 +72,7 @@ export function MobileObjectCards({ scene, counts = {}, onActivate }) {
       const Control = destination ? 'a' : 'button';
       return <article key={object.id} className="mobile-object" style={{ "--object-accent": object.color, ...objectAppearance(object) }}>
       <Control className="mobile-object-action" {...(destination ? {href:destination,target:'_blank',rel:'noopener noreferrer'} : {onClick:()=>onActivate(object.id)})}>
-      <span className="mobile-object-symbol" aria-hidden="true">{object.action === "party" ? PARTY_PRESETS[object.preset ?? "ducks"].symbol : symbols[object.icon] || "✦"}</span>
+      {object.image && object.imageFit==='icon' ? <img className="mobile-custom-icon" src={object.image} alt="" /> : <span className="mobile-object-symbol" aria-hidden="true">{object.customIcon || (object.action === "party" ? PARTY_PRESETS[object.preset ?? "ducks"].symbol : symbols[object.icon] || "✦")}</span>}
       <span className="mobile-object-copy"><strong>{object.title}</strong>
         <span>{object.action === "party" ? "Celebrate together + post in chat" : object.caption}</span>
         {object.action === "counter" && <span className="mobile-count" aria-live="polite">{counts[object.id] || 0} from you this visit{counts[object.id] ? ` · ${object.detail}` : ""}</span>}
@@ -80,7 +80,7 @@ export function MobileObjectCards({ scene, counts = {}, onActivate }) {
         {destination && <small>Open website ↗</small>}
       </span>
       </Control>
-      {object.image && <><button className="mobile-image-toggle" aria-expanded={Boolean(images[object.id])} aria-label={`${images[object.id] ? "Hide" : "Show"} image for ${object.title}`} onClick={() => setImages(old => ({ ...old, [object.id]: !old[object.id] }))}>{images[object.id] ? "Hide image" : "Show image"}</button>{images[object.id] && <img src={object.image} alt={object.title} />}</>}
+      {object.image && object.imageFit!=='icon' && <><button className="mobile-image-toggle" aria-expanded={Boolean(images[object.id])} aria-label={`${images[object.id] ? "Hide" : "Show"} image for ${object.title}`} onClick={() => setImages(old => ({ ...old, [object.id]: !old[object.id] }))}>{images[object.id] ? "Hide image" : "Show image"}</button>{images[object.id] && <img src={object.image} alt={object.title} />}</>}
     </article>})}
   </section>;
 }
@@ -150,7 +150,7 @@ export default function MobileViewer({ helper = globalThis.window?.Twitch?.ext }
     {notice && <div className="mobile-notice" role="status" ref={noticeRef}><p>{notice}</p><button aria-label="Dismiss status" onClick={() => setNotice("")}>Dismiss</button></div>}
     {detail && <section className="mobile-detail" aria-label={detail.title} ref={detailRef} tabIndex={-1}><h2>{detail.title}</h2><p>{detail.text}</p><button onClick={() => setDetail(null)}>Close message</button></section>}
     {ready && burst && <section className="mobile-burst" role="status" ref={burstRef}><span aria-hidden="true">{burst.symbol} ✦ {burst.symbol}</span><strong>{burst.text}</strong>{burst.actor && <p>@{burst.actor} started this</p>}<button onClick={() => setBurst(null)}>Dismiss celebration</button></section>}
-    {visible && ready && <AutomationViewer helper={helper} auth={auth} creator={creator} viewMode="mobile" />}
+    {visible && ready && <AutomationViewer helper={helper} auth={auth} creator={creator} viewMode="mobile" brandImage={scene?.objects.find(o=>o.image && o.imageFit==='icon')?.image} />}
     {ready && <footer>Objects by @{creator.login} · Made with Scene Studio</footer>}
   </main>;
 }
