@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T16:31:03.049Z",
+  "createdUtc": "2026-10-26T16:34:58.667Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -331,8 +331,8 @@
     },
     {
       "path": "src/hype-train.css",
-      "bytes": 2850,
-      "sha256": "497651395627852e4de67854abcb12eb4eda282ba6ca392e2038cc998c75fc47"
+      "bytes": 2931,
+      "sha256": "2ecd6238e45cc6a3c6eb816d7bec10f32d141e6eb1254e711ac64bd1117d7fd8"
     },
     {
       "path": "src/HypeTrain.jsx",

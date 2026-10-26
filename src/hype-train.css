@@ -1,13 +1,13 @@
 .ss-hype.ss-celebration { position:relative;inset:auto;display:block;width:min(460px,94vw);padding:16px;color:#fff;border:1px solid var(--ss-celebration-color);border-radius:20px;background:#101824f5;box-shadow:0 12px 50px #0008;overflow:hidden;pointer-events:auto;font:14px/1.4 "DM Sans",system-ui,sans-serif; }
-.ss-hype header { display:flex;align-items:center;gap:10px; }
+.ss-hype header { display:flex;align-items:center;gap:10px;width:100%; }
 .ss-hype header strong { color:var(--ss-celebration-color);letter-spacing:.14em;font-size:11px; }
 .ss-hype-level { margin-left:auto;padding:4px 10px;border-radius:20px;background:var(--ss-celebration-color);color:#151515;font-weight:900; }
 .ss-hype header button { background:transparent;border:0;color:#fff;font-size:24px;cursor:pointer; }
 .ss-hype-message { margin:12px 0 0;font:800 clamp(18px,2.2vw,26px)/1.2 Manrope,system-ui,sans-serif;overflow-wrap:anywhere; }
 .ss-hype .ss-celebration-train-art { display:block;position:relative;inset:auto;width:100%;height:auto;max-height:none;margin:0; }
-.ss-hype-progress-label { display:flex;justify-content:space-between;gap:12px;font-size:13px;font-weight:700; }
+.ss-hype.ss-celebration .ss-hype-progress-label { display:flex;justify-content:space-between;gap:12px;font-size:13px;font-weight:700;width:100%; }
 .ss-hype-progress-label time { font-variant-numeric:tabular-nums;color:#ffe5ad; }
-.ss-hype-progress { margin-top:7px;height:12px;overflow:hidden;border-radius:10px;background:#ffffff20; }
+.ss-hype.ss-celebration .ss-hype-progress { width:100%;margin-top:7px;height:12px;overflow:hidden;border-radius:10px;background:#ffffff20; }
 .ss-hype-progress i { display:block;height:100%;border-radius:10px;background:var(--ss-celebration-color);transition:width .5s ease; }
 .ss-hype-invite { color:#cbd6e7;font-size:13px;margin:10px 0 0; }
 .ss-hype-level-up { box-shadow:0 0 30px var(--ss-celebration-color) !important; }
