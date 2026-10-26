@@ -274,14 +274,14 @@ export default {
         }
         return partyRequest(request,env,party[1],json);
       }
-      const sound = url.pathname.match(/^\/sounds\/([1-9][0-9]{0,19})(?:\/([a-f0-9]{64})\.wav)?$/);
+      const sound = url.pathname.match(/^\/sounds\/([1-9][0-9]{0,19})(?:\/([a-f0-9]{64})\.(wav|mp3))?$/);
       if (sound) {
-        const [, channel, hash] = sound;
+        const [, channel, hash, extension] = sound;
         // The service accepts only claims produced by this signature verifier.
         const claims = request.method === "POST" && !hash && origin === env.EXTENSION_ORIGIN
           ? await broadcaster(request, env.EXTENSION_SECRET, channel)
           : undefined;
-        return soundRequest(request, env, channel, { hash, claims });
+        return soundRequest(request, env, channel, { hash, extension, claims });
       }
       const match = url.pathname.match(
         /^\/images\/([1-9][0-9]{0,19})(?:\/([a-f0-9]{64})\.png)?$/,

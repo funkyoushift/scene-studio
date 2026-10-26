@@ -31,7 +31,7 @@ test("automation imports normalize portable data while reusing the scene image a
   assert.equal(result.carousels[0].slides[0].url, "https://example.com/");
   assert.deepEqual(parseAutomations(JSON.stringify(result)), result);
   assert.throws(() => parseAutomations("not JSON"), /valid JSON/);
-  assert.throws(() => parseAutomations(" ".repeat(2_000_001)), /under 2 MB/);
+  assert.throws(() => parseAutomations(" ".repeat(12_000_001)), /under 12 MB/);
   for (const url of ["javascript:alert(1)", "data:text/html,hi", "http://example.com", "https://user:password@example.com", "bad address"]) {
     const candidate = fixture(); candidate.carousels[0].slides[0].url = url;
     assert.throws(() => validateAutomations(candidate));

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { TrainArt } from "./Celebration.jsx";
 import CelebrationAudio from "./CelebrationAudio.jsx";
+import { hypeAudio } from "./hype-audio.mjs";
 import { liveText } from "./live-context.mjs";
 import "./hype-train.css";
 
@@ -29,9 +30,9 @@ export default function HypeTrain({ event, onDismiss, fullMotion = false }) {
 }
 
 export function HypeTrainDemo({ effect, onClose }) {
-  const make = () => ({ type: "scene-studio-hype", eventId: "preview", created: Date.now(), expires: Date.now() + 90000, effect, hype: { id: "preview-train", phase: "active", level: 1, progress: 20, goal: 100, expiresAt: Date.now() + 90000, updatedAt: Date.now() } });
+  const make = () => ({ type: "scene-studio-hype", eventId: "preview", created: Date.now(), expires: Date.now() + 90000, effect, hype: { id: `preview-train-${crypto.randomUUID()}`, phase: "active", level: 1, progress: 20, goal: 100, expiresAt: Date.now() + 90000, updatedAt: Date.now() } });
   const [event, setEvent] = useState(make);
   const [motion, setMotion] = useState(false);
   const change = patch => setEvent(current => ({ ...current, expires: Date.now() + (patch.phase === "ended" ? 12000 : 90000), hype: { ...current.hype, ...patch, expiresAt: Date.now() + (patch.phase === "ended" ? 12000 : 90000), updatedAt: Date.now() } }));
-  return <div className="ss-hype-demo" role="dialog" aria-modal="true" aria-label="Hype Train lifecycle preview"><header><div><strong>Try the whole Hype Train</strong><p>Simulated Twitch data · nothing is sent to your stream.</p></div><button onClick={onClose}>Close preview</button></header><div className="ss-hype-demo-stage"><HypeTrain event={event} fullMotion={motion}/></div><div className="ss-hype-demo-controls"><button onClick={() => setEvent(make())}>Start train</button><button disabled={event.hype.phase === "ended"} onClick={() => change({ progress: Math.min(event.hype.goal, event.hype.progress + 25) })}>Add progress</button><button disabled={event.hype.phase === "ended"} onClick={() => change({ level: event.hype.level + 1, progress: 10, goal: event.hype.goal + 50 })}>Reach next level</button><button disabled={event.hype.phase === "ended"} onClick={() => change({ phase: "ended" })}>End train</button><button aria-pressed={motion} onClick={() => setMotion(!motion)}>{motion ? "Respect reduced motion" : "Preview full motion"}</button></div><CelebrationAudio preview eventId={`${event.hype.id}:${event.hype.level}:${event.hype.phase}`} sound={event.effect.appearance.sound} expires={event.expires}/></div>;
+  return <div className="ss-hype-demo" role="dialog" aria-modal="true" aria-label="Hype Train lifecycle preview"><header><div><strong>Try the whole Hype Train</strong><p>Simulated Twitch data · nothing is sent to your stream.</p></div><button onClick={onClose}>Close preview</button></header><div className="ss-hype-demo-stage"><HypeTrain event={event} fullMotion={motion}/></div><div className="ss-hype-demo-controls"><button onClick={() => setEvent(make())}>Start train</button><button disabled={event.hype.phase === "ended"} onClick={() => change({ progress: Math.min(event.hype.goal, event.hype.progress + 25) })}>Add progress</button><button disabled={event.hype.phase === "ended"} onClick={() => change({ level: event.hype.level + 1, progress: 10, goal: event.hype.goal + 50 })}>Reach next level</button><button disabled={event.hype.phase === "ended"} onClick={() => change({ phase: "ended" })}>End train</button><button aria-pressed={motion} onClick={() => setMotion(!motion)}>{motion ? "Respect reduced motion" : "Preview full motion"}</button></div><CelebrationAudio preview {...hypeAudio(event)}/></div>;
 }

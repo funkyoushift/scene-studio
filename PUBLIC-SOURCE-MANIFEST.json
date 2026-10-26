@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T16:56:08.653Z",
+  "createdUtc": "2026-10-26T17:11:10.859Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -141,8 +141,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 25220,
-      "sha256": "d917e99a70e15dd096c45c28294c516c4c5d54e433a72e4dd2409f98fe57cf03"
+      "bytes": 25274,
+      "sha256": "98cd77ea6b8dbd1f7f3bb89c4cf45921539a3d6471956e7345c230838485f449"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -171,8 +171,8 @@
     },
     {
       "path": "server/automation-service.mjs",
-      "bytes": 32656,
-      "sha256": "22dfaac73576be63509ba4567aa893237ce09328d0d4f5a6336b7b8f218612f7"
+      "bytes": 32668,
+      "sha256": "5b371ef1051c449999951c1fd8643eb47681b16cccf85e62121c20d38e5f66ce"
     },
     {
       "path": "server/chat-authorization.mjs",
@@ -206,8 +206,8 @@
     },
     {
       "path": "server/image-worker.mjs",
-      "bytes": 20555,
-      "sha256": "71add6855b932b10e7ff2a7524bac25f14565c5d002b1887dc28c2239408a592"
+      "bytes": 20583,
+      "sha256": "48109c1bcbba69f854b001d99dea849215c785182cdfd4fc69d513e91b063aec"
     },
     {
       "path": "server/party-service.mjs",
@@ -226,13 +226,13 @@
     },
     {
       "path": "server/sound-schema.sql",
-      "bytes": 317,
-      "sha256": "81adc237766b7e0061e6009f3461448ff0c9b07a3d2f6a7935ea8df423f7fa3c"
+      "bytes": 717,
+      "sha256": "7829466f706be24bdfe80a636014aaa93d55aacdaf33d21a63e8576eaf1f1ff0"
     },
     {
       "path": "server/sound-service.mjs",
-      "bytes": 5884,
-      "sha256": "a460347be909e221bc22895823bfc1992aa03785d79016047d94407b19425693"
+      "bytes": 6591,
+      "sha256": "ff505f78276f575d1cd5bf7f77c1dd898b54b57d217b19bdbceb0a05423fb814"
     },
     {
       "path": "server/twitch-events-schema.sql",
@@ -251,8 +251,8 @@
     },
     {
       "path": "src/automation-twitch.mjs",
-      "bytes": 17152,
-      "sha256": "041bf4449a9d878e9b19745ab730a43ec14ed44f921f04c1382b28527adeead6"
+      "bytes": 17413,
+      "sha256": "56553266449e8e8c4d080ccc9164c75e52a3a6f806901f30b13bcab100470052"
     },
     {
       "path": "src/automations.css",
@@ -261,8 +261,8 @@
     },
     {
       "path": "src/automations.mjs",
-      "bytes": 20806,
-      "sha256": "1a71171626f5a77569aec14cbeeed10181638a541007ba25877a2abb876e77be"
+      "bytes": 21249,
+      "sha256": "a2bd435eaf2d3f20f37c4b5f423e0dd1d39300a3cb390a9f20a8a06289bd87ce"
     },
     {
       "path": "src/AutomationStudio.jsx",
@@ -271,13 +271,13 @@
     },
     {
       "path": "src/AutomationViewer.jsx",
-      "bytes": 10619,
-      "sha256": "b5c758b459d6a38eb5b05f533d1dda664db9c1bd23ba98ef4a2eb529e85ac20d"
+      "bytes": 10725,
+      "sha256": "02cf6a40baa83cb96ae69e6af4761f7d110faaaa63e1ceb9ec472d4f9c1d28fb"
     },
     {
       "path": "src/celebration-audio.mjs",
-      "bytes": 9770,
-      "sha256": "1d7792446e16e2b4e6663332822c9b5b8a58992d64614bf93fea86e3be41d919"
+      "bytes": 10962,
+      "sha256": "499677479f3eb821ee23ff3a82ddc64beae9860420e825203900ad23fbf1140c"
     },
     {
       "path": "src/celebration.css",
@@ -291,8 +291,8 @@
     },
     {
       "path": "src/CelebrationAudio.jsx",
-      "bytes": 5527,
-      "sha256": "9ec07ea14be3a67a2c31d10adeb5ace8f1b7fe1d01628ea82d503805a48c6310"
+      "bytes": 7144,
+      "sha256": "fe391bb5bb4073c66fd6e89ca1b6aabde3f4a4005421fe3fc2565b9c953707aa"
     },
     {
       "path": "src/DeveloperPanel.jsx",
@@ -326,13 +326,18 @@
     },
     {
       "path": "src/FlowBuilder.jsx",
-      "bytes": 38245,
-      "sha256": "b72fedde946c42f4511f1c4083f3a6b1a31708bf53a0f0174ea7c0d935665ce0"
+      "bytes": 39223,
+      "sha256": "4660b554f91fb2cf59ad1dfbd50df2c7927c333a0a1d6eb2ed5495a7312753f8"
     },
     {
       "path": "src/flows.css",
       "bytes": 24752,
       "sha256": "cae212f1e400a10d5036c72b7239251e6fdf1520f1b7f5f8edb3ade6cf7c15c5"
+    },
+    {
+      "path": "src/hype-audio.mjs",
+      "bytes": 587,
+      "sha256": "f0ea21b0fe71d0f547eec13ea817bb362c85d9f15cfbd8018e082dca957f75ea"
     },
     {
       "path": "src/hype-state.mjs",
@@ -346,8 +351,8 @@
     },
     {
       "path": "src/HypeTrain.jsx",
-      "bytes": 4386,
-      "sha256": "5334f604bade6978a09002a2fabc2cfdd5aae3c68ff2d6c8093a8dd55d4a14c7"
+      "bytes": 4384,
+      "sha256": "c7ff008e7d7ef8cd033698f56717a3f46ee842b19c5362472f050e75bfc6fe4b"
     },
     {
       "path": "src/image-address.mjs",
@@ -416,18 +421,18 @@
     },
     {
       "path": "src/sound-address.mjs",
-      "bytes": 514,
-      "sha256": "b1d242de068c852e13e53b9fd0966b93dea2c34fd9258d65e5641e4e1806e714"
+      "bytes": 522,
+      "sha256": "08e3e3ee217109d57d9215013fbe4d5ec7b000ffedcfdc85a3f4ed3895351437"
     },
     {
       "path": "src/sound-contract.mjs",
-      "bytes": 3150,
-      "sha256": "76feb4908e2b1faaba31af9d539ad72a2ffd18887a225286a5a5cad773e0c483"
+      "bytes": 6404,
+      "sha256": "e3345d0d9bc096405b7fdafaf34355f68339a88baaa769e2895c0c5fca64d314"
     },
     {
       "path": "src/sounds.mjs",
-      "bytes": 6857,
-      "sha256": "a17e2c09b743931cfe2e2316827f86bcefd3425f993a4680941c248ea20163e0"
+      "bytes": 7839,
+      "sha256": "0c292dd261316dde9f0c8f314050fe03322ee1b31e5a49bf0635a4886eeed9d5"
     },
     {
       "path": "src/starter-library.css",
@@ -476,23 +481,23 @@
     },
     {
       "path": "tests/automation-service.test.mjs",
-      "bytes": 42553,
-      "sha256": "08e908a28b46374b6e887d856e038468442067177f71144df9c529d7adad1fd1"
+      "bytes": 42604,
+      "sha256": "cc4c7cc0058a3085969e86ecae798a312aa87a41768fae8066136f16cde013ea"
     },
     {
       "path": "tests/automation-twitch.test.mjs",
-      "bytes": 24056,
-      "sha256": "dde1be4ce4209d4f13a0bcee68db67b8a361b4bf53648c38be176af20395838d"
+      "bytes": 25103,
+      "sha256": "784c4e18e6cf8524fe9d43349157e2031a8f7a54799dce6067feedbbce185ad1"
     },
     {
       "path": "tests/automations.test.mjs",
-      "bytes": 29773,
-      "sha256": "251d52f6fc7a1a53804c823307dfd08592dd0d68737296d828164c9f9ebd0ec2"
+      "bytes": 30208,
+      "sha256": "464b33e3569183c297d1399613f027182b980b92f690b230ee0b343502ca4d0c"
     },
     {
       "path": "tests/celebration-audio.test.mjs",
-      "bytes": 7551,
-      "sha256": "7ca411c7ad6e0043bcbc7092d2f4fb7d5ef1673fa5308cb702e6421ec2e40f44"
+      "bytes": 9614,
+      "sha256": "685c11ea40d7e43d3b728336b1da98e73cd868294ebce14f6ae092ee0aecbcc7"
     },
     {
       "path": "tests/chat-authorization.test.mjs",
@@ -550,9 +555,14 @@
       "sha256": "82e10b1461e4a18c9699d01df7b6ba876f60286f1eb8bcb5aefcf8aae5d97640"
     },
     {
+      "path": "tests/hype-audio.test.mjs",
+      "bytes": 911,
+      "sha256": "a7118a4ce00161fa032677dadd57d43c98d11b2a4a5e156daa0ed74a6676f544"
+    },
+    {
       "path": "tests/hype-state.test.mjs",
-      "bytes": 2590,
-      "sha256": "b3a3066a726a7538b4fad4df29e9238e21d6daa0b2ac797d7a3c6f1f253bf626"
+      "bytes": 3029,
+      "sha256": "9d632a232574ee6f2ac37600668538c099439239911bb1549d9305d9f6cd8048"
     },
     {
       "path": "tests/image-client.test.mjs",
@@ -591,13 +601,13 @@
     },
     {
       "path": "tests/sound-service.test.mjs",
-      "bytes": 10206,
-      "sha256": "e8e68c14733c2e67cd5f29cbdfa5ebc0ea81c0d06742c2b1ff4b94e046289303"
+      "bytes": 13806,
+      "sha256": "4ce26d8dbb6e108e31c49da4dbe780f558942bc6c931100c33f4b662f3c1f681"
     },
     {
       "path": "tests/sounds.test.mjs",
-      "bytes": 3588,
-      "sha256": "6b5deb488c3fb90c9b6d62c842113706b668bb2f16d109892b06a5674eace114"
+      "bytes": 5777,
+      "sha256": "1272e9f0478f30b78f268ee7e998a67c860d05ef3b15dbd720ed68e87820edcf"
     },
     {
       "path": "tests/templates.test.mjs",

@@ -44,3 +44,10 @@ test("hype snapshots admit only own-channel hosted upload sounds", () => {
     assert.equal(safeHypeState(invalid), null);
   }
 });
+
+test("hype snapshots preserve own-channel full MP3 playback metadata", () => {
+  const candidate = event();
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"d".repeat(64)}.mp3`, name: "Train music", volume: 65, playback: "hype-loop" };
+  candidate.effect.appearance.sound = sound;
+  assert.deepEqual(safeHypeState(candidate)?.effect.appearance.sound, sound);
+});

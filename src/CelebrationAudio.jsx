@@ -13,12 +13,12 @@ function expiryTime(value) {
   return 0;
 }
 
-export default function CelebrationAudio({ eventId, sound, expires, preview = false }) {
+export default function CelebrationAudio({ eventId, sound, expires, preview = false, loop = false }) {
   const configured = Boolean(sound && (
     CELEBRATION_SOUND_PRESETS.includes(sound.preset) ||
     (sound.preset === "upload" && (
       hostedSound(sound.url) ||
-      (typeof sound.url === "string" && sound.url.startsWith("data:audio/wav;base64,"))
+      (typeof sound.url === "string" && (sound.url.startsWith("data:audio/wav;base64,") || sound.url.startsWith("data:audio/mpeg;base64,")))
     ))
   ));
   const [enabled, setEnabled] = useState(false);
@@ -27,10 +27,13 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
   const playerRef = useRef(null);
   const playedEventRef = useRef(null);
   const activeEventRef = useRef(null);
+  const activeLoopRef = useRef(false);
   const soundRef = useRef(sound);
   const volumeRef = useRef(volume);
   soundRef.current = sound;
   volumeRef.current = volume;
+  const soundIdentity = JSON.stringify([sound?.preset, sound?.url, sound?.name, sound?.volume, sound?.playback]);
+  const loopingUpload = loop && sound?.preset === "upload" && sound.playback === "hype-loop";
 
   useEffect(() => {
     const player = createCelebrationPlayer();
@@ -44,25 +47,41 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
   useEffect(() => {
     if (!enabled || !configured || !playerRef.current) {
       playerRef.current?.stop();
+      if (activeLoopRef.current) setStatus("Background music stopped.");
+      activeEventRef.current = null;
+      activeLoopRef.current = false;
       return;
     }
-    const key = eventId == null ? null : String(eventId);
+    const key = eventId == null ? null : `${String(eventId)}|${soundIdentity}`;
     const expiration = expiryTime(expires);
     if (key === null || !expiration || expiration <= Date.now()) {
       playerRef.current.stop();
+      if (activeLoopRef.current) setStatus("Background music stopped.");
       activeEventRef.current = null;
+      activeLoopRef.current = false;
       return;
     }
     if (activeEventRef.current !== key) playerRef.current.stop();
+    else if (activeLoopRef.current && !loop) { playerRef.current.stop(); setStatus("Background music stopped."); }
     activeEventRef.current = key;
+    activeLoopRef.current = loop;
     if (playedEventRef.current !== key) {
       playedEventRef.current = key;
       const currentSound = soundRef.current;
-      if (currentSound?.preset) void playerRef.current.playSound(currentSound, volumeRef.current);
+      if (currentSound?.preset) {
+        const player = playerRef.current;
+        const stillCurrent = () => playerRef.current === player && activeEventRef.current === key && activeLoopRef.current && playedEventRef.current === key;
+        if (loop) setStatus("Background music is loading…");
+        void player.playSound(currentSound, volumeRef.current, { loop }).then(started => {
+          if (loop && stillCurrent()) setStatus(started ? "Background music is playing." : "Background music could not play. Mute and enable sound to try again.");
+        }).catch(() => {
+          if (loop && stillCurrent()) setStatus("Background music could not play. Mute and enable sound to try again.");
+        });
+      }
     }
     const timeout = setTimeout(() => playerRef.current?.stop(), Math.max(0, expiration - Date.now()));
     return () => clearTimeout(timeout);
-  }, [enabled, configured, eventId, expires]);
+  }, [enabled, configured, eventId, expires, soundIdentity, loop]);
 
   async function enableSound() {
     setStatus("");
@@ -78,15 +97,18 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
 
   function muteSound() {
     playerRef.current?.stop();
+    playedEventRef.current = null;
+    activeEventRef.current = null;
+    activeLoopRef.current = false;
     setEnabled(false);
     setStatus("Celebration sound muted.");
   }
 
   function previewSound() {
-    if (!enabled) return;
+    if (!enabled || loopingUpload) return;
     playerRef.current?.stop();
     const currentSound = soundRef.current;
-    if (currentSound?.preset) void playerRef.current?.playSound(currentSound, volume);
+    if (currentSound?.preset) void playerRef.current?.playSound(currentSound, volume, { loop: false });
   }
 
   if (!configured && !enabled) return null;
@@ -96,8 +118,8 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
     `}</style>
     {!enabled ? <button type="button" onClick={enableSound}>Enable celebration sound</button> : <div className="ss-ca-controls">
       <span className="ss-ca-label">Sound on</span>
-      <label className="ss-ca-volume"><span>Volume</span><input type="range" min="0" max="100" value={volume} aria-label="Celebration sound volume" onChange={event => { playerRef.current?.stop(); setVolume(Number(event.target.value)); }} /></label>
-      {preview && <button className="ss-ca-preview" type="button" disabled={!configured} onClick={previewSound}>Play sample</button>}
+      <label className="ss-ca-volume"><span>Volume</span><input type="range" min="0" max="100" value={volume} aria-label="Celebration sound volume" onChange={event => { const next = Number(event.target.value); if (loopingUpload) playerRef.current?.setVolume(next); else playerRef.current?.stop(); setVolume(next); }} /></label>
+      {preview && <button className="ss-ca-preview" type="button" disabled={!configured || loopingUpload} onClick={previewSound}>Play sample</button>}
       <button type="button" onClick={muteSound}>Mute</button>
     </div>}
     {status && <span className="ss-ca-status" role="status">{status}</span>}

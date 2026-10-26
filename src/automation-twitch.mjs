@@ -43,7 +43,7 @@ function matchesSavedCelebration(effect, option, channelId) {
   return option.appearance?.style === appearance.style && option.appearance?.color === appearance.color &&
     option.appearance?.durationSeconds === appearance.durationSeconds &&
     (!hasSound || (option.appearance.sound.preset === sound.preset && option.appearance.sound.volume === sound.volume &&
-      (sound.preset !== "upload" || (option.appearance.sound.url === sound.url && option.appearance.sound.name === sound.name))));
+      (sound.preset !== "upload" || (option.appearance.sound.url === sound.url && option.appearance.sound.name === sound.name && option.appearance.sound.playback === sound.playback))));
 }
 function celebrationEffects(design) {
   return design.rules.flatMap(rule => rule.effect.type === "choose" ? rule.effect.options : [rule.effect]).filter(effect => effect.type === "celebrate");
@@ -98,7 +98,8 @@ export function automationPreflight(input, channelId, ownedMerch) {
 }
 function estimateSound(effect, channelId) {
   if (effect.type !== "celebrate" || effect.appearance?.sound?.preset !== "upload" || !effect.appearance.sound.url.startsWith("data:")) return effect;
-  return { ...effect, appearance: { ...effect.appearance, sound: { ...effect.appearance.sound, url: `${SOUND_ORIGIN}/sounds/${channelId}/${"0".repeat(64)}.wav` } } };
+  const extension = effect.appearance.sound.url.startsWith("data:audio/mpeg;base64,") ? "mp3" : "wav";
+  return { ...effect, appearance: { ...effect.appearance, sound: { ...effect.appearance.sound, url: `${SOUND_ORIGIN}/sounds/${channelId}/${"0".repeat(64)}.${extension}` } } };
 }
 export async function publishAutomationImages(input, auth, ownedMerch, fetcher = fetch, prepare = prepareImage) {
   const id = channel(auth), design = automationPreflight(input, id, ownedMerch), uploaded = new Map();
@@ -124,7 +125,7 @@ export async function publishAutomationImages(input, auth, ownedMerch, fetcher =
     const sound = effect.appearance?.sound;
     if (sound?.preset !== "upload" || !sound.url.startsWith("data:")) continue;
     if (!sounds.has(sound.url)) sounds.set(sound.url, await publishSound(sound, auth, fetcher));
-    effect.appearance.sound = { ...sounds.get(sound.url), name: sound.name, volume: sound.volume };
+    effect.appearance.sound = { preset: "upload", url: sounds.get(sound.url).url, name: sound.name, volume: sound.volume, ...(sound.playback === "hype-loop" ? { playback: "hype-loop" } : {}) };
   }
   return design;
 }

@@ -176,7 +176,7 @@ function sameLifecycleEffect(left, right) {
     left.appearance?.style === right.appearance?.style && left.appearance?.color === right.appearance?.color &&
     left.appearance?.durationSeconds === right.appearance?.durationSeconds &&
     left.appearance?.hypeLifecycle === right.appearance?.hypeLifecycle &&
-    (["preset", "volume", "url", "name"].every(key => (leftSound?.[key] ?? null) === (rightSound?.[key] ?? null)));
+    (["preset", "volume", "url", "name", "playback"].every(key => (leftSound?.[key] ?? null) === (rightSound?.[key] ?? null)));
 }
 async function hypeMoment(env, channel, currentTime) {
   const result = { channelId: channel, revision: 0, event: null };

@@ -72,6 +72,7 @@ function CelebrationAppearance({ effect, onChange, idPrefix, onApplySound }) {
   const samplePlayer = useRef(null);
   const fileInput = useRef(null);
   const [preparing, setPreparing] = useState(false);
+  const [fullTrack, setFullTrack] = useState(effect.appearance?.sound?.playback === "hype-loop");
   const [sampleStatus, setSampleStatus] = useState("");
   useEffect(() => () => { void samplePlayer.current?.dispose(); samplePlayer.current = null; }, []);
   const appearance = { ...celebrationDefaults, ...(effect.appearance || {}) };
@@ -105,12 +106,16 @@ function CelebrationAppearance({ effect, onChange, idPrefix, onApplySound }) {
       {appearance.hypeLifecycle ? <p>Follows the whole Hype Train: live level, progress, countdown, then a 12-second thank-you. Twitch controls the timer.</p> : <label>DURATION · {appearance.durationSeconds} SECONDS<input type="range" min="4" max="20" step="1" value={appearance.durationSeconds} onChange={event => update({ durationSeconds: Number(event.target.value) })}/><small>How long the celebration stays on screen.</small></label>}
     </div>
     <div className="flow-celebration-sound">
+      {appearance.hypeLifecycle && <label>PLAYBACK<select value={fullTrack ? "music" : "short"} onChange={event => {
+        const music = event.target.value === "music"; setFullTrack(music);
+        if (sound?.preset === "upload") { const next = { ...sound }; if (music) next.playback = "hype-loop"; else delete next.playback; update({ sound: next }); }
+      }}><option value="short">Short event sound</option><option value="music">Background music · loop for the whole train</option></select><small>Music keeps playing through level changes and stops when the train ends. Viewers must enable sound.</small></label>}
       <label>SOUND<select value={sound?.preset || "none"} onChange={event => chooseSound(event.target.value)}><option value="none">None · silent</option>{sound?.preset === "upload" && <option value="upload">My uploaded sound</option>}{CELEBRATION_SOUNDS.map(preset => <option key={preset} value={preset}>{celebrationSoundLabels[preset] || preset}</option>)}</select></label>
-      <div className="flow-upload-sound"><strong>{sound?.preset === "upload" ? sound.name : "Use your own sound"}</strong><p>Choose an MP3 or WAV, up to 10 MB. We use its first 15 seconds. It uploads when you publish.</p><button type="button" className="flow-secondary" disabled={preparing} onClick={() => fileInput.current?.click()}>{preparing ? "Preparing sound…" : sound?.preset === "upload" ? "Replace sound file" : "Choose sound file"}</button><input hidden ref={fileInput} type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" aria-label="Upload celebration sound" disabled={preparing} onChange={async event => {
+      <div className="flow-upload-sound"><strong>{sound?.preset === "upload" ? sound.name : "Use your own sound"}</strong><p>{fullTrack ? "Choose a full MP3, up to 1.5 MB and 5 minutes. It loops while the train is active. Upload once, then apply it to all train events below." : "Choose an MP3 or WAV, up to 10 MB. We use its first 15 seconds. It uploads when you publish."}</p><button type="button" className="flow-secondary" disabled={preparing} onClick={() => fileInput.current?.click()}>{preparing ? "Preparing sound…" : sound?.preset === "upload" ? "Replace sound file" : "Choose sound file"}</button><input hidden ref={fileInput} type="file" accept={fullTrack ? ".mp3,audio/mpeg" : ".mp3,.wav,audio/mpeg,audio/wav"} aria-label="Upload celebration sound" disabled={preparing} onChange={async event => {
         const file = event.target.files?.[0]; event.target.value = "";
         if (!file) return;
         setPreparing(true); setSampleStatus(""); samplePlayer.current?.stop();
-        try { const prepared = await prepareSound(file); update({ sound: { preset: "upload", url: prepared.url, name: prepared.name, volume: sound?.volume ?? 70 } }); setSampleStatus(`${prepared.name} ready${prepared.trimmed ? " · trimmed to 15 seconds" : ""}. Press Hear sound to check it.`); }
+        try { const prepared = await prepareSound(file, { fullTrack }); update({ sound: { preset: "upload", url: prepared.url, name: prepared.name, volume: sound?.volume ?? 70, ...(fullTrack ? { playback: "hype-loop" } : {}) } }); setSampleStatus(`${prepared.name} ready${prepared.trimmed ? " · trimmed to 15 seconds" : ""}. Press Hear sound to check it.`); }
         catch (error) { setSampleStatus(error.message); }
         finally { setPreparing(false); }
       }}/></div>

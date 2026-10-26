@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
-import { soundRequest, validateSoundWav, MAX_SOUNDS_PER_CHANNEL, MAX_TOTAL_SOUNDS } from "../server/sound-service.mjs";
+import { soundRequest, validateSoundWav, validateSoundMp3, MAX_SOUNDS_PER_CHANNEL, MAX_TOTAL_SOUNDS } from "../server/sound-service.mjs";
 import worker from "../server/image-worker.mjs";
 import { SOUND_ORIGIN, hostedSound } from "../src/sound-address.mjs";
-import { validateCelebrationSound, isUploadedSound } from "../src/sound-contract.mjs";
+import { validateCelebrationSound, isUploadedSound, inspectSoundMp3, MAX_MP3_BYTES } from "../src/sound-contract.mjs";
 
 const origin = "https://test-extension.ext-twitch.tv";
 const channel = "123";
@@ -21,6 +21,12 @@ function wav(samples = 160) {
   view.setUint16(22, 1, true); view.setUint32(24, 16000, true);
   view.setUint32(28, 32000, true); view.setUint16(32, 2, true);
   view.setUint16(34, 16, true); tag(36, "data"); view.setUint32(40, samples * 2, true);
+  return data;
+}
+function mp3(frameCount = 2) {
+  // MPEG-1 Layer III, 32 kbps, 44.1 kHz, no padding: 104 bytes per frame.
+  const data = new Uint8Array(frameCount * 104);
+  for (let i = 0; i < frameCount; i++) data.set([0xff, 0xfb, 0x10, 0x00], i * 104);
   return data;
 }
 function env() {
@@ -74,6 +80,27 @@ test("canonical mono PCM WAV header, sample count, and duration are enforced", (
   assert.throws(() => validateSoundWav(new Uint8Array(500001)));
 });
 
+test("MP3 parser validates a complete Layer III frame chain, metadata bounds, and five-minute duration", () => {
+  const two = mp3();
+  assert.equal(inspectSoundMp3(two).frameCount, 2);
+  assert.equal(validateSoundMp3(mp3(6432)).frameCount, 6432);
+  assert.ok(inspectSoundMp3(mp3(6432)).durationSeconds > 168);
+  const tagged = new Uint8Array(14 + two.length + 128);
+  tagged.set([0x49, 0x44, 0x33, 4, 0, 0, 0, 0, 0, 4], 0);
+  tagged.set([1, 2, 3, 4], 10); tagged.set(two, 14);
+  tagged.set([0x54, 0x41, 0x47], 14 + two.length);
+  assert.equal(inspectSoundMp3(tagged).frameCount, 2);
+  for (const bad of [new Uint8Array([...two, 0]), two.slice(0, -1),
+    new Uint8Array(500), new Uint8Array(MAX_MP3_BYTES + 1)])
+    assert.equal(inspectSoundMp3(bad), null);
+  for (const [offset, byte] of [[1, 0xf3], [2, 0x00], [2, 0x1c]]) {
+    const bad = two.slice(); bad[offset] = byte;
+    assert.equal(inspectSoundMp3(bad), null);
+  }
+  const tooLong = mp3(11485);
+  assert.equal(inspectSoundMp3(tooLong), null);
+});
+
 test("uploads require trusted broadcaster claims, exact origin, and channel gate", async () => {
   const e = env();
   for (const badClaims of [undefined, { ...claims(), role: "viewer" },
@@ -114,6 +141,16 @@ test("Worker sound route verifies the JWT before passing claims and serves a pub
   assert.equal(played.status, 200);
   assert.equal(played.headers.get("access-control-allow-origin"), "*");
   assert.deepEqual(new Uint8Array(await played.arrayBuffer()), wav());
+  const musicUpload = await worker.fetch(new Request("https://service.example/sounds/123", {
+    method: "POST", headers: { origin, authorization: `Bearer ${await jwt()}`, "content-type": "audio/mpeg" }, body: mp3(),
+  }), e);
+  assert.equal(musicUpload.status, 201);
+  const musicPath = (await musicUpload.json()).path;
+  assert.match(musicPath, /^\/sounds\/123\/[a-f0-9]{64}\.mp3$/);
+  const music = await worker.fetch(new Request(`https://service.example${musicPath}`), e);
+  assert.equal(music.headers.get("content-type"), "audio/mpeg");
+  assert.deepEqual(new Uint8Array(await music.arrayBuffer()), mp3());
+  assert.equal((await worker.fetch(new Request(`https://service.example${musicPath.replace(".mp3", ".wav")}`), e)).status, 404);
   e.db.close();
 });
 
@@ -125,6 +162,7 @@ test("strict uploads deduplicate, read publicly, and reject malformed and oversi
     assert.equal(response.status, body.length > 500000 ? 413 : 415);
   }
   assert.equal((await soundRequest(request({ type: "audio/mpeg" }), e, channel, { claims: claims() })).status, 415);
+  assert.equal((await soundRequest(request({ type: "audio/mpeg", body: new Uint8Array(MAX_MP3_BYTES + 1) }), e, channel, { claims: claims() })).status, 413);
   assert.equal(count(e), 0);
   const first = await soundRequest(request(), e, channel, { claims: claims() });
   assert.equal(first.status, 201);
@@ -161,6 +199,15 @@ test("channel and total admission are atomic while an existing sound can still r
     total.db.prepare("INSERT INTO sounds VALUES (?, ?, ?, ?, ?)").run(String(i + 1), String(i).padStart(64, "0"), wav(), wav().length, i);
   assert.equal((await soundRequest(request(), total, channel, { claims: claims() })).status, 409);
   total.db.close();
+  const music = env();
+  assert.equal((await soundRequest(request({ type: "audio/mpeg", body: mp3() }), music, channel, { claims: claims() })).status, 201);
+  const addMusic = music.db.prepare("INSERT INTO sound_music VALUES (?, ?, ?, ?, ?)");
+  for (let i = 0; i < MAX_SOUNDS_PER_CHANNEL - 1; i++)
+    addMusic.run(channel, String(i).padStart(64, "0"), mp3(), mp3().length, i);
+  assert.equal((await soundRequest(request({ type: "audio/mpeg", body: mp3() }), music, channel, { claims: claims() })).status, 201);
+  const changedMusic = mp3(); changedMusic[5] = 1;
+  assert.equal((await soundRequest(request({ type: "audio/mpeg", body: changedMusic }), music, channel, { claims: claims() })).status, 409);
+  music.db.close();
 });
 
 test("shared sound contract accepts own hosted or bounded inline URLs only", () => {
@@ -175,6 +222,14 @@ test("shared sound contract accepts own hosted or bounded inline URLs only", () 
   assert.deepEqual(validateCelebrationSound(inline), inline);
   assert.throws(() => validateCelebrationSound(inline, { allowInline: false }));
   assert.throws(() => validateCelebrationSound({ ...own, url: `data:audio/wav;base64,${Buffer.from("not wav").toString("base64")}` }));
+  const music = { ...own, url: `${SOUND_ORIGIN}/sounds/123/${"b".repeat(64)}.mp3`, playback: "hype-loop" };
+  assert.equal(hostedSound(music.url, channel), true);
+  assert.deepEqual(validateCelebrationSound(music, { channel }), music);
+  const inlineMusic = { ...music, url: `data:audio/mpeg;base64,${Buffer.from(mp3()).toString("base64")}` };
+  assert.deepEqual(validateCelebrationSound(inlineMusic), inlineMusic);
+  assert.throws(() => validateCelebrationSound(inlineMusic, { allowInline: false }));
+  assert.throws(() => validateCelebrationSound({ ...music, playback: "repeat" }));
+  assert.throws(() => validateCelebrationSound({ ...music, extra: true }));
   for (const bad of [{ ...own, url: address.replace("/123/", "/456/") },
     { ...own, url: "https://other.example/sounds/123/" + "a".repeat(64) + ".wav" },
     { ...own, extra: true }, { ...own, name: " ".repeat(81) },

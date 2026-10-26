@@ -213,12 +213,12 @@ test("active catch-up preserves only valid saved celebration appearance metadata
 
 test("hosted celebration publication keeps own uploaded sound and rejects unsaved sound substitutions", async t => {
   const s = fixture(t), candidate = design();
-  const sound = { preset: "upload", url: `${SOUND_ORIGIN}/sounds/123/${"a".repeat(64)}.wav`, name: "Subscriber welcome", volume: 72 };
+  const sound = { preset: "upload", url: `${SOUND_ORIGIN}/sounds/123/${"a".repeat(64)}.mp3`, name: "Train theme", volume: 72, playback: "hype-loop" };
   const appearance = { style: "spotlight", color: "#abcdef", durationSeconds: 14, sound };
   candidate.rules[0].effect.appearance = appearance;
   for (const url of [
-    `${SOUND_ORIGIN}/sounds/456/${"a".repeat(64)}.wav`,
-    "https://other.example/sounds/123/" + "a".repeat(64) + ".wav",
+    `${SOUND_ORIGIN}/sounds/456/${"a".repeat(64)}.mp3`,
+    "https://other.example/sounds/123/" + "a".repeat(64) + ".mp3",
   ]) {
     const wrong = structuredClone(candidate); wrong.rules[0].effect.appearance.sound.url = url;
     assert.equal((await s.save(wrong)).status, 400);
@@ -239,7 +239,7 @@ test("hosted celebration publication keeps own uploaded sound and rejects unsave
   assert.equal(fired.status, 200);
   assert.deepEqual(fired.body.event.effect.appearance.sound, sound);
   assert.deepEqual((await s.call("active", { at: now + 1000 })).body.event.effect.appearance.sound, sound);
-  for (const altered of [{ ...sound, name: "Different clip" }, { ...sound, url: `${SOUND_ORIGIN}/sounds/123/${"b".repeat(64)}.wav` }]) {
+  for (const altered of [{ ...sound, name: "Different clip" }, { ...sound, url: `${SOUND_ORIGIN}/sounds/123/${"b".repeat(64)}.mp3` }, { ...sound, playback: undefined }]) {
     const request = { eventId: crypto.randomUUID(), type: "celebrate", message: "The party is here", appearance: { ...appearance, sound: altered } };
     assert.equal((await s.call("fire", { method: "POST", input: request, at: now + 9000 })).status, 409);
   }

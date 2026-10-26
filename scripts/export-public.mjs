@@ -19,6 +19,7 @@ const output = path.join(outputs, folder);
 if (path.dirname(output) !== outputs) throw new Error("Export must stay inside outputs.");
 
 const required = [
+  "src/hype-audio.mjs", "tests/hype-audio.test.mjs",
   "src/sounds.mjs", "src/sound-address.mjs", "src/sound-contract.mjs", "server/sound-service.mjs", "server/sound-schema.sql", "tests/sounds.test.mjs", "tests/sound-service.test.mjs",
   "package.json", "package-lock.json", "vite.config.js",
   "index.html", "config.html", "viewer.html", "automations.html", "mobile.html",

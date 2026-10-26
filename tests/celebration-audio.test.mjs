@@ -118,7 +118,7 @@ test("uploaded sound only decodes after unlock and clamps playback gain and dura
   assert.equal(await played.playSound(sound, 200), true);
   assert.equal(decoded, 1);
   assert.deepEqual(made.source.started, [0, 0, 14]);
-  assert.equal(made.gains.at(-1).gain.values[0], 0.12);
+  assert.equal(made.gains.at(-1).gain.values[0], 1, "100% uploaded sound uses the file's original level");
   played.stop();
   await played.dispose();
 });
@@ -147,5 +147,39 @@ test("oversized hosted sound is refused before decoding", async () => {
   const player = createCelebrationPlayer(Context, async () => ({ ok: true, headers: { get: () => "500001" } }));
   await player.unlock();
   assert.equal(await player.playSound({ preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, volume: 100 }), false);
+  await player.dispose();
+});
+
+test("Hype music loops only with explicit permission and stops at lifecycle end", async () => {
+  const { Context, made } = mockContext("running");
+  Context.prototype.decodeAudioData = async () => ({ duration: 168 });
+  const sources = [];
+  Context.prototype.createBufferSource = () => {
+    const source = { loop: false, connect() {}, disconnect() {}, start(...args) { this.started = args; }, stop() { this.stopped = true; } };
+    sources.push(source); return source;
+  };
+  const file = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.mp3`, name: "Full song", volume: 80, playback: "hype-loop" };
+  const fetcher = async () => ({ ok: true, headers: { get: () => "4" }, async arrayBuffer() { return new Uint8Array([1, 2, 3, 4]).buffer; } });
+  const player = createCelebrationPlayer(Context, fetcher);
+  await player.unlock();
+  assert.equal(await player.playSound(file, 100), true);
+  assert.equal(sources[0].loop, false);
+  assert.deepEqual(sources[0].started, [0, 0, 15]);
+  player.stop();
+  assert.equal(await player.playSound(file, 100, { loop: true }), true);
+  assert.equal(sources[1].loop, true);
+  assert.deepEqual(sources[1].started, [0]);
+  assert.equal(made.gains.at(-1).gain.values[0], 0.8);
+  assert.equal(player.setVolume(25), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 0.2);
+  assert.equal(sources[1].stopped, undefined, "changing viewer volume leaves the loop running");
+  assert.equal(player.setVolume(1000), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 0.8, "viewer volume cannot boost beyond the original file level");
+  assert.equal(player.setVolume(0), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 0);
+  player.stop();
+  assert.equal(sources[1].stopped, true);
+  assert.equal(await player.playSound(file, 70, { loop: true }), true, "re-enabling after mute may play the same Hype sound again");
+  assert.equal(sources[2].loop, true);
   await player.dispose();
 });

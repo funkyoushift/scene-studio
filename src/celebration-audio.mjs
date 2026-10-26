@@ -7,9 +7,11 @@ const TONES = Object.freeze({
   train: Object.freeze({ train: true }),
 });
 const MAX_GAIN = 0.12;
+const MAX_UPLOAD_GAIN = 1;
 const MAX_PLAY_MS = 3000;
 import { hostedSound } from "./sound-address.mjs";
 import { localSoundBytes } from "./sounds.mjs";
+import { MAX_MP3_BYTES } from "./sound-contract.mjs";
 
 function clampVolume(value) {
   const numeric = Number(value);
@@ -25,6 +27,9 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
   let generation = 0;
   let pending = false;
   let fetchController = null;
+  let activeUploadGain = null;
+  let uploadEventVolume = 100;
+  let viewerVolumeNow = 100;
 
   async function unlock() {
     if (disposed) throw new Error("Celebration audio has been stopped.");
@@ -43,6 +48,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     cleanupTimer = null;
     const nodes = activeNodes;
     activeNodes = [];
+    activeUploadGain = null;
     for (const node of nodes) {
       try { node.stop?.(); } catch { /* It may already have ended. */ }
       try { node.disconnect?.(); } catch { /* Release best-effort. */ }
@@ -140,11 +146,24 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     releaseNodes();
   }
 
-  async function playSound(sound, viewerVolume = 100) {
+  function setVolume(value) {
+    viewerVolumeNow = clampVolume(value);
+    if (disposed || !context || context.state !== "running" || !activeUploadGain) return false;
+    activeUploadGain.gain.setValueAtTime(MAX_UPLOAD_GAIN * viewerVolumeNow * uploadEventVolume / 10_000, context.currentTime || 0);
+    return true;
+  }
+
+  async function playSound(sound, viewerVolume = 100, { loop = false } = {}) {
     if (disposed || !context || context.state !== "running" || pending || activeNodes.length || !sound || typeof sound !== "object") return false;
-    const volume = clampVolume(viewerVolume) * clampVolume(sound.volume ?? 100) / 100;
+    viewerVolumeNow = clampVolume(viewerVolume);
+    const volume = viewerVolumeNow * clampVolume(sound.volume ?? 100) / 100;
     if (sound.preset !== "upload") return play(sound.preset, volume);
-    if (volume <= 0) return false;
+    const fullTrack = sound.playback === "hype-loop";
+    const shouldLoop = fullTrack && loop === true;
+    if (volume <= 0 && !shouldLoop) return false;
+    uploadEventVolume = clampVolume(sound.volume ?? 100);
+    const mp3 = typeof sound.url === "string" && (sound.url.endsWith(".mp3") || sound.url.startsWith("data:audio/mpeg;base64,"));
+    const byteLimit = mp3 ? MAX_MP3_BYTES : 500_000;
     let bytes;
     const hosted = hostedSound(sound.url);
     if (!hosted) {
@@ -161,7 +180,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
           const response = await fetcher(sound.url, { credentials: "omit", redirect: "error", signal: controller.signal });
           if (!response.ok || mine !== generation || disposed) return false;
           const size = Number(response.headers?.get?.("content-length"));
-          if (Number.isFinite(size) && size > 500_000) return false;
+          if (Number.isFinite(size) && size > byteLimit) return false;
           if (response.body?.getReader) {
             const reader = response.body.getReader();
             const chunks = [];
@@ -172,7 +191,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
                 if (next.done) break;
                 if (mine !== generation || disposed) return false;
                 total += next.value.byteLength;
-                if (total > 500_000) return false;
+                if (total > byteLimit) return false;
                 chunks.push(next.value);
               }
             } finally { try { await reader.cancel(); } catch { /* Already closed. */ } }
@@ -181,21 +200,25 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
             for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
           } else {
             bytes = new Uint8Array(await response.arrayBuffer());
-            if (bytes.length > 500_000) return false;
+            if (bytes.length > byteLimit) return false;
           }
         } finally { clearTimeout(timeout); if (fetchController === controller) fetchController = null; }
       }
-      if (mine !== generation || disposed || !bytes?.length) return false;
+      if (mine !== generation || disposed || !bytes?.length || bytes.length > byteLimit) return false;
       const buffer = await context.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-      if (mine !== generation || disposed || context.state !== "running" || !Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > 15.05) return false;
+      if (mine !== generation || disposed || context.state !== "running" || !Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > (mp3 ? 300.05 : 15.05)) return false;
       const source = context.createBufferSource();
       const gain = context.createGain();
       source.buffer = buffer;
-      gain.gain.setValueAtTime(MAX_GAIN * volume / 100, context.currentTime || 0);
+      source.loop = shouldLoop;
+      gain.gain.setValueAtTime(MAX_UPLOAD_GAIN * viewerVolumeNow * uploadEventVolume / 10_000, context.currentTime || 0);
       source.connect(gain); gain.connect(context.destination);
       activeNodes.push(source, gain);
-      source.start(0, 0, Math.min(15, buffer.duration));
-      cleanupTimer = setTimeout(releaseNodes, Math.ceil(Math.min(15, buffer.duration) * 1000) + 80);
+      activeUploadGain = gain;
+      const playSeconds = Math.min(15, buffer.duration);
+      if (shouldLoop) source.start(0);
+      else source.start(0, 0, playSeconds);
+      if (!shouldLoop) cleanupTimer = setTimeout(releaseNodes, Math.ceil(playSeconds * 1000) + 80);
       return true;
     } catch { if (mine === generation) releaseNodes(); return false; }
     finally { if (mine === generation) pending = false; }
@@ -212,7 +235,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     }
   }
 
-  return Object.freeze({ unlock, play, playSound, stop, dispose });
+  return Object.freeze({ unlock, play, playSound, setVolume, stop, dispose });
 }
 
 export const CELEBRATION_SOUND_PRESETS = Object.freeze(Object.keys(TONES));

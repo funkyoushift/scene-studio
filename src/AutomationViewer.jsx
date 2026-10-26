@@ -4,6 +4,7 @@ import { watchAutomationEvents } from "./automation-twitch.mjs";
 import Celebration from "./Celebration.jsx";
 import CelebrationAudio from "./CelebrationAudio.jsx";
 import HypeTrain from "./HypeTrain.jsx";
+import { hypeAudio } from "./hype-audio.mjs";
 
 // This component deliberately imports no editor CSS: html/body and the video
 // stay transparent, and only the visible object captures pointer events.
@@ -39,8 +40,8 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
   const visibleHype = hype && hype.hype.id !== hiddenTrain ? hype : null;
   const hypeView = visibleHype && <div className={`ss-hype-live${viewMode === "mobile" ? " ss-hype-mobile" : ""}`}><HypeTrain event={visibleHype} onDismiss={() => setHiddenTrain(visibleHype.hype.id)}/></div>;
   const soundEvent = visibleHype || active?.event;
-  const soundKey = visibleHype ? `${visibleHype.hype.id}:${visibleHype.hype.level}:${visibleHype.hype.phase}` : active?.event.eventId;
-  const soundControls = <div style={viewMode === "mobile" ? { position: "relative", zIndex: 1100 } : { position: "fixed", right: "3%", bottom: "8%", zIndex: 1100, pointerEvents: "none", maxWidth: "94%" }}><CelebrationAudio key={auth?.channelId || "disconnected"} eventId={soundKey} sound={soundEvent?.effect.appearance?.sound} expires={soundEvent?.expires} /></div>;
+  const audio = visibleHype ? hypeAudio(visibleHype) : { eventId: active?.event.eventId, sound: soundEvent?.effect.appearance?.sound, expires: soundEvent?.expires, loop: false };
+  const soundControls = <div style={viewMode === "mobile" ? { position: "relative", zIndex: 1100 } : { position: "fixed", right: "3%", bottom: "8%", zIndex: 1100, pointerEvents: "none", maxWidth: "94%" }}><CelebrationAudio key={auth?.channelId || "disconnected"} {...audio} /></div>;
   if (!active || !creator?.login) return <>{hypeView}{soundControls}{viewMode === "mobile" && !visibleHype ? <section className="mobile-live-status" aria-label="Live moments connection">
     <p role="status">{connection.message}</p>
     <button className="mobile-secondary" disabled={connection.state === "loading"} onClick={() => setRetry(value => value + 1)}>Reconnect live moments</button>

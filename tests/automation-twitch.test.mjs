@@ -178,6 +178,19 @@ test("viewer requires the saved uploaded sound URL and name", async () => {
   stop();
 });
 
+test("viewer requires saved Hype music playback mode as well as MP3 address", async () => {
+  const sound = { preset: "upload", url: `${IMAGE_ORIGIN}/sounds/123/${"c".repeat(64)}.mp3`, name: "Train music", volume: 70, playback: "hype-loop" };
+  const saved = config(); saved.design.rules[0].effect.appearance = { style: "hype-train", color: "#123456", durationSeconds: 8, sound };
+  const shown = [], h = helper();
+  const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async () => reply(saved), () => 2000);
+  await flush();
+  const appearance = saved.design.rules[0].effect.appearance;
+  await send(h, event({ eventId: "music-ok", effect: { type: "celebrate", message: "Hooray", appearance } }));
+  await send(h, event({ eventId: "music-mode-removed", effect: { type: "celebrate", message: "Hooray", appearance: { ...appearance, sound: { preset: "upload", url: sound.url, name: sound.name, volume: sound.volume } } } }));
+  assert.deepEqual(shown.map(value => value.eventId), ["music-ok"]);
+  stop();
+});
+
 test("fire uses a fresh event ID and preserves uncertain outcomes without automatic retry", async () => {
   const calls = [];
   const result = await fireAutomation(auth, { type: "celebrate", message: "Hooray" }, async (url, options) => { calls.push(JSON.parse(options.body)); return reply({ status: "uncertain" }); });

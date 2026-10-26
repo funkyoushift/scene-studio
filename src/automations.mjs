@@ -1,6 +1,6 @@
 // Local-preview data and evaluation only. No chat subscription, timers, storage,
 // network requests, publishing, or effect rendering happen in this module.
-import { MAX_IMPORT_BYTES, bytes, validateScene } from "./scene.mjs";
+import { bytes, validateScene } from "./scene.mjs";
 import { validateCelebrationSound } from "./sound-contract.mjs";
 
 export const AUTOMATION_LIMITS = Object.freeze({
@@ -10,6 +10,7 @@ export const AUTOMATION_LIMITS = Object.freeze({
   cooldownSeconds: Object.freeze([0, 3600]),
 });
 export const AUTOMATION_DESIGN_BYTES = 65_536;
+export const AUTOMATION_IMPORT_BYTES = 12_000_000;
 export const CELEBRATION_STYLES = Object.freeze([
   "confetti", "spotlight", "hype-train", "hearts", "starfall", "fireworks",
   "bubbles", "meteor", "aurora", "arcade", "petals", "orbit",
@@ -258,12 +259,12 @@ export function validateAutomations(input) {
       return { id, name, ruleIds, carouselIds };
     });
   }
-  if (bytes(JSON.stringify(result)) > MAX_IMPORT_BYTES) throw new Error("Automation designs must stay under 2 MB. Use smaller images.");
+  if (bytes(JSON.stringify(result)) > AUTOMATION_IMPORT_BYTES) throw new Error("Automation drafts must stay under 12 MB. Publish uploaded media or use smaller files.");
   return result;
 }
 
 export function parseAutomations(source) {
-  if (typeof source !== "string" || bytes(source) > MAX_IMPORT_BYTES) throw new Error("Import an automation JSON file under 2 MB.");
+  if (typeof source !== "string" || bytes(source) > AUTOMATION_IMPORT_BYTES) throw new Error("Import an automation JSON file under 12 MB.");
   let value;
   try { value = JSON.parse(source); } catch { throw new Error("The automation design is not valid JSON."); }
   return validateAutomations(value);
