@@ -20,12 +20,13 @@ if (path.dirname(output) !== outputs) throw new Error("Export must stay inside o
 
 const required = [
   "package.json", "package-lock.json", "vite.config.js",
-  "index.html", "config.html", "viewer.html", "automations.html",
+  "index.html", "config.html", "viewer.html", "automations.html", "mobile.html",
   "src/image-address.mjs", "src/images.mjs", "src/main.jsx", "src/party.mjs",
   "src/scene.mjs", "src/style.css", "src/templates.mjs", "src/twitch.mjs",
   "src/AutomationStudio.jsx", "src/DeveloperPanel.jsx", "src/automation-entry.jsx",
   "src/automations.css", "src/automations.mjs",
   "src/AutomationViewer.jsx", "src/automation-twitch.mjs",
+  "src/MobileViewer.jsx", "src/mobile-entry.jsx", "src/mobile.css",
   "server/chat-authorization.mjs", "server/image-worker.mjs",
   "server/party-service.mjs", "server/public-pages.mjs", "server/schema.sql",
   "server/developer-service.mjs", "server/developer-schema.sql",
@@ -33,6 +34,7 @@ const required = [
   "tests/chat-authorization.test.mjs", "tests/chat-ui.test.mjs",
   "tests/image-client.test.mjs", "tests/images.test.mjs", "tests/party.test.mjs",
   "tests/scene.test.mjs", "tests/templates.test.mjs", "tests/twitch.test.mjs",
+  "tests/mobile-viewer.test.mjs",
   "tests/automations.test.mjs",
   "tests/automation-service.test.mjs", "tests/automation-twitch.test.mjs", "tests/automation-router.test.mjs", "tests/chat-triggers.test.mjs",
   "tests/developer-service.test.mjs", "tests/developer-router.test.mjs",
@@ -152,13 +154,14 @@ sharing. Existing image and chat services run on Cloudflare, not a local PC.
 Version 0.3 implements channel-owned carousel and celebration rules, authenticated
 publishing and manual effects, Twitch viewer broadcasts, hosted timers and optional
 real chat-keyword input through EventSub. Its Cloudflare backend is deployed and
-its package is uploaded to Hosted Test and active as Overlay 1 on Shift. The
+its package was tested as Overlay 1 on Shift before the 0.4 upgrade below. The
 actual hosted editor published automation revision 1 and uploaded three images.
 Shift completed optional trigger OAuth and its listener is enabled. In the actual
 live Twitch player, the carousel rendered, Next showed the shirt as item 2 of 3,
-the configured product destination was verified, and dismissal worked. This
-does not establish purchase completion, chat-keyword delivery or timer delivery;
-the latter two still await live qualification. Rev also completed its four-scope
+the configured product destination was verified, and dismissal worked. Both actual
+merch/party chat-triggered viewer effects and the scheduled carousel were later
+observed in the live Twitch player. This does not establish purchase completion.
+Rev also completed its four-scope
 trigger authorization and has an enabled listener, while remaining on active
 0.1. Version 0.1 remains in review. Browser test
 messages/events remain simulations; simulation is not live integration evidence.
@@ -170,7 +173,27 @@ is not stored, and trigger receipt IDs/timestamps/status expire after 24 hours.
 Hosted timers use minute scheduling and require intervals of at least 60 seconds.
 The rule editor supports file import and a JSON-paste alternative. These hosted
 paths do not require the creator's PC to stay on. The current source
-suite passes 122 tests; automated coverage does not establish live delivery.
+suite passes 129 tests; automated coverage does not establish live delivery.
+
+Version 0.4 source adds none, float, pulse and sway object motion presets. Browser
+checks confirmed preview motion, dragging without changing object size, and the
+reduced-motion setting disabling animation. Animated GIF uploads still become
+still images; uploaded video and actual game integration are not implemented.
+
+A lean mobile.html viewer is also prepared for 0.4. Browser fixtures at portrait,
+narrow and wide sizes showed no horizontal overflow, 44px buttons and working
+on-demand images/personal reactions. Six tests cover the mobile viewer. Its static
+HTML/JS/CSS total is 631045 bytes, excluding Twitch's helper, runtime configuration
+and on-demand images. Twitch accepted the 0.4 package in Hosted Test with
+mobile.html configured, and confirmed Shift's activation in Overlay 1. Its hosted
+configuration loaded two existing objects; publishing float motion reported Sent
+to Twitch. After reloading and accepting Twitch's test disclosure, both saved
+objects appeared in the actual 0.4 desktop viewer. The first retained its float
+motion class; the operating system's reduced-motion preference correctly disabled
+animation. An authorized merch chat message again displayed the live carousel.
+Native Twitch iOS/Android testing remains pending. Browser fixtures are not native
+mobile proof. Rev stays on active
+0.1, which remains in review. The same free backend now allows version 0.4.
 
 On the hosted site, the developer panel provides a roadmap and event simulation
 without contacting localhost. No real game integration is claimed.

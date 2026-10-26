@@ -324,11 +324,9 @@ function Scene({
         </div>
       )}
       {scene.objects.map((o) => (
-        <button
+        <div
           key={o.id}
-          aria-label={editing ? `Edit ${o.title}` : o.title}
-          title={[o.title, o.caption].filter(Boolean).join(" — ")}
-          className={`scene-object ${o.shape} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""}`}
+          className="scene-object-frame"
           style={{
             left: o.x + "%",
             top: o.y + "%",
@@ -336,6 +334,12 @@ function Scene({
             height: o.height + "%",
             "--accent": o.color,
           }}
+        >
+        <div className={`scene-object-motion motion-${!editing && ["float", "pulse", "sway"].includes(o.motion) ? o.motion : "none"}`}>
+        <button
+          aria-label={editing ? `Edit ${o.title}` : o.title}
+          title={[o.title, o.caption].filter(Boolean).join(" — ")}
+          className={`scene-object ${o.shape} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""}`}
           onClick={() => activate(o)}
           onPointerDown={(e) => {
             if (!editing || e.button !== 0) return;
@@ -423,6 +427,8 @@ function Scene({
             </span>
           )}
         </button>
+        </div>
+        </div>
       ))}
       {!scene.objects.length && backdrop && (
         <div className="empty-stage">
@@ -1133,6 +1139,16 @@ function Editor() {
                     />
                   </label>
                 </div>
+                <label>
+                  Motion
+                  <select value={object.motion ?? "none"} onChange={(e) => update({ motion: e.target.value })}>
+                    <option value="none">Off</option>
+                    <option value="float">Gentle float</option>
+                    <option value="pulse">Pulse</option>
+                    <option value="sway">Sway</option>
+                  </select>
+                  <small>Plays in the viewer preview. Objects stay still while you place them. Reduced-motion preferences are respected.</small>
+                </label>
                 {object.action !== "party" && <label>
                   Icon
                   <span className="icon-picker">

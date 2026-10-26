@@ -4,6 +4,7 @@ export const STORAGE_KEY = "scene-studio-draft-v1";
 export const MAX_OBJECTS = 12;
 export const MAX_IMPORT_BYTES = 2_000_000;
 export const ACTIONS = ["reveal", "counter", "celebrate", "party", "link"];
+export const MOTIONS = ["none", "float", "pulse", "sway"];
 export const ICONS = [
   "spark",
   "heart",
@@ -55,6 +56,7 @@ export function newObject(kind = "reveal") {
     height: 24,
     color: "#a3e635",
     shape: "card",
+    motion: "none",
     image: "",
     url: "",
   };
@@ -117,6 +119,7 @@ export function validateScene(input) {
       if(o.action === "party" && !Object.hasOwn(PARTY_PRESETS,o.preset ?? "ducks")) fail("Choose a supported celebration.");
       if (!["card", "pill", "circle", "showcase", "sticker"].includes(o.shape))
         fail("Unknown appearance.");
+      if (!MOTIONS.includes(o.motion ?? "none")) fail("Choose a supported motion.");
       if (!/^#[0-9a-f]{6}$/i.test(o.color)) fail("Use a six-digit hex color.");
       const width = range(o.width, 10, 80, "Width"),
         height = range(o.height, 10, 60, "Height");
@@ -137,6 +140,7 @@ export function validateScene(input) {
         ...(o.action === "party" ? {preset:o.preset ?? "ducks"} : {}),
         icon: o.icon,
         shape: o.shape,
+        motion: o.motion ?? "none",
         color: o.color,
         width,
         height,
@@ -188,5 +192,5 @@ export function twitchContent(scene) {
   return content;
 }
 export function aiPrompt(scene) {
-  return `Create a Scene Studio design as JSON only. This is configuration for an existing Twitch extension, not executable code. No HTML, JavaScript, CSS, scripts, URLs to images, or new action types. Version 1, name (max 80 characters), objects array (max 12). Every object needs unique id, title (max 70), caption (max 100), detail (max 1200), action (reveal/counter/celebrate/party/link), icon (spark/heart/star/gift/info/bolt/message/link), shape (card/pill/circle/showcase/sticker; showcase places an image above a readable caption; sticker displays an uploaded image without a background or visible text), color (#RRGGBB), x/y/width/height (percentage numbers). Width 10–80, height 10–60, x 0–100-width, y 0–100-height. image must be empty. url must be empty unless action is link, then HTTPS only. Website links are local preview only pending Twitch review. counter and celebrate affect only the clicking viewer. party sends a shared celebration and fixed chat message; it requires preset (ducks/disco/confetti), currently works only on enabled private test channels for invited accounts, and cannot send custom chat text. Do not invent other presets. Keep compact JSON under 5000 UTF-8 bytes for Twitch. Modify this design based on my request, keeping existing IDs where possible:\n${JSON.stringify({ ...scene, objects: scene.objects.map((o) => ({ ...o, image: "" })) })}\n\nMy request: `;
+  return `Create a Scene Studio design as JSON only. This is configuration for an existing Twitch extension, not executable code. No HTML, JavaScript, CSS, scripts, URLs to images, or new action types. Version 1, name (max 80 characters), objects array (max 12). Every object needs unique id, title (max 70), caption (max 100), detail (max 1200), action (reveal/counter/celebrate/party/link), icon (spark/heart/star/gift/info/bolt/message/link), shape (card/pill/circle/showcase/sticker; showcase places an image above a readable caption; sticker displays an uploaded image without a background or visible text), motion (none/float/pulse/sway; defaults to none), color (#RRGGBB), x/y/width/height (percentage numbers). Width 10–80, height 10–60, x 0–100-width, y 0–100-height. image must be empty. url must be empty unless action is link, then HTTPS only. Website links are local preview only pending Twitch review. counter and celebrate affect only the clicking viewer. party sends a shared celebration and fixed chat message; it requires preset (ducks/disco/confetti), currently works only on enabled private test channels for invited accounts, and cannot send custom chat text. Do not invent other presets. Keep compact JSON under 5000 UTF-8 bytes for Twitch. Modify this design based on my request, keeping existing IDs where possible:\n${JSON.stringify({ ...scene, objects: scene.objects.map((o) => ({ ...o, image: "" })) })}\n\nMy request: `;
 }

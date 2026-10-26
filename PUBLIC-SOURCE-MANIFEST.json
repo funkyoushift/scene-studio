@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T01:29:26.184Z",
+  "createdUtc": "2026-10-26T01:56:22.810Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -100,6 +100,11 @@
       "sha256": "539f59652e1173629c3c64ba0a38a1da015481cd5a6a81de444ffa36a0369432"
     },
     {
+      "path": "mobile.html",
+      "bytes": 406,
+      "sha256": "68d587041f8e193d7797ae95b1d6aa135651302ab6a0b39dbc46e40c91eed291"
+    },
+    {
       "path": "package-lock.json",
       "bytes": 78399,
       "sha256": "369bed80749455451a02a4e193cbf685401effe24b747a16f9e66229387eaa86"
@@ -111,8 +116,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 8209,
-      "sha256": "1f0becbb9d6bd919663378134e178f0c3c7af53f3184cdd9b2ec4ad2a081ceb1"
+      "bytes": 9648,
+      "sha256": "64fc7b2ca29e5774e1dfb7115bdf326471a42f246ae474a0e3d9fbc4ecab19b8"
     },
     {
       "path": "scripts/build-pages.mjs",
@@ -136,8 +141,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 19238,
-      "sha256": "a00e2db577cfef8fbdcfa518a9cc8399a50a8b65c23deefc391659bc8b87cf77"
+      "bytes": 20817,
+      "sha256": "ec31d884e9a5075ff2b56dd760eaa8f095756874100784814358cd309b357ef3"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -151,8 +156,8 @@
     },
     {
       "path": "scripts/package-twitch.ps1",
-      "bytes": 1747,
-      "sha256": "6692521fbc3722462765dac1a6cb7d6877068e159334c299443d5ab655efeb78"
+      "bytes": 1777,
+      "sha256": "9720a17a615ee36970476c022a43d8945820f5bf04aac0f8d4e2084faf720762"
     },
     {
       "path": "server/automation-schema.sql",
@@ -236,8 +241,8 @@
     },
     {
       "path": "src/AutomationViewer.jsx",
-      "bytes": 4756,
-      "sha256": "5c52a4883fb5c4c5651fffdf4a66f17de9ffe48eb18330e3f343e6d6cf125523"
+      "bytes": 5822,
+      "sha256": "3a9439dc120c940a5094992a1c477f51491eb865b8310f4b5fba5adfeda6018e"
     },
     {
       "path": "src/DeveloperPanel.jsx",
@@ -256,8 +261,23 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 60086,
-      "sha256": "9cc342ad57b6411a9d8e7bd20c65f4f52e36b81cf6eeaecab63ecd47d506253e"
+      "bytes": 60905,
+      "sha256": "64577243313bc5450267f56dfcc2753c7cda01558948480e20ac9940c9109498"
+    },
+    {
+      "path": "src/mobile-entry.jsx",
+      "bytes": 215,
+      "sha256": "6ae436b192bb9d1641f8396b3fa15814bf0d399dfe426ae4afc8a24e6b72d962"
+    },
+    {
+      "path": "src/mobile.css",
+      "bytes": 2680,
+      "sha256": "bc5ec1b2cf9c44b2204d8ab8fecc148d2ccd4399a47cd8d040f16428534dbaaa"
+    },
+    {
+      "path": "src/MobileViewer.jsx",
+      "bytes": 10789,
+      "sha256": "76c2dd724cb36d8118166f0c8ea45ef2c6398548e70235c7db33b0f44fe256a4"
     },
     {
       "path": "src/party.mjs",
@@ -266,13 +286,13 @@
     },
     {
       "path": "src/scene.mjs",
-      "bytes": 7390,
-      "sha256": "0dab6802259acb86c53ee9a193e6bbdb92430951e67c85dfb34140335899eff4"
+      "bytes": 7640,
+      "sha256": "1ab33244bb3a9bb95b77660f6fe5d372c30edce7c27f6d2cb49bd5167d03d7b3"
     },
     {
       "path": "src/style.css",
-      "bytes": 30628,
-      "sha256": "fe087ca2425812f9a8a8c15c89b95c5ea6c41b2abdfb0f9c5e4a809b660c6c1b"
+      "bytes": 31849,
+      "sha256": "015102b075e9c3a046784d7e7e2b6cfc35df569a9b73f36abebb017eed594184"
     },
     {
       "path": "src/templates.mjs",
@@ -345,14 +365,19 @@
       "sha256": "4a3788b5e7dde3081a057d8c9d302d515f5f8c5e400dd59a03bd6501db131f4b"
     },
     {
+      "path": "tests/mobile-viewer.test.mjs",
+      "bytes": 6217,
+      "sha256": "aa18d1779f3b1e8a0b7eb1b8a41a61c265f291976855032aa3403d9a4a6a570c"
+    },
+    {
       "path": "tests/party.test.mjs",
       "bytes": 14419,
       "sha256": "b62c1d7871d76623129e53c0c60ee104fda9ab30180f667a748451462c5cc235"
     },
     {
       "path": "tests/scene.test.mjs",
-      "bytes": 2664,
-      "sha256": "e6ec865a3428b7a47cd450c5ec0ab97002c153f3dc1237fddc5b8258d43beb0e"
+      "bytes": 3291,
+      "sha256": "3e214d024509353b17c00887b7191472fc6cb449111eda7c0d670947bc90d7f8"
     },
     {
       "path": "tests/templates.test.mjs",
@@ -371,13 +396,13 @@
     },
     {
       "path": "vite.config.js",
-      "bytes": 442,
-      "sha256": "dd5b4a4be1a6e6c8c784270db0073e66cfbc274e76af5f5657cb112c5cc961e6"
+      "bytes": 482,
+      "sha256": "2e14eac86db5e27a7380f60c381b41e3080dad335417d84ff191dbd72e22c78b"
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 1333,
-      "sha256": "9270d1dee675288979c80533279080eac401c8d7d6cc3e20a4e3c37c8476acad"
+      "bytes": 1339,
+      "sha256": "2812b7e241c0d6a9b040fc0d57aa6705b3f602455957f74cd8d4cb88f1b0c71f"
     }
   ],
   "scan": {

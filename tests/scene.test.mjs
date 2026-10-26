@@ -33,6 +33,20 @@ test("links reject executable schemes, credentials, and malformed addresses", ()
     "https://example.com/store",
   );
 });
+test("motion presets survive portable and Twitch saves while legacy scenes stay still", () => {
+  for (const motion of ["none", "float", "pulse", "sway"]) {
+    const scene = starterScene();
+    scene.objects[0].motion = motion;
+    assert.equal(parseScene(twitchContent(scene)).objects[0].motion, motion);
+  }
+  const legacy = starterScene();
+  delete legacy.objects[0].motion;
+  assert.equal(validateScene(legacy).objects[0].motion, "none");
+  for (const value of ["spin", "url(https://example.com)", {}, 1]) {
+    legacy.objects[0].motion = value;
+    assert.throws(() => validateScene(legacy), /supported motion/);
+  }
+});
 test("imports reject invalid identities, actions, coordinates, and active images", () => {
   for (const mutate of [
     (s) => s.objects.push({ ...s.objects[0] }),

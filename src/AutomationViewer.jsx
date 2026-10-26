@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { watchAutomationEvents } from "./automation-twitch.mjs";
 
 // This component deliberately imports no editor CSS: html/body and the video
 // stay transparent, and only the visible object captures pointer events.
-export default function AutomationViewer({ helper, auth, creator }) {
+export default function AutomationViewer({ helper, auth, creator, viewMode = "overlay" }) {
   const [active, setActive] = useState(null), [slideIndex, setSlideIndex] = useState(0);
+  const container = useRef(null);
+  useEffect(() => {
+    if (active && viewMode === "mobile") container.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
+  }, [active, viewMode, creator?.login]);
   useEffect(() => {
     setActive(null);
     if (!helper || !auth?.token || !auth.channelId) return;
@@ -22,7 +26,7 @@ export default function AutomationViewer({ helper, auth, creator }) {
   const effect = active.event.effect;
   const carousel = effect.type === "carousel" ? active.config.design.carousels.find(c => c.id === effect.carouselId) : null;
   const slide = carousel?.slides[((slideIndex % carousel.slides.length) + carousel.slides.length) % carousel.slides.length];
-  return <div className="ss-live-automation">
+  return <div ref={container} className={`ss-live-automation${viewMode === "mobile" ? " ss-live-mobile" : ""}`}>
     <style>{`
       .ss-live-automation{position:fixed;inset:0;z-index:1000;pointer-events:none;font:14px system-ui,sans-serif;color:#f6fff7}
       .ss-live-card{position:absolute;bottom:9%;right:3%;width:min(300px,38vw);max-height:78%;overflow:auto;border:1px solid #b8ea7599;border-radius:16px;background:#101a16f2;box-shadow:0 10px 40px #0008;pointer-events:auto}
@@ -35,6 +39,13 @@ export default function AutomationViewer({ helper, auth, creator }) {
       .ss-live-celebration button{position:absolute;right:5px;top:5px;font-size:14px;pointer-events:auto}.ss-live-stars{color:#dbff82;letter-spacing:.4em}
       .ss-live-credit{display:block;font-size:11px;line-height:1.4;color:#d7e9d0;padding:5px 12px 9px;letter-spacing:normal}
       @media(max-width:500px){.ss-live-card{width:52vw;bottom:10%;right:2%;font-size:11px}.ss-live-copy strong{font-size:13px}.ss-live-card header{font-size:10px}}
+      .ss-live-mobile{position:relative;inset:auto;z-index:auto;font-size:15px}
+      .ss-live-mobile .ss-live-card{position:relative;inset:auto;width:100%;max-height:none;box-sizing:border-box;margin-bottom:16px;font-size:15px}
+      .ss-live-mobile .ss-live-card header{font-size:14px}.ss-live-mobile .ss-live-copy strong{font-size:18px}
+      .ss-live-mobile .ss-live-card img{height:180px;max-height:45vh}
+      .ss-live-mobile button,.ss-live-mobile a{min-width:44px;min-height:44px;box-sizing:border-box}
+      .ss-live-mobile .ss-live-celebration{position:relative;inset:auto;margin:0 0 16px;padding:54px 16px 18px;font-size:22px}
+      @media(prefers-reduced-motion:reduce){.ss-live-automation *{animation:none!important;transition:none!important}}
     `}</style>
     {carousel && slide && <aside className="ss-live-card" aria-label={carousel.title}>
       <header><span>{carousel.title}</span><button aria-label="Dismiss carousel" onClick={() => setActive(null)}>×</button></header>
