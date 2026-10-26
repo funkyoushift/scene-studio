@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T15:50:19.392Z",
+  "createdUtc": "2026-10-26T15:54:13.853Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -286,8 +286,8 @@
     },
     {
       "path": "src/experience-home.css",
-      "bytes": 20773,
-      "sha256": "397e6751c49e12fb42e328c3fc67dc5862e8034733203ff2ac0a0104341db22b"
+      "bytes": 21208,
+      "sha256": "db9e1fbc2af34c4aac7bd07b6a798bec7fb93cbfb59e61d9a649925bed6cc7c7"
     },
     {
       "path": "src/experience-presets.mjs",
@@ -301,8 +301,8 @@
     },
     {
       "path": "src/ExperienceHome.jsx",
-      "bytes": 15173,
-      "sha256": "80c4c4b181ba717c0f90b1488fd2d811f660de9fbc924197c49d28b5b70611e6"
+      "bytes": 15371,
+      "sha256": "0ed951ab9529f14c4b045cb6192f383f9f623a9862525e9252f3a178bf4f13bf"
     },
     {
       "path": "src/FlowBuilder.jsx",
@@ -341,8 +341,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 78388,
-      "sha256": "194504297c8653839f771bcf0da875ad9414866f9ce42fb1292aa6748b0a3bbe"
+      "bytes": 78357,
+      "sha256": "68e0f6415ea2d910271e46951a0928461073a690e3c5fb957db60ca26fe9df1a"
     },
     {
       "path": "src/mobile-entry.jsx",

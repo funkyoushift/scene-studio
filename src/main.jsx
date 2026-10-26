@@ -909,7 +909,7 @@ function Editor() {
   }
   return (
     <>
-    {homeOpen && <ExperienceHome objects={scene.objects} flows={flowPages} channelName={profile?.login} live={isConfig}
+    {homeOpen && <ExperienceHome objects={scene.objects} flows={flowPages} channelName={profile?.login} live={isConfig} notice={notice} onDismissNotice={() => setNotice("")}
       onChooseWidget={addInteractivePreset}
       onChooseBundle={addLayoutBundle}
       onOpenAI={() => { setHomeOpen(false); setAutomationOpen(false); setJson(""); setModal("ai"); }}
@@ -918,7 +918,6 @@ function Editor() {
       onEditFlows={pageId => { setFlowRequest({ pageId, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
       onOpenCanvas={() => { setHomeOpen(false); setAutomationOpen(false); }}
       onOpenAdvanced={() => { setHomeOpen(false); setAutomationOpen(false); setModal('advanced'); }} />}
-    {homeOpen && notice && <p className="home-feedback" role="status">{notice}</p>}
     <div hidden={automationOpen || homeOpen}>
     <div className={`app-shell editor-refresh${isConfig ? ' is-twitch-config' : ''}`} style={publishBarHeight == null ? undefined : { "--publish-bar-height": `${publishBarHeight}px` }}>
       <header className="topbar">

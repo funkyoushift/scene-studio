@@ -18,7 +18,7 @@ const layoutBundles = [
   { key: "creator-showcase", title: "Creator showcase", description: "Feature a product carousel and a single highlighted item.", flowKeys: ["merch-carousel", "featured-item"], widgetKeys: [], icon: "▣" },
 ];
 
-export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, channelName, live = false }) {
+export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, channelName, live = false, notice, onDismissNotice }) {
   const [activeGroup, setActiveGroup] = useState("Viewer interactions");
   const [liveSearch, setLiveSearch] = useState("");
   const [liveCategory, setLiveCategory] = useState("All categories");
@@ -71,6 +71,7 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
       </div>
     </header>
 
+    {notice && <div className="eh-notice" role="status"><span>{notice}</span><button type="button" onClick={onDismissNotice} aria-label="Dismiss notice">×</button></div>}
     <section className="eh-hero">
       <div className="eh-hero-copy">
         <span className="eh-kicker">YOUR STREAM, YOUR WAY</span>
