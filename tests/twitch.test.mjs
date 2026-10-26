@@ -1,7 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { starterScene } from "../src/scene.mjs";
-import { watchTwitchScene, sendTwitchScene } from "../src/twitch.mjs";
+import { watchTwitchScene, sendTwitchScene, partyRequestId } from "../src/twitch.mjs";
+
+test("shared celebrations use secure UUIDs on embedded browsers without randomUUID", () => {
+  assert.equal(partyRequestId({ randomUUID: () => "native-id" }), "native-id");
+  let generatedBytes = 0;
+  const fallback = partyRequestId({ getRandomValues(values) { generatedBytes = values.length; values.fill(7); return values; } });
+  assert.equal(generatedBytes, 16);
+  assert.match(fallback, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.throws(() => partyRequestId({}), /cannot safely send/);
+});
 
 function fakeHelper() {
   const h = {

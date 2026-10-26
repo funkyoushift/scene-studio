@@ -89,9 +89,9 @@ export async function fireAutomation(auth, effect, fetcher = fetch) {
 
 // The watcher owns channel/revision admission and event deduplication. It never
 // interprets preview messages as Twitch events or retries a fire request.
-export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError = () => {}, fetcher = fetch, clock = Date.now) {
+export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError = () => {}, fetcher = fetch, clock = Date.now, { catchUp = false } = {}) {
   const id = channel(auth), seen = new Map(), fetched = new Set();
-  let active = true, config = null, loading = null;
+  let active = true, config = null, loading = null, latestCreated = -Infinity;
   function report(message) { try { onError(message); } catch {} }
   function validEnvelope(event) {
     return event?.channelId === id && Number.isSafeInteger(event.revision) && event.revision > 0;
@@ -135,9 +135,21 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
     } else if (effect?.type === "celebrate") {
       if (!config.design.rules.some(r => r.enabled && r.effect.type === "celebrate" && r.effect.message === effect.message)) return;
     } else return;
+    if (event.created < latestCreated) return;
+    latestCreated = event.created;
     try { onEvent(event, config); } catch (error) { report(error.message); }
   }
   helper.listen("broadcast", receive);
-  void refresh();
+  void refresh().then(async () => {
+    if (!active || !config || !catchUp) return;
+    try {
+      const result = await request(auth, "active", "GET", undefined, fetcher);
+      if (!active) return;
+      if (result?.channelId !== id || !Number.isSafeInteger(result.revision) || result.revision < 0 ||
+          (result.event !== null && (!validEnvelope(result.event) || result.event.revision !== result.revision)))
+        throw Error("The current live moment could not be verified.");
+      if (result.event) await receive("broadcast", "application/json", JSON.stringify(result.event));
+    } catch (error) { if (active) report(error.message); }
+  });
   return () => { active = false; helper.unlisten("broadcast", receive); };
 }

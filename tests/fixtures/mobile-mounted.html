@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Local mobile viewer fixture</title></head>
+<body>
+  <fieldset aria-label="Local fixture controls">
+    <legend>Local test controls — no Twitch messages</legend>
+    <button id="fixture-carousel">Send mock carousel</button>
+    <button id="fixture-expire">Expire mock moment</button>
+    <button id="fixture-config-fail">Fail config requests</button>
+    <button id="fixture-config-restore">Restore config requests</button>
+    <button id="fixture-hide">Simulate hidden view</button>
+    <button id="fixture-show">Simulate visible view</button>
+    <p id="fixture-status" role="status"></p>
+  </fieldset>
+  <div id="root"></div><p id="fixture-errors" role="alert"></p>
+  <script type="module" src="./mobile-mounted.jsx"></script>
+</body></html>

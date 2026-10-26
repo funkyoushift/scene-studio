@@ -92,3 +92,11 @@ test("mobile uncertain shared requests never retry automatically and channel att
   s.controller.reset(); s.state.session.creator = { id: "999", login: "wrong" };
   await s.controller.activate(s.objects[3].id); assert.equal(s.state.sends, 1);
 });
+
+test("mobile unexpected activation errors become visible feedback rather than unhandled rejections", async () => {
+  const s = setup();
+  Object.defineProperty(s.scene, "objects", { get() { throw Error("Unsupported platform behavior"); } });
+  await assert.doesNotReject(s.controller.activate("moment"));
+  assert.equal(s.state.notices.at(-1), "This action could not be shown. Please try again.");
+  assert.equal(s.state.sends, 0);
+});

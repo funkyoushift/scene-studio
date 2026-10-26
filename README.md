@@ -59,27 +59,34 @@ is not stored, and trigger receipt IDs/timestamps/status expire after 24 hours.
 Hosted timers use minute scheduling and require intervals of at least 60 seconds.
 The rule editor supports file import and a JSON-paste alternative. These hosted
 paths do not require the creator's PC to stay on. The current source
-suite passes 129 tests; automated coverage does not establish live delivery.
+suite has 139 passing tests and one optional browser test skipped; build passes.
+Automated coverage does not establish live delivery.
 
 Version 0.4 source adds none, float, pulse and sway object motion presets. Browser
 checks confirmed preview motion, dragging without changing object size, and the
 reduced-motion setting disabling animation. Animated GIF uploads still become
 still images; uploaded video and actual game integration are not implemented.
 
-A lean mobile.html viewer is also prepared for 0.4. Browser fixtures at portrait,
-narrow and wide sizes showed no horizontal overflow, 44px buttons and working
-on-demand images/personal reactions. Six tests cover the mobile viewer. Its static
-HTML/JS/CSS total is 631045 bytes, excluding Twitch's helper, runtime configuration
-and on-demand images. Twitch accepted the 0.4 package in Hosted Test with
+A lean mobile.html viewer is included in 0.4. Browser fixtures at portrait,
+narrow and wide sizes showed no horizontal overflow and 44px buttons.
+Twitch accepted the original 0.4 package in Hosted Test with
 mobile.html configured, and confirmed Shift's activation in Overlay 1. Its hosted
 configuration loaded two existing objects; publishing float motion reported Sent
 to Twitch. After reloading and accepting Twitch's test disclosure, both saved
 objects appeared in the actual 0.4 desktop viewer. The first retained its float
 motion class; the operating system's reduced-motion preference correctly disabled
 animation. An authorized merch chat message again displayed the live carousel.
-Native Twitch iOS/Android testing remains pending. Browser fixtures are not native
-mobile proof. Rev stays on active
-0.1, which remains in review. The same free backend now allows version 0.4.
+Actual Android Twitch testing confirmed panel loading and reveal taps, but
+personal celebration and incoming carousel failed in that original mobile build.
+The repair removes personal celebration's randomUUID dependency, retains secure
+shared-action IDs, and adds visible configuration errors/reconnect controls.
+One authenticated catch-up request on mobile mount/return fetches only an
+unexpired confirmed event for the current configuration revision. It does not poll.
+The repair backend is deployed and replacement ZIP uploaded; Hosted Test
+is restored and native retesting remains pending. A mounted browser fixture recovered
+the carousel after hide/broadcast/return, showed a failed-configuration error, and
+reconnected after service restoration. Browser fixtures
+are not native mobile proof. Rev stays on active 0.1, which remains in review.
 
 On the hosted site, the developer panel provides a roadmap and event simulation
 without contacting localhost. No real game integration is claimed.

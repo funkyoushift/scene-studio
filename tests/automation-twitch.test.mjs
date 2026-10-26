@@ -161,3 +161,45 @@ test("an event waits for newer config and cannot display after teardown or expir
   resolve(reply(config())); await pending;
   assert.equal(shown.length, 0); stop();
 });
+
+test("mobile catch-up reads once and shares broadcast validation and deduplication", async () => {
+  const h = helper(), shown = [], reads = [], errors = [];
+  const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), value => errors.push(value), async url => {
+    reads.push(url);
+    return reply(url.endsWith('/active') ? { channelId: '123', revision: 1, event: event() } : config());
+  }, () => 2000, { catchUp: true });
+  await flush();
+  assert.equal(shown.length, 1);
+  await send(h, event());
+  assert.equal(shown.length, 1);
+  assert.equal(reads.length, 2);
+  await flush(); assert.equal(reads.length, 2, 'no polling');
+  assert.deepEqual(errors, []); stop();
+});
+
+test("mobile catch-up cannot replace a newer live event or finish after teardown", async () => {
+  for (const teardown of [false, true]) {
+    const h = helper(), shown = []; let resolve;
+    const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async url => {
+      if (url.endsWith('/active')) return new Promise(done => { resolve = done; });
+      return reply(config());
+    }, () => 2000, { catchUp: true });
+    await flush();
+    if (teardown) stop(); else await send(h, event({ eventId: 'newer', created: 1900 }));
+    resolve(reply({ channelId: '123', revision: 1, event: event() })); await flush();
+    assert.deepEqual(shown.map(item => item.eventId), teardown ? [] : ['newer']);
+    if (!teardown) stop();
+  }
+});
+
+test("mobile catch-up rejects wrong-channel, expired and old-revision responses", async () => {
+  for (const payload of [
+    { channelId: '999', revision: 1, event: event() },
+    { channelId: '123', revision: 1, event: event({ expires: 1500 }) },
+    { channelId: '123', revision: 1, event: event() },
+  ]) {
+    const h = helper(), shown = [];
+    const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async url => reply(url.endsWith('/active') ? payload : config(2)), () => 2000, { catchUp: true });
+    await flush(); assert.equal(shown.length, 0); stop();
+  }
+});

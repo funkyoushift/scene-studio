@@ -9,7 +9,7 @@ const symbols = { spark: "✦", heart: "♡", star: "☆", gift: "◇", info: "i
 // channel-local; late requests from a previous channel cannot update this one.
 export function createMobileActions({ getSession, getScene, notify, showDetail, showCount, showBurst, shareIdentity, send = sendParty, clock = Date.now, isVisible = () => true }) {
   const seen = new Set(), counts = new Map();
-  let generation = 0, busy = false, nextParty = 0;
+  let generation = 0, busy = false, nextParty = 0, personalSequence = 0;
   function acceptParty(raw) {
     const event = partyEvent(JSON.stringify(raw), clock());
     if (!event || seen.has(event.eventId) || !isVisible()) return false;
@@ -19,7 +19,7 @@ export function createMobileActions({ getSession, getScene, notify, showDetail, 
     showBurst({ id: event.eventId, text: preset.text, symbol: preset.symbol, actor: event.actor, shared: true });
     return true;
   }
-  async function activate(objectId) {
+  async function performActivate(objectId) {
     const session = getSession(), object = getScene()?.objects.find(item => item.id === objectId);
     if (!isVisible() || !object || !session?.auth?.token || session.creator?.id !== session.auth.channelId) {
       notify("Wait for this channel’s connection before tapping an object."); return;
@@ -30,7 +30,9 @@ export function createMobileActions({ getSession, getScene, notify, showDetail, 
       counts.set(object.id, count); if (counts.size > 100) counts.delete(counts.keys().next().value); showCount(object.id, count); return;
     }
     if (object.action === "celebrate") {
-      showBurst({ id: crypto.randomUUID(), text: object.detail || "You made this moment!", symbol: symbols[object.icon] || "✦", shared: false }); return;
+      // A local animation key is not a credential or a delivery receipt. Older
+      // Android WebViews can render the extension but lack crypto.randomUUID.
+      showBurst({ id: `personal:${generation}:${++personalSequence}`, text: object.detail || "You made this moment!", symbol: symbols[object.icon] || "✦", shared: false }); return;
     }
     if (object.action !== "party") { notify("This object is not available in this Twitch view."); return; }
     if (busy || clock() < nextParty) { notify("Let the confetti settle. Wait a moment before another tap."); return; }
@@ -52,6 +54,10 @@ export function createMobileActions({ getSession, getScene, notify, showDetail, 
     } catch (error) {
       if (current()) notify(error?.message || "Result not confirmed. Check chat before another tap.");
     } finally { if (current()) busy = false; }
+  }
+  async function activate(objectId) {
+    try { await performActivate(objectId); }
+    catch { notify("This action could not be shown. Please try again."); }
   }
   return { activate, acceptParty, reset() { generation++; busy = false; nextParty = 0; seen.clear(); counts.clear(); } };
 }

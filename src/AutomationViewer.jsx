@@ -5,24 +5,33 @@ import { watchAutomationEvents } from "./automation-twitch.mjs";
 // stay transparent, and only the visible object captures pointer events.
 export default function AutomationViewer({ helper, auth, creator, viewMode = "overlay" }) {
   const [active, setActive] = useState(null), [slideIndex, setSlideIndex] = useState(0);
+  const [connection, setConnection] = useState({ state: "loading", message: "Loading live moments…" });
+  const [retry, setRetry] = useState(0);
   const container = useRef(null);
   useEffect(() => {
     if (active && viewMode === "mobile") container.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
   }, [active, viewMode, creator?.login]);
   useEffect(() => {
     setActive(null);
+    setConnection({ state: "loading", message: "Loading live moments…" });
     if (!helper || !auth?.token || !auth.channelId) return;
     return watchAutomationEvents(helper, auth, next => {
+      setConnection({ state: "ready", message: "Channel effects loaded. Waiting for a live moment." });
       setActive(previous => previous && previous.event.revision !== next.revision ? null : previous);
-    }, (event, config) => { setSlideIndex(0); setActive({ event, config }); });
-  }, [helper, auth?.channelId, auth?.token]);
+    }, (event, config) => { setSlideIndex(0); setActive({ event, config }); }, message => {
+      setConnection({ state: "error", message: `Live moments could not connect. ${message}` });
+    }, undefined, undefined, { catchUp: viewMode === "mobile" });
+  }, [helper, auth?.channelId, auth?.token, retry, viewMode]);
   useEffect(() => {
     if (!active) return;
     const dismiss = setTimeout(() => setActive(null), Math.max(0, active.event.expires - Date.now()));
     const advance = setInterval(() => setSlideIndex(index => index + 1), 5000);
     return () => { clearTimeout(dismiss); clearInterval(advance); };
   }, [active]);
-  if (!active || !creator?.login) return null;
+  if (!active || !creator?.login) return viewMode === "mobile" ? <section className="mobile-live-status" aria-label="Live moments connection">
+    <p role="status">{connection.message}</p>
+    <button className="mobile-secondary" disabled={connection.state === "loading"} onClick={() => setRetry(value => value + 1)}>Reconnect live moments</button>
+  </section> : null;
   const effect = active.event.effect;
   const carousel = effect.type === "carousel" ? active.config.design.carousels.find(c => c.id === effect.carouselId) : null;
   const slide = carousel?.slides[((slideIndex % carousel.slides.length) + carousel.slides.length) % carousel.slides.length];

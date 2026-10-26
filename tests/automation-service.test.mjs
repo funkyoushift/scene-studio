@@ -20,7 +20,7 @@ function fixture(t) {
   let queries = 0;
   const env = { AUTOMATIONS_ENABLED: "true", EXTENSION_ORIGIN: origin, EXTENSION_SECRET: Buffer.alloc(32, 5).toString("base64"), EXTENSION_CLIENT_ID: "testclient", EXTENSION_OWNER: "999", MERCH_TEST_STORES: '{"123":"https://streamlabs.com/FunkYouSHiFT/merch"}',
     IMAGES: { prepare(sql) { return { bind(...args) { const query = db.prepare(sql), values = Object.fromEntries(args.map((value, index) => [String(index + 1), value]));
-      return { first: async () => { queries++; return query.get(values) ?? null; }, run: async () => { queries++; env.beforeRun?.(sql); return { meta: query.run(values) }; }, all: async () => { queries++; return { results: query.all(values) }; } };
+      return { first: async () => { queries++; const row = query.get(values) ?? null; env.afterFirst?.(sql); return row; }, run: async () => { queries++; env.beforeRun?.(sql); return { meta: query.run(values) }; }, all: async () => { queries++; return { results: query.all(values) }; } };
     } }; } },
   };
   const sent = [];
@@ -51,6 +51,69 @@ test("config read accepts channel viewer proof; mutations require own broadcaste
   s.env.AUTOMATIONS_ENABLED = "false";
   assert.equal((await s.call()).status, 404);
   assert.deepEqual(await tickAutomations(s.env), { checked: 0, sent: 0 });
+});
+
+test("active catch-up returns the latest sent moment without writes, receipt data, or new broadcasts", async t => {
+  const s = fixture(t), viewer = { role: "viewer", channel_id: "123", exp: claims().exp };
+  assert.deepEqual((await s.call("active", { auth: viewer })).body, { channelId: "123", revision: 0, event: null });
+  await s.save();
+  const fire = at => s.call("fire", { method: "POST", at, input: { eventId: crypto.randomUUID(), type: "carousel", carouselId: "merch" } });
+  await fire(now);
+  const latest = await fire(now + 8000);
+  const before = s.db.prepare("SELECT * FROM automation_receipts ORDER BY created").all(), sent = s.sent.length;
+  const active = await s.call("active", { auth: viewer, at: now + 9000 });
+  assert.equal(active.status, 200);
+  assert.deepEqual(active.body, { channelId: "123", revision: 1, event: latest.body.event });
+  assert.deepEqual(s.db.prepare("SELECT * FROM automation_receipts ORDER BY created").all(), before);
+  assert.equal(s.sent.length, sent);
+  assert.deepEqual((await s.call("active", { channel: "456" })).body, { channelId: "456", revision: 0, event: null });
+  // The 24-hour receipt remains, but the visual must disappear at its exact expiry.
+  assert.equal((await s.call("active", { at: latest.body.event.expires })).body.event, null);
+  assert.equal(s.db.prepare("SELECT count(*) AS n FROM automation_receipts").get().n, 2);
+});
+
+test("active catch-up excludes uncertain, pending, old-revision and misbound envelopes", async t => {
+  const s = fixture(t); await s.save();
+  const input = { eventId: crypto.randomUUID(), type: "carousel", carouselId: "merch" };
+  const failed = await s.call("fire", { method: "POST", input, sender: async () => { throw Error("not confirmed"); } });
+  assert.equal(failed.body.status, "uncertain");
+  assert.equal((await s.call("active")).body.event, null);
+  s.db.exec("UPDATE automation_receipts SET status='pending'");
+  assert.equal((await s.call("active")).body.event, null);
+  s.db.exec("UPDATE automation_receipts SET status='sent'");
+  const valid = failed.body.event;
+  for (const event of [{ ...valid, channelId: "456" }, { ...valid, revision: 2 }, { ...valid, eventId: crypto.randomUUID() }]) {
+    s.db.prepare("UPDATE automation_receipts SET event=?").run(JSON.stringify(event));
+    assert.equal((await s.call("active")).body.event, null);
+  }
+  for (const event of ["not json", JSON.stringify({ ...valid, padding: "a".repeat(4096) })]) {
+    s.db.prepare("UPDATE automation_receipts SET event=?").run(event);
+    assert.equal((await s.call("active")).body.event, null);
+  }
+  s.db.prepare("UPDATE automation_receipts SET event=?").run(JSON.stringify({ ...valid, privateReceipt: "must not escape", effect: { ...valid.effect, rawChat: "never expose" } }));
+  assert.deepEqual((await s.call("active")).body.event, valid);
+  await s.save(design(), { input: { design: design(), expectedRevision: 1 } });
+  assert.deepEqual((await s.call("active")).body, { channelId: "123", revision: 2, event: null });
+});
+
+test("active catch-up authorizes before storage and supports GET only", async t => {
+  const s = fixture(t);
+  for (const options of [{ auth: null }, { auth: claims("456") }, { auth: { ...claims(), exp: now / 1000 } }, { from: "null" }, { from: "https://other.example" }])
+    assert.ok((await s.call("active", options)).status >= 400);
+  assert.equal((await s.call("active", { method: "POST" })).status, 405);
+  assert.equal(s.queryCount(), 0);
+});
+
+test("active catch-up rechecks visual and authorization expiry after a slow read", async t => {
+  const s = fixture(t); await s.save();
+  await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "carousel", carouselId: "merch" } });
+  let wall = now;
+  t.mock.method(Date, "now", () => wall);
+  s.env.afterFirst = () => { wall += 20000; };
+  assert.equal((await s.call("active")).body.event, null);
+  wall = now;
+  const expired = await s.call("active", { auth: { role: "viewer", channel_id: "123", exp: now / 1000 + 10 } });
+  assert.equal(expired.status, 401);
 });
 
 test("config CAS preserves concurrent edits and saves even when change notification is uncertain", async t => {

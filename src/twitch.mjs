@@ -61,12 +61,23 @@ export async function disconnectChatConnection(auth, fetcher = fetch) {
   return { connected: false, accessRevoked: result.accessRevoked };
 }
 
+// Embedded mobile browsers may provide getRandomValues without randomUUID.
+export function partyRequestId(cryptoSource = globalThis.crypto) {
+  if (typeof cryptoSource?.randomUUID === "function") return cryptoSource.randomUUID();
+  if (typeof cryptoSource?.getRandomValues !== "function")
+    throw new Error("This browser cannot safely send a shared celebration. Update Twitch and try again.");
+  const values = cryptoSource.getRandomValues(new Uint8Array(16));
+  values[6] = (values[6] & 15) | 64;
+  values[8] = (values[8] & 63) | 128;
+  const hex = Array.from(values, value => value.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 export async function sendParty(auth, object, fetcher=fetch) {
   if(!auth?.token || !/^[1-9][0-9]{0,19}$/.test(auth.channelId)) throw new Error("Reconnect to Twitch before celebrating.");
   const response=await fetcher(`${IMAGE_ORIGIN}/party/${auth.channelId}`,{
     method:"POST",headers:{Authorization:`Bearer ${auth.token}`,"Content-Type":"application/json"},
     credentials:"omit",redirect:"error",signal:AbortSignal.timeout(30000),
-    body:JSON.stringify({eventId:crypto.randomUUID(),objectId:object.id,preset:object.preset??"ducks",extensionVersion:EXTENSION_VERSION}),
+    body:JSON.stringify({eventId:partyRequestId(),objectId:object.id,preset:object.preset??"ducks",extensionVersion:EXTENSION_VERSION}),
   });
   const result=await response.json();
   if(!response.ok || result.status!=="sent") throw new Error(result.error||"Result not confirmed. Check chat before another click.");

@@ -85,6 +85,39 @@ const hash = async text => Array.from(new Uint8Array(await crypto.subtle.digest(
 function receipt(row, replayed = false) {
   return { status: row.status === "pending" ? "uncertain" : row.status, event: JSON.parse(row.event), replayed };
 }
+async function activeMoment(env, channel, currentTime) {
+  const now = currentTime();
+  // One snapshot binds the receipt to the current channel revision. Receipt
+  // retention is deliberately unrelated to the much shorter visual lifetime.
+  const row = await stmt(env, `SELECT c.revision, (
+    SELECT r.event FROM automation_receipts r
+    WHERE r.channel=c.channel AND r.revision=c.revision AND r.status='sent'
+      AND CASE WHEN length(CAST(r.event AS BLOB))<=4096 AND json_valid(r.event) THEN
+        json_extract(r.event,'$.channelId')=c.channel
+        AND json_extract(r.event,'$.revision')=c.revision
+        AND json_extract(r.event,'$.eventId')=r.event_id
+        AND json_type(r.event,'$.expires')='integer'
+        AND json_extract(r.event,'$.expires')>?2
+      ELSE 0 END
+    ORDER BY r.created DESC,r.event_id DESC LIMIT 1
+  ) AS event FROM automation_configs c WHERE c.channel=?1`, channel, now).first();
+  const result = { channelId: channel, revision: row?.revision ?? 0, event: null };
+  if (!row?.event) return result;
+  const event = JSON.parse(row.event);
+  const checkedAt = currentTime();
+  if (event.type !== "scene-studio-automation" || event.channelId !== channel || event.revision !== row.revision || !uuid.test(event.eventId ?? "") ||
+    !Number.isSafeInteger(event.created) || event.created < 0 || event.created > checkedAt ||
+    !Number.isSafeInteger(event.expires) || event.expires <= checkedAt || event.expires - event.created > 300000) return result;
+  let effect;
+  if (event.effect?.type === "carousel" && typeof event.effect.carouselId === "string" && event.effect.carouselId.length > 0 && event.effect.carouselId.length <= 64)
+    effect = { type: "carousel", carouselId: event.effect.carouselId };
+  else if (event.effect?.type === "celebrate" && typeof event.effect.message === "string" && event.effect.message.length > 0 && event.effect.message.length <= 160)
+    effect = { type: "celebrate", message: event.effect.message };
+  else return result;
+  // Return only the same public visual envelope as PubSub, never receipt data.
+  result.event = { type: event.type, eventId: event.eventId, channelId: channel, revision: row.revision, created: event.created, expires: event.expires, effect };
+  return result;
+}
 async function admittedEffect(env, channel, row, inputId, inputHash, effect, nextState, { now, fetcher }) {
   await stmt(env, "DELETE FROM automation_receipts WHERE expires<=?1", now).run();
   const existing = () => stmt(env, "SELECT input_hash,status,event FROM automation_receipts WHERE channel=?1 AND input_id=?2", channel, inputId).first();
@@ -177,10 +210,16 @@ export async function automationRequest(request, env, channel, { claims, now = D
   try {
     enabled(env, channel); clock(now);
     const path = new URL(request.url).pathname;
-    if (path !== `/v1/automations/${channel}/config` && path !== `/v1/automations/${channel}/fire`) fail(404, "not_found", "Endpoint not found.");
+    if (!["config", "fire", "active"].some(name => path === `/v1/automations/${channel}/${name}`)) fail(404, "not_found", "Endpoint not found.");
     const config = path.endsWith("/config");
-    if ((config && !["GET", "PUT"].includes(request.method)) || (!config && request.method !== "POST")) fail(405, "method_not_allowed", "Unsupported method.");
-    authorize(request, env, channel, claims, now, !(config && request.method === "GET"));
+    const active = path.endsWith("/active");
+    if (!(config ? ["GET", "PUT"] : active ? ["GET"] : ["POST"]).includes(request.method)) fail(405, "method_not_allowed", "Unsupported method.");
+    authorize(request, env, channel, claims, now, !((config || active) && request.method === "GET"));
+    if (active) {
+      const moment = await activeMoment(env, channel, currentTime);
+      authorize(request, env, channel, claims, currentTime());
+      return json(moment);
+    }
     if (config && request.method === "GET") {
       const row = await load(env, channel);
       return json(view(row, channel, row ? hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1) : undefined));

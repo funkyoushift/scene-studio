@@ -36,3 +36,22 @@ test('chat webhook route is closed by default without interpreting a notificatio
   const response=await worker.fetch(new Request('https://service.test/eventsub/chat/123',{method:'POST',body:'untrusted'}),env);
   assert.equal(response.status,404);
 });
+
+test('active catch-up route requires signed same-channel viewer proof and exact origin',async()=>{
+  const url='https://service.test/v1/automations/123/active';
+  let reads=0;
+  const enabled={...env,AUTOMATIONS_ENABLED:'true',IMAGES:{prepare(){return {bind(){return {async first(){reads++;return null;}};}};}}};
+  const request=async(overrides={},from=origin)=>new Request(url,{headers:{Origin:from,Authorization:`Bearer ${await token(overrides)}`}});
+  assert.equal((await worker.fetch(await request(),env)).status,404);
+  assert.equal((await worker.fetch(await request({},'null'),enabled)).status,403);
+  for(const overrides of [{channel_id:'456'},{exp:0},{role:'external'}])
+    assert.equal((await worker.fetch(await request(overrides),enabled)).status,401);
+  assert.equal((await worker.fetch(new Request(url,{headers:{Origin:origin,Authorization:'Bearer forged'}}),enabled)).status,401);
+  assert.equal(reads,0);
+  const response=await worker.fetch(await request(),enabled);
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{channelId:'123',revision:0,event:null});
+  assert.equal(response.headers.get('Cache-Control'),'no-store');
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'),origin);
+  assert.equal(reads,1);
+});
