@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+"""Import a bounded, attribution-preserving Open Trivia Database sample."""
+from __future__ import annotations
+import hashlib, html, json, re, sys, time, unicodedata
+from collections import Counter
+from datetime import date
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+BASE = "https://opentdb.com"
+OUT = Path(__file__).resolve().parents[1] / "src" / "trivia-open-data.json"
+MIN_GAP = 6.0
+_last_request = 0.0
+
+
+def api(path: str, params: dict | None = None) -> dict:
+    global _last_request
+    wait = MIN_GAP - (time.monotonic() - _last_request)
+    if _last_request and wait > 0:
+        time.sleep(wait)
+    url = BASE + path + ("?" + urlencode(params) if params else "")
+    for attempt in range(2):
+        req = Request(url, headers={"User-Agent": "SceneStudioTriviaImporter/1.0 (OpenTDB attribution)"})
+        try:
+            with urlopen(req, timeout=30) as response:
+                payload = json.load(response)
+            _last_request = time.monotonic()
+            code = payload.get("response_code", 0)
+            if code == 5 and attempt == 0:
+                time.sleep(6)
+                continue
+            if code == 1:
+                return {"response_code": 1, "results": []}
+            if code != 0:
+                raise RuntimeError(f"OpenTDB response code {code} for {path}")
+            return payload
+        except HTTPError as e:
+            _last_request = time.monotonic()
+            if e.code == 429 and attempt == 0:
+                time.sleep(6)
+                continue
+            raise
+    raise RuntimeError(f"OpenTDB retry exhausted for {path}")
+
+
+def plain(value: str) -> str:
+    # API values are HTML-entity encoded, but are plain text (never HTML rendered).
+    value = html.unescape(value)
+    value = unicodedata.normalize("NFC", value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def norm(value: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def valid_text(value: str, limit: int) -> bool:
+    return bool(value) and len(value) <= limit and not any(unicodedata.category(ch) in {"Cc", "Cf", "Cs"} for ch in value)
+
+
+def main() -> None:
+    cats = api("/api_category.php").get("trivia_categories", [])
+    if len(cats) < 12:
+        raise RuntimeError(f"Expected a dozen-plus categories, got {len(cats)}")
+    print(f"Categories discovered: {len(cats)}", flush=True)
+    questions = []
+    seen = set()
+    accepted = Counter()
+    rejected = Counter()
+    for i, cat in enumerate(cats, 1):
+        cid, label = int(cat["id"]), plain(cat["name"])
+        payload = api("/api.php", {"amount": 25, "category": cid, "type": "multiple"})
+        rows = payload.get("results", [])
+        if len(rows) < 25:
+            extra = api("/api.php", {"amount": 25 - len(rows), "category": cid, "type": "boolean"})
+            rows += extra.get("results", [])
+        for row in rows:
+            q = plain(row.get("question", ""))
+            correct = plain(row.get("correct_answer", ""))
+            incorrect = [plain(x) for x in row.get("incorrect_answers", [])]
+            all_choices = [correct, *incorrect]
+            key = norm(q)
+            if not valid_text(q, 160): rejected["question_shape"] += 1; continue
+            if not all(valid_text(c, 80) for c in all_choices): rejected["choice_shape"] += 1; continue
+            if len(all_choices) < 2 or len({norm(c) for c in all_choices}) != len(all_choices): rejected["duplicate_or_missing_choices"] += 1; continue
+            if key in seen: rejected["duplicate_question"] += 1; continue
+            seen.add(key)
+            digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+            questions.append({"id": f"otdb-{digest}", "category": f"opentdb-{cid}", "question": q,
+                              "choices": all_choices, "correctIndex": 0, "explanation": "",
+                              "difficulty": row.get("difficulty", ""), "source": "Open Trivia Database"})
+            accepted[str(cid)] += 1
+        print(f"[{i}/{len(cats)}] category {cid} ({label}): accepted {accepted[str(cid)]}; fetched {len(rows)}", flush=True)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    data = {"source": "Open Trivia Database", "license": "CC-BY-SA-4.0", "sourceUrl": BASE,
+            "retrieved": date.today().isoformat(),
+            "categories": [{"id": f"opentdb-{int(c['id'])}", "label": plain(c["name"])} for c in cats],
+            "questions": questions}
+    OUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    categories_path = OUT.with_name("trivia-categories.mjs")
+    live_categories = [c for c in data["categories"] if accepted[str(int(c["id"].removeprefix("opentdb-")))] > 0]
+    module_data = [{"id": "mixed", "label": "All categories"}, *live_categories]
+    categories_path.write_text("// Generated by scripts/import-trivia-bank.py\nexport const TRIVIA_CATEGORIES = " + json.dumps(module_data, ensure_ascii=False, indent=2) + ";\n", encoding="utf-8")
+    print(json.dumps({"categoryCount": len(cats), "questionCount": len(questions),
+                      "acceptedPerCategory": {f"opentdb-{k}": v for k, v in accepted.items()},
+                      "rejected": dict(rejected), "output": str(OUT)}, ensure_ascii=False), flush=True)
+
+if __name__ == "__main__":
+    main()
+

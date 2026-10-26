@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T18:35:16.573Z",
+  "createdUtc": "2026-10-26T19:13:45.973Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -75,6 +75,16 @@
       "sha256": "b7ed097de758165dd8ec1531cdaefbe4d7c3b89744716ecd6f28005f8473a931"
     },
     {
+      "path": "assets/trivia/LICENSE-CC-BY-SA-4.0.txt",
+      "bytes": 19107,
+      "sha256": "4f6e8516edc87e7bcfd478c12729e9867b25875b0c49c06f57e2428bdb497b19"
+    },
+    {
+      "path": "assets/trivia/SOURCES.md",
+      "bytes": 1456,
+      "sha256": "d3a81d2a7aad673ec52bdd57457299c865386ff472917be1ee5e4aa1fc1a7fdb"
+    },
+    {
       "path": "automations.html",
       "bytes": 428,
       "sha256": "0218ec17e3938ab254632437f1f2a8e5127979d545ccebeafe2ef6b02dee7ad9"
@@ -141,8 +151,13 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 25677,
-      "sha256": "bc68c96f6bf14eafb6f5e20aa07a0022d81307cc65187f9e4acdee2ec7003f77"
+      "bytes": 25897,
+      "sha256": "b12224ec77f515aa5e136028540133c59c6f5cfaf5d058367cb8db6becbdec1a"
+    },
+    {
+      "path": "scripts/import-trivia-bank.py",
+      "bytes": 5431,
+      "sha256": "76702e7659b114ef6c913f8f4e7b35d49ea03a0c8f036bef70d3b57034d6c479"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -336,8 +351,8 @@
     },
     {
       "path": "src/ExperienceHome.jsx",
-      "bytes": 24165,
-      "sha256": "d69d1c3925c34fb208a4ad30a283f824e0bf6154206e58128ed4f04903556a11"
+      "bytes": 24219,
+      "sha256": "ed0d214f33deb072945e9e396a6c3c95c41f4d457f127b696b759f42f39ba08f"
     },
     {
       "path": "src/FlowBuilder.jsx",
@@ -381,8 +396,8 @@
     },
     {
       "path": "src/InteractiveWidgets.jsx",
-      "bytes": 3143,
-      "sha256": "633dacc8415c78b3eb7e02032a55b54214f8b78760de85ba323c58725bce9522"
+      "bytes": 6495,
+      "sha256": "c5b728f5a7e80c746f9c7bf808d75a931e851f76a2b0802a6ba797e92847d172"
     },
     {
       "path": "src/live-context.mjs",
@@ -396,8 +411,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 84892,
-      "sha256": "6c3fcfa50ada696c4016e0bd7332917f1ab85fa4addcc98dce5c11d13fcba609"
+      "bytes": 87054,
+      "sha256": "700cadb6c6a86510092d0d4d9941cd068ceea071acd7b8c2fe41c376134f3300"
     },
     {
       "path": "src/mobile-entry.jsx",
@@ -431,8 +446,8 @@
     },
     {
       "path": "src/scene.mjs",
-      "bytes": 12649,
-      "sha256": "b6f25eafe2af1f6a988778e047e7b6b8f346863ba5213512311b93799d59060d"
+      "bytes": 13507,
+      "sha256": "9f2071256cced022530ba69cdf276e5e111138e58b29ab66bcea89cde6d55ed1"
     },
     {
       "path": "src/shoutout-contract.mjs",
@@ -486,13 +501,28 @@
     },
     {
       "path": "src/templates.mjs",
-      "bytes": 9905,
-      "sha256": "e62dfac8283edadf6aff5fcbc17cf52556d35e2373eaa9085828fcee3e477b54"
+      "bytes": 9835,
+      "sha256": "54a236293741c6a853429d6b51bcc83fc9e9626d70117ac165a43eaea99043eb"
     },
     {
       "path": "src/ThemeToggle.jsx",
       "bytes": 1575,
       "sha256": "30bf64be23830edef10bc1b81204a6d4c22920f6ff96f27d3c9a3f3fbb4790a2"
+    },
+    {
+      "path": "src/trivia-bank.mjs",
+      "bytes": 10719,
+      "sha256": "9bfc35fac994b1ec51b2264ace7b05583d03bfa89d2d7807f8a9239a6df26e23"
+    },
+    {
+      "path": "src/trivia-categories.mjs",
+      "bytes": 1837,
+      "sha256": "57845ad7206f1c8fc2d899d19cc4e303c1c4eba102ac73be49bca5e0c2150568"
+    },
+    {
+      "path": "src/trivia-open-data.json",
+      "bytes": 254491,
+      "sha256": "1ec100c0249c5fd75125edd30d49179f3624d85d8754f93d4ad309e6fafa066e"
     },
     {
       "path": "src/twitch.mjs",
@@ -501,8 +531,8 @@
     },
     {
       "path": "src/widgets.css",
-      "bytes": 2313,
-      "sha256": "f5d6f24c5f67d8ae8b2e8794001af3c37bd7eb7b6a9ee5c9b34b769294271dab"
+      "bytes": 2949,
+      "sha256": "c704f496c9a8b0950180324118c2b22af0418251e1de954ab1973b8229386344"
     },
     {
       "path": "tests/automation-capacity-migration.test.mjs",
@@ -636,8 +666,8 @@
     },
     {
       "path": "tests/scene.test.mjs",
-      "bytes": 11006,
-      "sha256": "f7fea3821768cc3e58ee8b53cf8a0cc07b46d3627d8f001a3578f60c6fbd89d2"
+      "bytes": 12109,
+      "sha256": "c4c036efdbd096174a33ea30d262a66b3dec8d675c6640d71f45751a121b4ff1"
     },
     {
       "path": "tests/shoutout-contract.test.mjs",
@@ -661,8 +691,13 @@
     },
     {
       "path": "tests/templates.test.mjs",
-      "bytes": 3718,
-      "sha256": "074a017b38a736261f52e30e2120d45bbaa1a9badb09a419cd8a25b384f5f3b2"
+      "bytes": 3640,
+      "sha256": "8ffef56f9fd09120f7fe5ecb48f10e29fc93900f5e4f5885a77a5d9a0a74997c"
+    },
+    {
+      "path": "tests/trivia-bank.test.mjs",
+      "bytes": 2519,
+      "sha256": "14b5bb834a5f3ab3b4863dc661f33268ef56fcd830780ec5daa4e1abcc4a8233"
     },
     {
       "path": "tests/twitch-events.test.mjs",

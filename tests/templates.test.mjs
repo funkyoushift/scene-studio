@@ -64,8 +64,7 @@ test("interactive presets return fresh additive objects with valid quiz, persona
   }
   const trivia = createInteractivePreset("trivia")[0];
   assert.equal(trivia.action, "reveal");
-  assert.equal(trivia.quiz.choices.length, 3);
-  assert.ok(trivia.quiz.correctIndex >= 0 && trivia.quiz.correctIndex < trivia.quiz.choices.length);
+  assert.deepEqual(trivia.quiz, { mode: "bank", category: "mixed" });
   const challenge = createInteractivePreset("tap-challenge")[0];
   assert.equal(challenge.action, "counter");
   assert.equal(challenge.goal, 20);

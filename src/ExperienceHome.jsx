@@ -24,7 +24,7 @@ const guidedGoals = [
   { id: "discord-invite", label: "Share my Discord invite", key: "discord-invite", kind: "flow", what: "Give viewers a community invite card when they ask.", need: "Your Discord invite link. Live link availability depends on your channel’s Twitch configuration." },
   { id: "merch-carousel", label: "Show my merch", key: "merch-carousel", kind: "flow", what: "Show a carousel of products when chat asks.", need: "Your product images, names and own-merch store links. Live destinations must be allowed for your channel." },
   { id: "creator-shoutout", label: "Shout out a creator", key: "creator-shoutout", kind: "flow", what: "Welcome selected creators with a channel card.", need: "The creator’s Twitch name." },
-  { id: "trivia", label: "Ask chat trivia", key: "trivia", kind: "widget", what: "Add a multiple-choice question viewers can answer.", need: "A question and the answer choices." },
+  { id: "trivia", label: "Play random trivia", key: "trivia", kind: "widget", what: "Give viewers ready-to-play random questions and a personal score.", need: "Nothing to write. Use the included question bank or choose a category." },
   { id: "tap-challenge", label: "Add a tap game", key: "tap-challenge", kind: "widget", what: "Give each viewer a personal tapping goal.", need: "A goal number; you can change the starter later." },
 ];
 

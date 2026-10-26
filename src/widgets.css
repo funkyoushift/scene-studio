@@ -55,6 +55,15 @@
 }
 .widget-feedback p { margin: 0; }
 .widget-retry { justify-self: start; }
+.widget-trivia-score { margin: 0; font-weight: 600; }
+.widget-trivia-attribution { opacity: .75; font-size: .78em; }
+.widget-trivia-bank { gap: 5px; }
+.widget-trivia-bank .widget-quiz { gap: 5px; }
+.widget-trivia-bank .widget-quiz legend { margin-bottom: 4px; line-height: 1.2; }
+.widget-trivia-bank .widget-choice { padding: 7px 10px; line-height: 1.2; }
+.widget-trivia-bank .widget-feedback { gap: 5px; padding: 9px; }
+.widget-trivia-preview-card { display: grid; gap: 4px; padding: 12px; border: 1px solid color-mix(in srgb, currentColor 25%, transparent); border-radius: 9px; }
+.widget-trivia-preview-card span { font-size: .9em; }
 .widget-progress-label { margin: 0; font-weight: 600; }
 .widget-progress {
   display: block;

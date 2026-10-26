@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { TRIVIA_CATEGORIES } from "../src/trivia-categories.mjs";
 import {
   starterScene,
   parseScene,
@@ -171,6 +172,24 @@ test("quiz choices reject invalid counts, duplicate normalized values, bad index
   for (const quiz of invalid) { const scene = starterScene(); scene.objects[0].quiz = quiz; assert.throws(() => validateScene(scene), /quiz|Quiz/); }
   const wrongAction = starterScene(); wrongAction.objects[0].action = "counter"; wrongAction.objects[0].quiz = { choices: ["A", "B"], correctIndex: 0 };
   assert.throws(() => validateScene(wrongAction), /reveal action/);
+});
+
+test("bundled trivia saves only a supported category reference and remains compact", () => {
+  for (const category of TRIVIA_CATEGORIES) {
+    const scene = starterScene();
+    scene.objects[0].action = "reveal";
+    scene.objects[0].quiz = { mode: "bank", category: category.id, questions: ["Do not store this payload"] };
+    const content = twitchContent(scene);
+    assert.deepEqual(parseScene(content).objects[0].quiz, { mode: "bank", category: category.id });
+    assert.ok(!content.includes("Do not store"));
+    assert.ok(Buffer.byteLength(content) < 5000);
+  }
+  for (const quiz of [{ mode: "bank", category: "unknown" }, { mode: "bank" }, { mode: "code", choices: ["A", "B"], correctIndex: 0 }]) {
+    const scene = starterScene(); scene.objects[0].quiz = quiz;
+    assert.throws(() => validateScene(scene), /trivia|question/);
+  }
+  const scene = starterScene(); scene.objects[0].action = "party"; scene.objects[0].quiz = { mode: "bank", category: "mixed" };
+  assert.throws(() => validateScene(scene), /reveal action/);
 });
 
 test("counter goals are optional bounded integers and only apply to counter objects", () => {

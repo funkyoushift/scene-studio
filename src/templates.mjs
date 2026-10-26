@@ -41,7 +41,7 @@ export const TEMPLATE_OPTIONS = Object.freeze([
 // Additive object starters for the beginner editor. These return objects only;
 // callers append them to the current scene instead of replacing its draft.
 export const INTERACTIVE_PRESET_OPTIONS = Object.freeze([
-  Object.freeze({ key: "trivia", title: "Multiple-choice trivia", description: "Let viewers pick an answer", icon: "❔", objectCount: 1 }),
+  Object.freeze({ key: "trivia", title: "Random trivia", description: "Ready-to-play questions, shuffled answers and a personal score", icon: "❔", objectCount: 1 }),
   Object.freeze({ key: "tap-challenge", title: "Personal tap challenge", description: "Each viewer works toward their own goal", icon: "♡", objectCount: 1 }),
   Object.freeze({ key: "celebration", title: "Personal celebration", description: "Give each viewer a little moment", icon: "✦", objectCount: 1 }),
   Object.freeze({ key: "clickable-link", title: "Clickable link", description: "Add your HTTPS destination when ready", icon: "↗", objectCount: 1 }),
@@ -53,7 +53,7 @@ export function createInteractivePreset(key) {
   switch (key) {
     case "trivia": {
       const object = newObject("reveal");
-      return [{ ...object, title: "Which planet is known as the Red Planet?", caption: "Choose your answer", detail: "Mars gets its reddish appearance from iron oxide on its surface.", x: 4, y: 4, width: 42, height: 50, quiz: { choices: ["Earth", "Mars", "Venus"], correctIndex: 1 } }];
+      return [{ ...object, title: "Random trivia", caption: "Choose an answer, then play again", detail: "", x: 4, y: 4, width: 42, height: 50, quiz: { mode: "bank", category: "mixed" } }];
     }
     case "tap-challenge":
       return [{ ...newObject("counter"), title: "Personal tap challenge", caption: "Your taps, your goal", detail: "Thanks for tapping! Every viewer has a personal count for this visit.", x: 60, y: 5, width: 34, height: 38, goal: 20 }];

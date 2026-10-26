@@ -19,6 +19,8 @@ const output = path.join(outputs, folder);
 if (path.dirname(output) !== outputs) throw new Error("Export must stay inside outputs.");
 
 const required = [
+  "src/trivia-bank.mjs", "tests/trivia-bank.test.mjs",
+  "src/trivia-categories.mjs", "src/trivia-open-data.json", "scripts/import-trivia-bank.py", "assets/trivia/SOURCES.md", "assets/trivia/LICENSE-CC-BY-SA-4.0.txt",
   "src/Shoutout.jsx", "src/ShoutoutControls.jsx", "src/shoutout.css", "src/shoutout-contract.mjs", "tests/shoutout-contract.test.mjs", "server/shoutout-service.mjs", "server/shoutout-schema.sql", "tests/shoutout-service.test.mjs",
   "src/draft-workspace.mjs", "tests/draft-workspace.test.mjs",
   "src/hype-audio.mjs", "tests/hype-audio.test.mjs",

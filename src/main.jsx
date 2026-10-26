@@ -30,6 +30,7 @@ import AutomationViewer from "./AutomationViewer.jsx";
 import AutomationStudio from "./AutomationStudio.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { InteractiveWidget } from "./InteractiveWidgets.jsx";
+import { TRIVIA_CATEGORIES, getTriviaQuestions } from "./trivia-bank.mjs";
 import DeveloperPanel from "./DeveloperPanel.jsx";
 import { TEMPLATE_OPTIONS, INTERACTIVE_PRESET_OPTIONS, createTemplate, createInteractivePreset } from "./templates.mjs";
 import ExperienceHome from "./ExperienceHome.jsx";
@@ -609,7 +610,7 @@ function Editor() {
     setPreview(false);
     requestAnimationFrame(() => { guideHeading.current?.focus(); guideHeading.current?.scrollIntoView({ behavior: "smooth", block: "start" }); });
   };
-  const viewerAction = object?.action === "reveal" ? (object.quiz ? "Viewers click the card, choose an answer, and see whether they were right." : "Viewers click the card to reveal your message.") : object?.action === "counter" ? "Viewers click to add to their own count for this visit and reach the goal." : object?.action === "party" ? "Viewers start a shared celebration and a preset chat message when the channel's chat connection is enabled." : object?.action === "celebrate" ? "Viewers click to start a celebration on their own screen." : object?.action === "link" ? "Viewers click to open your website." : "";
+  const viewerAction = object?.action === "reveal" ? (object.quiz ? (object.quiz.mode === "bank" ? "Viewers answer random questions, get feedback, and choose Next question. Each viewer has their own score." : "Viewers click the card, choose an answer, and see whether they were right.") : "Viewers click the card to reveal your message.") : object?.action === "counter" ? "Viewers click to add to their own count for this visit and reach the goal." : object?.action === "party" ? "Viewers start a shared celebration and a preset chat message when the channel's chat connection is enabled." : object?.action === "celebrate" ? "Viewers click to start a celebration on their own screen." : object?.action === "link" ? "Viewers click to open your website." : "";
   const websiteLinks = scene.objects.filter(o => o.action === 'link');
   let publishProblem = '';
   try { preflightPublish(scene, isConfig ? authRef.current?.channelId : undefined); } catch(error) { publishProblem = error.message; }
@@ -1030,7 +1031,7 @@ function Editor() {
           {guided && object && <>
             <nav className="guide-nav" aria-label="Editing steps">{["Content", "Position", "Try & publish"].map((label, i) => <button key={label} aria-current={guideStep === i + 1 ? "step" : undefined} onClick={() => goGuideStep(i + 1)}><b>{i + 1}</b> {label}</button>)}</nav>
             <h2 ref={guideHeading} tabIndex={-1}>Step {guideStep}: { ["Content", "Position", "Try & publish"][guideStep - 1] }</h2>
-            <p>{guideStep === 1 ? `${object.quiz ? "Replace the sample question and choices below, then choose the correct answer. " : "Edit the words below to make this yours. "}${viewerAction}` : guideStep === 2 ? "Drag the selected object on the canvas. Use the width and height controls to resize it; arrow keys make fine adjustments." : "Open the viewer preview and click your object. When you are ready, use Publish to Twitch and follow the channel instructions."}</p>
+            <p>{guideStep === 1 ? `${object.quiz?.mode === "bank" ? "Your trivia game is ready. Keep all topics or choose a category, then try it. Writing questions is optional. " : object.quiz ? "Customize your own question below, or switch to the ready-made random question bank. " : "Edit the words below to make this yours. "}${viewerAction}` : guideStep === 2 ? "Drag the selected object on the canvas. Use the width and height controls to resize it; arrow keys make fine adjustments." : "Open the viewer preview and click your object. When you are ready, use Publish to Twitch and follow the channel instructions."}</p>
           </>}
           {guided && !object && <p>Select an object on the canvas or add an experience to begin.</p>}
         </section>
@@ -1190,7 +1191,7 @@ function Editor() {
               <>
                 <div className="guide-content-fields">
                 <label>
-                  {guided ? (object.quiz ? "Your question" : "What should the card say?") : "Title"}
+                  {guided ? (object.quiz?.mode === "bank" ? "Game title (optional)" : object.quiz ? "Your question" : "What should the card say?") : "Title"}
                   <input
                     ref={titleInput}
                     value={object.title}
@@ -1219,7 +1220,15 @@ function Editor() {
                     ))}
                   </select>
                 </label>}
-                {object.action === "reveal" && object.quiz && <section className="inspector-section quiz-controls" aria-label="Quiz answers">
+                {object.action === "reveal" && object.quiz && <section className="inspector-section" aria-label="Trivia setup">
+                  <h3>Ready to play</h3>
+                  <label>Question source<select value={object.quiz.mode === "bank" ? "bank" : "custom"} onChange={e => {
+                    if (e.target.value === "bank") update({ quiz: { mode: "bank", category: "mixed" }, title: "Random trivia", detail: "" });
+                    else update({ quiz: { choices: ["Earth", "Mars", "Venus"], correctIndex: 1 }, title: "Which planet is known as the Red Planet?", detail: "Mars gets its reddish appearance from iron oxide on its surface." });
+                  }}><option value="bank">Included random questions</option><option value="custom">Write my own question</option></select></label>
+                  {object.quiz.mode === "bank" && <><label>Trivia category<select value={object.quiz.category} onChange={e => update({ quiz: { mode: "bank", category: e.target.value } })}>{TRIVIA_CATEGORIES.map(category => <option key={category.id} value={category.id}>{category.label}</option>)}</select></label><p>{getTriviaQuestions(object.quiz.category).length} questions included. Questions and answers shuffle automatically. Each viewer plays at their own pace with a personal score; questions do not repeat until they finish the selected bank.</p><p className="field-hint">Includes questions adapted from <a href="https://opentdb.com/" target="_blank" rel="noreferrer">Open Trivia Database</a> under <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a>.</p></>}
+                </section>}
+                {object.action === "reveal" && object.quiz && object.quiz.mode !== "bank" && <section className="inspector-section quiz-controls" aria-label="Quiz answers">
                   <h3>Quiz answers</h3>
                   <p>Viewers choose one answer. Mark the correct choice for the reveal.</p>
                   {object.quiz.choices.map((choice, index) => <div className="quiz-choice-row" key={index}>
@@ -1254,7 +1263,7 @@ function Editor() {
                       Opens after a viewer clicks. HTTPS required. Social, commerce and promotional destinations may not pass Twitch public review.
                     </small>
                   </label>
-                ) : (
+                ) : object.quiz?.mode === "bank" ? null : (
                   <label>
                     {object.action === "counter" ? "Thank-you text" : guided ? (object.quiz ? "Explain the answer" : "Message viewers see") : "Message"}
                     <textarea
