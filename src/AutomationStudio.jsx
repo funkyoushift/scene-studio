@@ -34,7 +34,7 @@ function initialDesign() {
   return emptyDesign();
 }
 
-export default function AutomationStudio({ session, onBack, visible = true, experienceRequest, onPagesChange, onRequestHandled, bundleApi }) {
+export default function AutomationStudio({ session, onBack, visible = true, experienceRequest, onPagesChange, onDraftChange, onRequestHandled, bundleApi }) {
   const [requestedPageId, setRequestedPageId] = useState(null);
   const consumedRequest = useRef(null);
   const managed = session !== undefined;
@@ -77,6 +77,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
   viewerRef.current = managed ? session?.viewer : window.Twitch?.ext?.viewer;
   const dirty = liveEditor && savedConfig && JSON.stringify(design) !== JSON.stringify(savedConfig.design);
   const backUrl = liveEditor ? `./config.html${location.search}` : "./";
+  useEffect(() => { onDraftChange?.({ design, ready: !busy && (!liveEditor || Boolean(savedConfig)) }); }, [design, busy, liveEditor, savedConfig, onDraftChange]);
   useImperativeHandle(bundleApi, () => ({
     add(keys) {
       if (busy || (liveEditor && !savedConfig)) throw new Error("Wait for this channel's saved experiences to load before adding a layout.");

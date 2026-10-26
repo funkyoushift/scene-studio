@@ -4,8 +4,40 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { automationRequest, processAutomationInput, hasMatchingKeywordRule, tickAutomations, HOSTED_AUTOMATION_LIMITS } from "../server/automation-service.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
+import { addExperiencePresets } from "../src/experience-presets.mjs";
+import { AUTOMATION_DESIGN_BYTES, validateAutomations } from "../src/automations.mjs";
 
 const now = 1800000000000, origin = "https://test.ext-twitch.tv";
+const utf8Length = value => new TextEncoder().encode(JSON.stringify(value)).length;
+function maximumCountDesign() {
+  return {
+    version: 1,
+    carousels: Array.from({ length: 32 }, (_, i) => ({ id: `c${i}`, title: "C", displaySeconds: 20, slides: Array.from({ length: 6 }, (_, j) => ({ id: `s${i}_${j}`, title: "T", caption: "D", image: "", url: "" })) })),
+    rules: Array.from({ length: 64 }, (_, i) => ({ id: `r${i}`, name: "R", enabled: true, trigger: { type: "keyword", phrase: "K", match: "contains" }, effect: { type: "celebrate", message: "M" }, cooldownSeconds: 0 })),
+    pages: Array.from({ length: 48 }, (_, i) => ({ id: `p${i}`, name: "P", ruleIds: [`r${i}`], carouselIds: [] })),
+  };
+}
+function designAtBytes(target) {
+  const input = validateAutomations(maximumCountDesign());
+  let remaining = target - utf8Length(input);
+  if (remaining < 0) throw Error("Base design exceeds target byte count.");
+  const slots = [];
+  for (const carousel of input.carousels) {
+    slots.push([carousel, "title", 80]);
+    for (const slide of carousel.slides) slots.push([slide, "title", 70], [slide, "caption", 100]);
+  }
+  for (const rule of input.rules) slots.push([rule, "name", 70], [rule.trigger, "phrase", 80], [rule.effect, "message", 160]);
+  for (const page of input.pages.slice(0, -1)) slots.push([page, "name", 60]);
+  for (const [record, key, limit] of slots) {
+    const extra = Math.min(remaining, limit - record[key].length);
+    if (extra > 0) { record[key] += "X".repeat(extra); remaining -= extra; }
+    if (remaining === 0) break;
+  }
+  if (remaining !== 0) throw Error("Not enough bounded text fields to reach requested byte count.");
+  const clean = validateAutomations(input);
+  if (utf8Length(clean) !== target) throw Error("Generated automation design did not reach the requested byte count.");
+  return clean;
+}
 const claims = (channel = "123") => ({ role: "broadcaster", user_id: channel, channel_id: channel, exp: now / 1000 + 3 * 86400 });
 function design() {
   return { version: 1, carousels: [{ id: "merch", title: "My collection", displaySeconds: 20, slides: [{ id: "shirt", title: "My shirt", caption: "", image: "", url: "" }] }], rules: [
@@ -149,6 +181,53 @@ test("config CAS preserves concurrent edits and saves even when change notificat
   const final = await s.save(design(), { input: { design: design(), expectedRevision: 2 }, sender: async () => { throw Error("private provider details"); } });
   assert.equal(final.status, 200); assert.equal(final.body.revision, 3); assert.equal(final.body.notification, "uncertain");
   assert.equal((await s.call()).body.revision, 3);
+});
+
+test("hosted config reader admits the 15-rule plus four-layout selection within expanded quotas", async t => {
+  const s = fixture(t), base = design();
+  base.carousels = Array.from({ length: 26 }, (_, carouselIndex) => ({
+    id: `existing-carousel-${carouselIndex}`, title: `Existing carousel ${carouselIndex}`,
+    displaySeconds: 20,
+    slides: Array.from({ length: 6 }, (_, slideIndex) => ({
+      id: `slide-${carouselIndex}-${slideIndex}`, title: "S".repeat(70), caption: "C".repeat(100), image: "", url: "",
+    })),
+  }));
+  base.rules = Array.from({ length: 15 }, (_, index) => ({
+    id: `existing-rule-${index}`, name: `Existing rule ${index}`,
+    enabled: true, trigger: { type: "keyword", phrase: `k${String(index).padStart(78, "x")}`, match: "word" },
+    effect: { type: "celebrate", message: "M".repeat(160) }, cooldownSeconds: 0,
+  }));
+  base.pages = base.rules.map((rule, index) => ({ id: `existing-page-${index}`, name: `Existing page ${index}`, ruleIds: [rule.id], carouselIds: [] }));
+  const keys = ["subscriber-thanks", "hype-train", "hype-progress", "hype-finish", "discord-invite", "stream-rules", "stream-schedule", "game-goals", "merch-carousel", "featured-item"];
+  const expanded = addExperiencePresets(base, keys).design;
+  assert.equal(expanded.rules.length, 25);
+  assert.equal(expanded.pages.length, 25);
+  assert.equal(expanded.carousels.length, 32);
+  const requestBytes = new TextEncoder().encode(JSON.stringify({ design: expanded, expectedRevision: 0 })).length;
+  assert.ok(requestBytes > 20_000 && requestBytes < HOSTED_AUTOMATION_LIMITS.designBytes + 1024);
+  assert.equal((await s.save(expanded)).status, 200);
+});
+
+test("config reader allows design plus bounded metadata, while action body cap stays 1 KiB", async t => {
+  const s = fixture(t);
+  const oversizedConfigEnvelope = { design: design(), expectedRevision: 0, padding: "x".repeat(HOSTED_AUTOMATION_LIMITS.designBytes + 1024) };
+  assert.equal((await s.save(oversizedConfigEnvelope.design, { input: oversizedConfigEnvelope })).body.error, "body_too_large");
+  assert.equal((await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "celebrate", message: "x".repeat(1100) } })).body.error, "body_too_large");
+  assert.equal(HOSTED_AUTOMATION_LIMITS.designBytes, 65_536);
+  assert.equal(HOSTED_AUTOMATION_LIMITS.channels, 100);
+  assert.equal(HOSTED_AUTOMATION_LIMITS.receipts, 10_000);
+});
+
+test("hosted design cap accepts exactly 64 KiB and rejects one byte more", async t => {
+  const s = fixture(t), exact = designAtBytes(AUTOMATION_DESIGN_BYTES);
+  assert.equal(HOSTED_AUTOMATION_LIMITS.designBytes, AUTOMATION_DESIGN_BYTES);
+  assert.equal((await s.save(exact)).status, 200);
+  const over = structuredClone(exact);
+  over.pages.at(-1).name += "X";
+  assert.equal(utf8Length(over), AUTOMATION_DESIGN_BYTES + 1);
+  const rejected = await s.save(over, { input: { design: over, expectedRevision: 1 } });
+  assert.equal(rejected.status, 413);
+  assert.equal(rejected.body.error, "design_too_large");
 });
 
 test("hosted designs require same-channel hosted images, minute timers, and explicit mapped-store ownership declaration", async t => {

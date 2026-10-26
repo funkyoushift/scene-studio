@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T15:54:13.853Z",
+  "createdUtc": "2026-10-26T16:08:01.700Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -141,8 +141,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 24618,
-      "sha256": "9e21f92df9c52647546f0aec9e33d9027c5c575c5dcb657940fbd200075db77b"
+      "bytes": 24709,
+      "sha256": "782455892b186ca6a16264d7b700c429cfb7d64269719d6d23c799fa20135c14"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -155,6 +155,11 @@
       "sha256": "86a2425feb7eb46cae3aa2cf929b88ec15b1f71266cdad73df85bbf033594412"
     },
     {
+      "path": "scripts/migrate-automation-capacity.mjs",
+      "bytes": 1843,
+      "sha256": "af7747b3fd7358e6c438693b4a48af36333c855796581438d90c387a5cfb2f55"
+    },
+    {
       "path": "scripts/package-twitch.ps1",
       "bytes": 1777,
       "sha256": "9720a17a615ee36970476c022a43d8945820f5bf04aac0f8d4e2084faf720762"
@@ -162,12 +167,12 @@
     {
       "path": "server/automation-schema.sql",
       "bytes": 1354,
-      "sha256": "462b50936eabf27925b20fe0464b63f09217a86c958ab9c882e43120fa0e081e"
+      "sha256": "752ea2084de9e753568c686dca0cdfd2429fd899b06f31f56dc9f2c7ad26f785"
     },
     {
       "path": "server/automation-service.mjs",
-      "bytes": 23861,
-      "sha256": "603c65882258dea3ff8eb2820e7cd99962c151def2d65d76e0aacfe1a4168071"
+      "bytes": 24044,
+      "sha256": "b3dc27317c9f878597e67608138a6903dec96a71f61531af73840cd3f3d5e793"
     },
     {
       "path": "server/chat-authorization.mjs",
@@ -231,8 +236,8 @@
     },
     {
       "path": "src/automation-twitch.mjs",
-      "bytes": 12636,
-      "sha256": "c9ee3b8d2e1584e8242e5d85075d2e67981fe6a10fe3f8d2cfd910b57dc93b70"
+      "bytes": 12680,
+      "sha256": "710988b3039b7fc7faf9261388d5ab96763a721a6dee0b062bc0971419f71379"
     },
     {
       "path": "src/automations.css",
@@ -241,13 +246,13 @@
     },
     {
       "path": "src/automations.mjs",
-      "bytes": 20297,
-      "sha256": "8b73f10bf5e1e4ea6037834ae94517a7bae1f98b12bfffb389b6ea76dd3ee107"
+      "bytes": 20345,
+      "sha256": "203bf228946c56c8b365d5788d86061aa7487bf93953f21553f99a1f236ccd0c"
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 61641,
-      "sha256": "463a8d668103ecfacf7e3a9629c8681e6ef3aa4f5462a85579a42deff2f96a04"
+      "bytes": 61821,
+      "sha256": "76d922536b33fa2b356f37b68284d877a11f3e78158a42aec0e038a06b5a2c20"
     },
     {
       "path": "src/AutomationViewer.jsx",
@@ -301,8 +306,8 @@
     },
     {
       "path": "src/ExperienceHome.jsx",
-      "bytes": 15371,
-      "sha256": "0ed951ab9529f14c4b045cb6192f383f9f623a9862525e9252f3a178bf4f13bf"
+      "bytes": 15968,
+      "sha256": "d2eb71d4d4af95b2f0a1329fb31966adc3c023d89c2ff545067386feede19061"
     },
     {
       "path": "src/FlowBuilder.jsx",
@@ -341,8 +346,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 78357,
-      "sha256": "68e0f6415ea2d910271e46951a0928461073a690e3c5fb957db60ca26fe9df1a"
+      "bytes": 80454,
+      "sha256": "18a0e8ac8d4798286ed5d677c2d3dbe158a5c9d2c1e7c14846e7a5af88041aa2"
     },
     {
       "path": "src/mobile-entry.jsx",
@@ -415,24 +420,29 @@
       "sha256": "f5d6f24c5f67d8ae8b2e8794001af3c37bd7eb7b6a9ee5c9b34b769294271dab"
     },
     {
+      "path": "tests/automation-capacity-migration.test.mjs",
+      "bytes": 2658,
+      "sha256": "4ca4afbd3d20873d119f86c13aaa2eddd4f40fca6f91fc043ec810d9458a6d67"
+    },
+    {
       "path": "tests/automation-router.test.mjs",
       "bytes": 4741,
       "sha256": "815c5d481720b4ddd3fbaf90866e8d686f32602eb021c5be626d6394ce1611cb"
     },
     {
       "path": "tests/automation-service.test.mjs",
-      "bytes": 29277,
-      "sha256": "4943bb76cea3c46006938a17df52476a140e67954807036030334fa67baebb71"
+      "bytes": 34313,
+      "sha256": "8d3289e11bdbfee4f4f9fbbf6096d6ee7cf101f116d99f3b068e793e07f161d8"
     },
     {
       "path": "tests/automation-twitch.test.mjs",
-      "bytes": 16105,
-      "sha256": "12bd4e6135ca4f25ed5fd2b74fcfb9ce0ee27060c607c32abfdea93e5a8b1a97"
+      "bytes": 18630,
+      "sha256": "f7e4d2030a0cda21b8293bbc6ce541d3afeaef89b4969e8b32ab31eb214c30d1"
     },
     {
       "path": "tests/automations.test.mjs",
-      "bytes": 27304,
-      "sha256": "625542c2cddc11c883ff40214d20afd8016844a1de3c93a551738249a4a00457"
+      "bytes": 28830,
+      "sha256": "7862aba7acfdacb9c18a75e2b030f0f40e06809756cd20ed50243fc0bfdb42c9"
     },
     {
       "path": "tests/celebration-audio.test.mjs",
@@ -476,8 +486,8 @@
     },
     {
       "path": "tests/experience-presets.test.mjs",
-      "bytes": 12122,
-      "sha256": "f2cdd6a1801af5f401cc50238f4d1e5b1bbe12fd20c3da51ed303284358cf745"
+      "bytes": 13321,
+      "sha256": "603e13649acc2ceaf2f25e35f97dd1ef8240b5aaa14d6499ec6c7bac3ec64565"
     },
     {
       "path": "tests/experience-preview.test.mjs",

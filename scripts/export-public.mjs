@@ -48,7 +48,7 @@ const required = [
   "tests/automations.test.mjs",
   "tests/automation-service.test.mjs", "tests/automation-twitch.test.mjs", "tests/automation-router.test.mjs", "tests/chat-triggers.test.mjs",
   "tests/developer-service.test.mjs", "tests/developer-router.test.mjs",
-  "scripts/cloudflare.mjs", "scripts/make-branding.mjs",
+  "scripts/cloudflare.mjs", "scripts/make-branding.mjs", "scripts/migrate-automation-capacity.mjs", "tests/automation-capacity-migration.test.mjs",
   "scripts/make-channel-designs.mjs", "scripts/package-twitch.ps1",
   "scripts/build-prototype.mjs", "scripts/build-pages.mjs", "scripts/export-public.mjs",
   "assets/branding/discovery-300x200.png", "assets/branding/discovery.svg",

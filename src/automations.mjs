@@ -3,11 +3,12 @@
 import { MAX_IMPORT_BYTES, bytes, validateScene } from "./scene.mjs";
 
 export const AUTOMATION_LIMITS = Object.freeze({
-  carousels: 8, slides: 6, rules: 18, pages: 12, chooseOptions: 6, messageCharacters: 2000,
+  carousels: 32, slides: 6, rules: 64, pages: 48, chooseOptions: 6, messageCharacters: 2000,
   displaySeconds: Object.freeze([2, 300]),
   everySeconds: Object.freeze([5, 3600]),
   cooldownSeconds: Object.freeze([0, 3600]),
 });
+export const AUTOMATION_DESIGN_BYTES = 65_536;
 export const CELEBRATION_STYLES = Object.freeze([
   "confetti", "spotlight", "hype-train", "hearts", "starfall", "fireworks",
   "bubbles", "meteor", "aurora", "arcade", "petals", "orbit",

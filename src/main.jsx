@@ -31,8 +31,10 @@ import AutomationStudio from "./AutomationStudio.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { InteractiveWidget } from "./InteractiveWidgets.jsx";
 import DeveloperPanel from "./DeveloperPanel.jsx";
-import { TEMPLATE_OPTIONS, createTemplate, createInteractivePreset } from "./templates.mjs";
+import { TEMPLATE_OPTIONS, INTERACTIVE_PRESET_OPTIONS, createTemplate, createInteractivePreset } from "./templates.mjs";
 import ExperienceHome from "./ExperienceHome.jsx";
+import { addExperiencePresets } from "./experience-presets.mjs";
+import { AUTOMATION_LIMITS, AUTOMATION_DESIGN_BYTES } from "./automations.mjs";
 import {
   prepareImage,
   publishImages,
@@ -540,6 +542,7 @@ function Viewer() {
 
 function Editor() {
   const bundleApi = useRef(null);
+  const [flowDraft, setFlowDraft] = useState(null);
   const [homeOpen, setHomeOpen] = useState(true),
     [flowRequest, setFlowRequest] = useState(null),
     [flowPages, setFlowPages] = useState([]);
@@ -756,6 +759,8 @@ function Editor() {
     }
   }
   function addLayoutBundle({ flowKeys = [], widgetKeys = [] }) {
+    const assessment = checkLayoutBundle({ flowKeys, widgetKeys });
+    if (assessment.error) throw new Error(assessment.error);
     const additions = [...new Set(widgetKeys)].flatMap(createInteractivePreset);
     if (scene.objects.length + additions.length > MAX_OBJECTS) throw new Error(`These layouts need ${additions.length} object slots. Your scene has ${MAX_OBJECTS - scene.objects.length} available; choose fewer layouts or remove an existing object.`);
     const nextScene = validateScene({ ...scene, objects: [...scene.objects, ...additions] });
@@ -766,6 +771,18 @@ function Editor() {
     if (additions.length) { commit(nextScene); setSelected(additions[0].id); }
     setNotice(`Added your selected layouts. Open each experience to customize its animation, text, timing, and placement.`);
     // Stay on the overview so every selected layout remains easy to find.
+  }
+  function checkLayoutBundle({ flowKeys = [], widgetKeys = [] }) {
+    try {
+      const widgetCount = [...new Set(widgetKeys)].reduce((sum, key) => sum + (INTERACTIVE_PRESET_OPTIONS.find(p => p.key === key)?.objectCount || 0), 0);
+      if (scene.objects.length + widgetCount > MAX_OBJECTS) return { error: `This selection adds ${widgetCount} interactive objects, but ${MAX_OBJECTS - scene.objects.length} slots remain. Choose fewer game layouts or remove an existing object.` };
+      if (flowKeys.length && !flowDraft?.ready) return { error: "Loading your saved experiences. Layouts will be available shortly." };
+      const { design } = addExperiencePresets(flowDraft?.design || { version: 1, rules: [], carousels: [] }, flowKeys);
+      // Local images are uploaded separately, so estimate their hosted addresses.
+      const stored = { ...design, carousels: design.carousels.map(c => ({ ...c, slides: c.slides.map(s => ({ ...s, image: s.image.startsWith('data:') ? 'x'.repeat(180) : s.image })) })) };
+      if (new TextEncoder().encode(JSON.stringify(stored)).length > AUTOMATION_DESIGN_BYTES) return { error: `This selection exceeds the ${AUTOMATION_DESIGN_BYTES / 1024} KB configuration budget. Shorten some text or choose fewer layouts.` };
+      return { summary: `After adding: ${design.rules.length}/${AUTOMATION_LIMITS.rules} rules · ${(design.pages || []).length}/${AUTOMATION_LIMITS.pages} experiences · ${design.carousels.length}/${AUTOMATION_LIMITS.carousels} carousels · ${scene.objects.length + widgetCount}/${MAX_OBJECTS} interactive objects. Existing work is kept.` };
+    } catch (error) { return { error: error.message }; }
   }
   function add(action) {
     if (scene.objects.length >= MAX_OBJECTS) {
@@ -912,6 +929,7 @@ function Editor() {
     {homeOpen && <ExperienceHome objects={scene.objects} flows={flowPages} channelName={profile?.login} live={isConfig} notice={notice} onDismissNotice={() => setNotice("")}
       onChooseWidget={addInteractivePreset}
       onChooseBundle={addLayoutBundle}
+      onCheckBundle={checkLayoutBundle}
       onOpenAI={() => { setHomeOpen(false); setAutomationOpen(false); setJson(""); setModal("ai"); }}
       onChooseFlow={key => { setFlowRequest({ key, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
       onEditObject={id => { setSelected(id); setPreview(false); setHomeOpen(false); setAutomationOpen(false); }}
@@ -1621,7 +1639,7 @@ function Editor() {
     </div>
     </div>
     <div hidden={!automationOpen || homeOpen}>
-      <AutomationStudio bundleApi={bundleApi} session={isConfig ? { auth: automationSession?.auth, viewer: automationSession?.viewer, profile } : undefined} visible={automationOpen && !homeOpen} experienceRequest={flowRequest} onRequestHandled={setFlowRequest} onPagesChange={setFlowPages} onBack={() => { setAutomationOpen(false); setHomeOpen(true); }} />
+      <AutomationStudio bundleApi={bundleApi} onDraftChange={setFlowDraft} session={isConfig ? { auth: automationSession?.auth, viewer: automationSession?.viewer, profile } : undefined} visible={automationOpen && !homeOpen} experienceRequest={flowRequest} onRequestHandled={setFlowRequest} onPagesChange={setFlowPages} onBack={() => { setAutomationOpen(false); setHomeOpen(true); }} />
     </div>
     </>
   );

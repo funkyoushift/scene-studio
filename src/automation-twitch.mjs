@@ -1,8 +1,8 @@
-import { CELEBRATION_SOUNDS, CELEBRATION_STYLES, validateAutomations } from "./automations.mjs";
+import { AUTOMATION_DESIGN_BYTES, CELEBRATION_SOUNDS, CELEBRATION_STYLES, validateAutomations } from "./automations.mjs";
 import { IMAGE_ORIGIN, hostedImage } from "./image-address.mjs";
 import { prepareImage } from "./images.mjs";
 
-export const AUTOMATION_CONFIG_BYTES = 16_384;
+export const AUTOMATION_CONFIG_BYTES = AUTOMATION_DESIGN_BYTES;
 const bytes = value => new TextEncoder().encode(value).length;
 // Twitch's Helper keeps one onAuthorized callback. An embedded editor consumes
 // the parent's session instead of replacing that callback or navigating frames.
@@ -73,7 +73,7 @@ export function automationPreflight(input, channelId, ownedMerch) {
   if (design.carousels.some(c => c.slides.some(s => s.url)) && ownedMerch !== true) throw Error("Confirm that all linked carousels are your own branded merchandise before saving.");
   if (design.carousels.some(c => c.slides.some(s => s.image && !s.image.startsWith("data:") && !hostedImage(s.image, channelId)))) throw Error("Replace images that belong to another channel before saving.");
   const estimate = { ...design, carousels: design.carousels.map(c => ({ ...c, slides: c.slides.map(s => ({ ...s, image: s.image ? `${IMAGE_ORIGIN}/images/${channelId}/${"0".repeat(64)}.png` : "" })) })) };
-  if (bytes(JSON.stringify(estimate)) > AUTOMATION_CONFIG_BYTES) throw Error("Keep the saved automation design below 16 KB. Shorten text or remove slides.");
+  if (bytes(JSON.stringify(estimate)) > AUTOMATION_CONFIG_BYTES) throw Error("Keep the saved automation design within 64 KiB. Shorten text or remove slides.");
   return design;
 }
 export async function publishAutomationImages(input, auth, ownedMerch, fetcher = fetch, prepare = prepareImage) {

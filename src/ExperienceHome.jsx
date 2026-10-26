@@ -18,7 +18,7 @@ const layoutBundles = [
   { key: "creator-showcase", title: "Creator showcase", description: "Feature a product carousel and a single highlighted item.", flowKeys: ["merch-carousel", "featured-item"], widgetKeys: [], icon: "▣" },
 ];
 
-export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, channelName, live = false, notice, onDismissNotice }) {
+export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onCheckBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, channelName, live = false, notice, onDismissNotice }) {
   const [activeGroup, setActiveGroup] = useState("Viewer interactions");
   const [liveSearch, setLiveSearch] = useState("");
   const [liveCategory, setLiveCategory] = useState("All categories");
@@ -44,6 +44,9 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
     setBundleError("");
     setSelectedBundles(current => current.includes(key) ? current.filter(item => item !== key) : [...current, key]);
   };
+  const selection = layoutBundles.filter(bundle => selectedBundles.includes(bundle.key));
+  const selectionPayload = { flowKeys: [...new Set(selection.flatMap(bundle => bundle.flowKeys))], widgetKeys: [...new Set(selection.flatMap(bundle => bundle.widgetKeys))] };
+  const assessment = selectedBundles.length ? onCheckBundle?.(selectionPayload) : null;
   const addSelectedBundles = async () => {
     if (!selectedBundles.length || addingBundles) return;
     const selected = layoutBundles.filter(bundle => selectedBundles.includes(bundle.key));
@@ -113,8 +116,10 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
       <div className="eh-layout-actions">
         <span className="eh-layout-count" role="status" aria-live="polite">{selectedBundles.length} {selectedBundles.length === 1 ? "layout" : "layouts"} selected</span>
         {selectedBundles.length > 0 && <button type="button" className="eh-layout-clear" onClick={() => { setSelectedBundles([]); setBundleError(""); }}>Clear selection</button>}
-        <button type="button" className="eh-layout-add" disabled={!selectedBundles.length || addingBundles} onClick={addSelectedBundles}>{addingBundles ? "Adding…" : "Add selected layouts"}</button>
+        <button type="button" className="eh-layout-add" disabled={!selectedBundles.length || addingBundles || Boolean(assessment?.error)} onClick={addSelectedBundles}>{addingBundles ? "Adding…" : "Add selected layouts"}</button>
       </div>
+      {assessment?.summary && <p className="eh-capacity" role="status">{assessment.summary}</p>}
+      {assessment?.error && <p className="eh-layout-error" role="status">{assessment.error}</p>}
       {bundleError && <p className="eh-layout-error" role="alert">{bundleError}</p>}
       <p className="eh-layout-library-hint">Want a single starter instead? Browse the individual starter library below.</p>
     </section>}

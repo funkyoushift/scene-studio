@@ -171,6 +171,20 @@ test('layout selection adds deduplicated moments and rejects overflow without ch
   assert.deepEqual(original, snapshot);
   assert.throws(() => addExperiencePresets(result.design, ['no-such-preset']), /supported/);
   assert.equal(result.design.pages.length, 2);
-  assert.throws(() => addExperiencePresets(original, ['merch-carousel', 'discord-invite', 'subscriber-thanks', 'hype-train', 'chat-celebration', 'custom-popup', 'stream-rules', 'faq-answers', 'stream-schedule', 'welcome-chat', 'lurk-note', 'community-guide', 'game-goals']), /up to/);
+  const full = { ...original, rules: Array.from({ length: AUTOMATION_LIMITS.rules }, (_, i) => ({ id: `full-${i}`, name: 'Existing', enabled: true, trigger: { type: 'keyword', phrase: 'hello', match: 'word' }, effect: { type: 'celebrate', message: 'Welcome!' }, cooldownSeconds: 20 })), pages: [] };
+  assert.throws(() => addExperiencePresets(full, ['subscriber-thanks']), /up to/);
   assert.deepEqual(original, snapshot);
+});
+
+test('existing fifteen-rule setup can add all four curated layouts without replacing any rule', () => {
+  const source = { version: 1, carousels: [], rules: Array.from({ length: 15 }, (_, i) => ({ id: `kept-${i}`, name: `Existing ${i}`, enabled: true, trigger: { type: 'keyword', phrase: `kept${i}`, match: 'word' }, effect: { type: 'celebrate', message: 'Existing message' }, cooldownSeconds: 20 })), pages: [] };
+  source.pages = Array.from({ length: 6 }, (_, i) => ({ id: `page-${i}`, name: `Page ${i}`, ruleIds: source.rules.filter((_, n) => n % 6 === i).map(r => r.id), carouselIds: [] }));
+  const before = structuredClone(source);
+  const keys = ['subscriber-thanks','hype-train','hype-progress','hype-finish','discord-invite','stream-rules','stream-schedule','game-goals','merch-carousel','featured-item'];
+  const { design } = addExperiencePresets(source, keys);
+  assert.equal(design.rules.length, 25);
+  assert.equal(design.pages.length, 16);
+  assert.equal(design.carousels.length, 6);
+  assert.deepEqual(design.rules.slice(0,15), source.rules);
+  assert.deepEqual(source, before);
 });

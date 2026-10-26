@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS automation_configs (
   channel TEXT PRIMARY KEY,
-  design TEXT NOT NULL CHECK(length(CAST(design AS BLOB))<=16384),
+  design TEXT NOT NULL CHECK(length(CAST(design AS BLOB))<=65536),
   revision INTEGER NOT NULL,
   owned_merch INTEGER NOT NULL DEFAULT 0,
   updated INTEGER NOT NULL,

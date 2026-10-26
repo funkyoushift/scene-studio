@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AUTOMATION_LIMITS, CELEBRATION_SOUNDS, CELEBRATION_STYLES, TWITCH_AUTOMATION_EVENTS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule, deriveLegacyAutomationPages, createAutomationPage, addRuleToAutomationPage, addCarouselToAutomationPage, removeAutomationPage } from "../src/automations.mjs";
+import { AUTOMATION_DESIGN_BYTES, AUTOMATION_LIMITS, CELEBRATION_SOUNDS, CELEBRATION_STYLES, TWITCH_AUTOMATION_EVENTS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule, deriveLegacyAutomationPages, createAutomationPage, addRuleToAutomationPage, addCarouselToAutomationPage, removeAutomationPage } from "../src/automations.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
 
 function fixture() {
@@ -77,7 +77,7 @@ test("automation validation enforces counts, IDs, references, supported actions 
   }
   const tooLarge = fixture();
   tooLarge.carousels[0].slides = Array.from({ length: 4 }, (_, i) => ({ id: `s${i}`, title: "Image", caption: "", url: "", image: `data:image/png;base64,${"a".repeat(600_000)}` }));
-  assert.throws(() => validateAutomations(tooLarge), /large|2 MB/i);
+  assert.throws(() => validateAutomations(tooLarge), /large|64 KiB/i);
   assert.deepEqual(validateAutomations({ version: 1, carousels: [], rules: [] }), { version: 1, carousels: [], rules: [] });
 });
 
@@ -126,18 +126,41 @@ test("celebration appearance validates on direct and chosen effects and stays ba
   }
 });
 
-test("automation limits accept eight carousels and eighteen rules, then reject excess", () => {
+function maximumAutomationCounts() {
   const base = fixture();
-  const accepted = structuredClone(base);
-  accepted.carousels = Array.from({ length: 8 }, (_, i) => ({ ...structuredClone(base.carousels[0]), id: `c${i}` }));
-  accepted.rules = Array.from({ length: 18 }, (_, i) => ({ ...structuredClone(base.rules[0]), id: `r${i}` }));
-  assert.equal(validateAutomations(accepted).carousels.length, 8);
-  assert.equal(validateAutomations(accepted).rules.length, 18);
-  accepted.carousels.push({ ...structuredClone(accepted.carousels[0]), id: "c8" });
+  return {
+    version: 1,
+    carousels: Array.from({ length: AUTOMATION_LIMITS.carousels }, (_, i) => ({ ...structuredClone(base.carousels[0]), id: `c${i}`, slides: [{ ...structuredClone(base.carousels[0].slides[0]), id: `s${i}` }] })),
+    rules: Array.from({ length: AUTOMATION_LIMITS.rules }, (_, i) => ({ ...structuredClone(base.rules[0]), id: `r${i}` })),
+    pages: Array.from({ length: AUTOMATION_LIMITS.pages }, (_, i) => ({ id: `p${i}`, name: `Page ${i}`, ruleIds: [`r${i}`], carouselIds: [] })),
+  };
+}
+
+test("automation limits accept 32 carousels, 64 rules, and 48 pages, then reject excess", () => {
+  const accepted = maximumAutomationCounts(), normalized = validateAutomations(accepted);
+  assert.equal(normalized.carousels.length, 32);
+  assert.equal(normalized.rules.length, 64);
+  assert.equal(normalized.pages.length, 48);
+  accepted.carousels.push({ ...structuredClone(accepted.carousels[0]), id: "c32" });
   assert.throws(() => validateAutomations(accepted), /Carousels/);
   accepted.carousels.pop();
-  accepted.rules.push({ ...structuredClone(accepted.rules[0]), id: "r18" });
+  accepted.rules.push({ ...structuredClone(accepted.rules[0]), id: "r64" });
   assert.throws(() => validateAutomations(accepted), /Rules/);
+  accepted.rules.pop();
+  accepted.pages.push({ id: "p48", name: "One too many", ruleIds: [], carouselIds: [] });
+  assert.throws(() => validateAutomations(accepted), /Pages/);
+  assert.throws(() => createAutomationPage({ ...normalized, pages: Array.from({ length: AUTOMATION_LIMITS.pages }, (_, i) => ({ id: `p${i}`, name: "Page", ruleIds: [], carouselIds: [] })) }, { id: "extra", name: "Extra" }), /up to 48 pages/);
+});
+
+test("local automation drafts may exceed hosted bytes when uploaded data images are prepared separately", () => {
+  const base = validateAutomations(maximumAutomationCounts());
+  const serializedLength = new TextEncoder().encode(JSON.stringify(base)).length;
+  const difference = AUTOMATION_DESIGN_BYTES - serializedLength + 4096;
+  const prefix = "data:image/png;base64,";
+  assert.ok(difference > prefix.length && difference < 700_000);
+  base.carousels[0].slides[0].image = `${prefix}${"A".repeat(difference - prefix.length)}`;
+  assert.ok(new TextEncoder().encode(JSON.stringify(base)).length > AUTOMATION_DESIGN_BYTES);
+  assert.deepEqual(parseAutomations(JSON.stringify(base)), base);
 });
 
 test("carousel layout is optional, bounded, and normalized without CSS fields", () => {
@@ -189,7 +212,7 @@ test("page metadata validates references and helpers move rules while preserving
     value => { value.pages = Array.from({ length: AUTOMATION_LIMITS.pages + 1 }, (_, i) => ({ id: `p${i}`, name: "Page", ruleIds: [], carouselIds: [] })); },
   ];
   for (const mutate of invalid) { const candidate = fixture(); mutate(candidate); assert.throws(() => validateAutomations(candidate), /Page|page|exist|belongs|contain/i); }
-  assert.throws(() => createAutomationPage({ ...design, pages: Array.from({ length: AUTOMATION_LIMITS.pages }, (_, i) => ({ id: `p${i}`, name: "Page", ruleIds: [], carouselIds: [] })) }, { id: "extra", name: "Extra" }), /up to 12 pages/);
+  assert.throws(() => createAutomationPage({ ...design, pages: Array.from({ length: AUTOMATION_LIMITS.pages }, (_, i) => ({ id: `p${i}`, name: "Page", ruleIds: [], carouselIds: [] })) }, { id: "extra", name: "Extra" }), /up to 48 pages/);
 });
 
 test("choose effects resolve to concrete effects with per-rule rotation and injectable randomness", () => {

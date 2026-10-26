@@ -1,9 +1,9 @@
-import { validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES, CELEBRATION_SOUNDS } from "../src/automations.mjs";
+import { AUTOMATION_DESIGN_BYTES, validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES, CELEBRATION_SOUNDS } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
 import { signPartyToken } from "./party-service.mjs";
 import { safeLiveContext, ruleEffects } from "../src/live-context.mjs";
 
-export const HOSTED_AUTOMATION_LIMITS = Object.freeze({ designBytes: 16384, channels: 100, receipts: 10000, channelReceipts: 1000, retentionMs: 86400000, channelCooldownMs: 8000, tickBatch: 2 });
+export const HOSTED_AUTOMATION_LIMITS = Object.freeze({ designBytes: AUTOMATION_DESIGN_BYTES, channels: 100, receipts: 10000, channelReceipts: 1000, retentionMs: 86400000, channelCooldownMs: 8000, tickBatch: 2 });
 const utf8 = new TextEncoder();
 const numericId = /^[1-9][0-9]{0,19}$/;
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -45,12 +45,12 @@ function authorize(request, env, channel, claims, now, owner = false) {
   if (owner && (claims.role !== "broadcaster" || claims.user_id !== channel))
     fail(403, "broadcaster_required", "Only this channel’s broadcaster can change automations.");
 }
-async function jsonBody(request, max = 20000) {
+async function jsonBody(request, max = 20000, tooLargeMessage = "The request body is too large.") {
   if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") fail(415, "json_required", "Use application/json.");
   const reader = request.body?.getReader(); if (!reader) fail(400, "invalid_body", "Missing request.");
   const chunks = []; let size = 0;
   while (true) { const part = await reader.read(); if (part.done) break; size += part.value.length;
-    if (size > max) { await reader.cancel(); fail(413, "body_too_large", "Upload images before saving; the hosted design must be at most 16 KB."); }
+    if (size > max) { await reader.cancel(); fail(413, "body_too_large", tooLargeMessage); }
     chunks.push(part.value);
   }
   const data = new Uint8Array(size); let at = 0;
@@ -88,7 +88,7 @@ function hostedDesign(env, channel, raw, ownedMerch) {
       fail(400, "store_not_allowed", "Confirm ownership and use this channel’s configured popup destinations or Streamlabs store; sponsor and affiliate links are excluded.");
   }
   if (design.rules.some(rule => rule.trigger.type === "interval" && rule.trigger.everySeconds < 60)) fail(400, "interval_too_short", "Hosted timers must be at least 60 seconds.");
-  if (utf8.encode(JSON.stringify(design)).length > HOSTED_AUTOMATION_LIMITS.designBytes) fail(413, "design_too_large", "Keep the hosted automation design within 16 KB.");
+  if (utf8.encode(JSON.stringify(design)).length > HOSTED_AUTOMATION_LIMITS.designBytes) fail(413, "design_too_large", "Keep the hosted automation design within 64 KiB.");
   return design;
 }
 async function load(env, channel) {
@@ -259,7 +259,8 @@ export async function automationRequest(request, env, channel, { claims, now = D
       const row = await load(env, channel);
       return json(view(row, channel, row ? hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1) : undefined));
     }
-    const input = await jsonBody(request, config ? 20000 : 1024);
+    const input = await jsonBody(request, config ? AUTOMATION_DESIGN_BYTES + 1024 : 1024,
+      config ? "The automation request must fit a 64 KiB design plus metadata." : "The action request is too large.");
     authorize(request, env, channel, claims, currentTime(), true);
     if (config) {
       const design = hostedDesign(env, channel, input.design, input.ownedMerch);

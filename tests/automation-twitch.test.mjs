@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import postcss from "postcss";
-import { automationPreflight, getAutomationConfig, saveAutomationConfig, publishAutomationImages, fireAutomation, watchAutomationEvents, currentAutomationPublisher, connectAutomationSession } from "../src/automation-twitch.mjs";
+import { AUTOMATION_CONFIG_BYTES, automationPreflight, getAutomationConfig, saveAutomationConfig, publishAutomationImages, fireAutomation, watchAutomationEvents, currentAutomationPublisher, connectAutomationSession } from "../src/automation-twitch.mjs";
+import { AUTOMATION_DESIGN_BYTES, AUTOMATION_LIMITS, validateAutomations } from "../src/automations.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
 
 const auth = { channelId: "123", token: "test-only-extension-jwt" };
@@ -13,6 +14,16 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 function helper() { return { listen(topic, receive) { this.receive = receive; }, unlisten(topic, receive) { assert.equal(receive, this.receive); this.stopped = true; } }; }
 const event = (patch = {}) => ({ type: "scene-studio-automation", eventId: "event-1", channelId: "123", revision: 1, created: 1000, expires: 21000, effect: { type: "carousel", carouselId: "merch" }, ...patch });
 const send = (h, data) => h.receive("broadcast", "application/json", JSON.stringify(data));
+
+function maximumCountDesign() {
+  const source = design();
+  return validateAutomations({
+    version: 1,
+    carousels: Array.from({ length: AUTOMATION_LIMITS.carousels }, (_, index) => ({ ...structuredClone(source.carousels[0]), id: `c${index}`, slides: [{ ...structuredClone(source.carousels[0].slides[0]), id: `s${index}` }] })),
+    rules: Array.from({ length: AUTOMATION_LIMITS.rules }, (_, index) => ({ ...structuredClone(source.rules[0]), id: `r${index}` })),
+    pages: Array.from({ length: AUTOMATION_LIMITS.pages }, (_, index) => ({ id: `p${index}`, name: `Page ${index}`, ruleIds: [`r${index}`], carouselIds: [] })),
+  });
+}
 
 test("embedded automation consumes parent sessions without replacing Twitch's single authorization callback", () => {
   const parentEvents = [], childEvents = [];
@@ -89,6 +100,26 @@ test("live preflight rejects other-channel images, undeclared links and short ti
   let uploads = 0;
   await assert.rejects(publishAutomationImages(other, auth, true, async () => { uploads++; }), /another channel/);
   assert.equal(uploads, 0);
+});
+
+test("live preflight estimates uploaded images against the shared 64 KiB hosted cap", () => {
+  assert.equal(AUTOMATION_CONFIG_BYTES, AUTOMATION_DESIGN_BYTES);
+  const exact = maximumCountDesign(), currentBytes = new TextEncoder().encode(JSON.stringify(exact)).length;
+  const difference = AUTOMATION_CONFIG_BYTES - currentBytes, prefix = "data:image/png;base64,";
+  assert.ok(difference > prefix.length && difference < 700_000);
+  exact.carousels[0].slides[0].image = `${prefix}${"A".repeat(difference - prefix.length)}`;
+  assert.equal(new TextEncoder().encode(JSON.stringify(exact)).length, AUTOMATION_CONFIG_BYTES);
+  assert.doesNotThrow(() => automationPreflight(exact, "123", false));
+  exact.carousels[0].slides[0].image += "A";
+  assert.doesNotThrow(() => automationPreflight(exact, "123", false), "large local image data is replaced by the hosted image URL estimate");
+  const oversizedHosted = maximumCountDesign();
+  oversizedHosted.carousels = Array.from({ length: 32 }, (_, carouselIndex) => ({
+    id: `text-carousel-${carouselIndex}`, title: "C".repeat(80), displaySeconds: 20,
+    slides: Array.from({ length: 6 }, (_, slideIndex) => ({ id: `text-slide-${carouselIndex}-${slideIndex}`, title: "T".repeat(70), caption: "D".repeat(100), image: "", url: "" })),
+  }));
+  oversizedHosted.rules = oversizedHosted.rules.map((rule, index) => ({ ...rule, name: "R".repeat(70), trigger: { ...rule.trigger, phrase: "K".repeat(80) }, effect: { type: "celebrate", message: "M".repeat(160) }, id: `text-rule-${index}` }));
+  oversizedHosted.pages = oversizedHosted.pages.map((page, index) => ({ ...page, name: "P".repeat(60), ruleIds: [`text-rule-${index}`] }));
+  assert.throws(() => automationPreflight(oversizedHosted, "123", false), /64 KiB/);
 });
 
 test("automation image publication uses bounded PNG upload once per unique image, preserving links", async () => {
