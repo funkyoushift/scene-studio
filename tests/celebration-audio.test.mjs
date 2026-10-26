@@ -9,7 +9,7 @@ function mockContext(state = "suspended") {
     async resume() { made.resumeCalls++; this.state = "running"; }
     async close() { made.closeCalls++; this.state = "closed"; }
     createOscillator() {
-      const node = { frequency: { setValueAtTime() {} }, connect() {}, start() {}, stop() {}, disconnect() {} };
+      const node = { frequency: { values: [], setValueAtTime(value) { this.values.push(value); }, linearRampToValueAtTime(value) { this.values.push(value); } }, connect() {}, start(time) { this.startTime = time; }, stop(time) { this.stopTime = time; }, disconnect() {} };
       made.oscillators.push(node); return node;
     }
     createGain() {
@@ -55,6 +55,24 @@ test("clamps output gain and volume, including out-of-range values", async () =>
   player.stop();
   assert.equal(player.play("bell", -10), false);
   assert.equal(player.play("bell", "not-a-number"), false);
+  await player.dispose();
+});
+
+test("train preset layers a swept whistle over bounded rhythmic chug for under three seconds", async () => {
+  const { Context, made } = mockContext("running");
+  const player = createCelebrationPlayer(Context);
+  await player.unlock();
+  assert.equal(player.play("train", 100), true);
+  assert.equal(made.oscillators.length, 3);
+  assert.deepEqual(made.oscillators.slice(0, 2).map(node => node.frequency.values[0]), [660, 880]);
+  assert.ok(made.oscillators[0].frequency.values.some(value => value !== 660));
+  assert.equal(made.oscillators[2].frequency.values[0], 92);
+  assert.ok(made.oscillators.every(node => node.stopTime - node.startTime <= 3));
+  const peakByGain = made.gains.map(node => Math.max(...node.gain.values));
+  assert.ok(peakByGain.reduce((sum, peak) => sum + peak, 0) <= 0.12);
+  assert.ok(made.gains[2].gain.values.filter(value => value > 0).length >= 11);
+  player.stop();
+  assert.ok(made.oscillators.every(node => node.disconnect));
   await player.dispose();
 });
 

@@ -36,12 +36,27 @@ function safeColor(value) {
   return typeof value === "string" && /^#[\da-f]{6}$/i.test(value) ? value : "#c9f27b";
 }
 
-function TrainArt() {
-  return <svg className="ss-celebration-train-art" viewBox="0 0 400 100" role="img" aria-label="A celebration train rolling by">
+export function TrainArt() {
+  const wheel = (x, y, r = 14) => <g className="ss-celebration-wheel" key={x} style={{ transformOrigin: `${x}px ${y}px`, transformBox: "view-box" }}><circle cx={x} cy={y} r={r}/><path className="ss-celebration-wheel-spoke" d={`M${x-r+3} ${y}h${2*r-6}M${x} ${y-r+3}v${2*r-6}`}/><circle cx={x} cy={y} r="3" fill="#fff"/></g>;
+  return <svg className="ss-celebration-train-art" viewBox="0 0 640 180" role="img" aria-label="Steam locomotive with two carriages, turning wheels and rising steam">
+    <g className="ss-train-track" stroke="#8493a8" strokeWidth="3"><path d="M0 158H640M0 168H640"/>{Array.from({length:22},(_,i)=><path key={i} d={`M${i*30} 155l-8 17`}/>)}</g>
     <g className="ss-celebration-train-cars">
-      <g transform="translate(12 22)"><path d="M4 20h76v38H4z"/><path d="M14 28h17v15H14zm27 0h17v15H41z"/><path d="M0 58h84v8H0z"/><g className="ss-celebration-wheel"><circle cx="23" cy="69" r="8"/><path className="ss-celebration-wheel-spoke" d="M18 69h10M23 64v10"/></g><g className="ss-celebration-wheel"><circle cx="66" cy="69" r="8"/><path className="ss-celebration-wheel-spoke" d="M61 69h10M66 64v10"/></g><path d="M4 16h76" className="ss-celebration-trim"/></g>
-      <g transform="translate(102 22)"><path d="M4 20h76v38H4z"/><path d="M14 28h17v15H14zm27 0h17v15H41z"/><path d="M0 58h84v8H0z"/><g className="ss-celebration-wheel"><circle cx="23" cy="69" r="8"/><path className="ss-celebration-wheel-spoke" d="M18 69h10M23 64v10"/></g><g className="ss-celebration-wheel"><circle cx="66" cy="69" r="8"/><path className="ss-celebration-wheel-spoke" d="M61 69h10M66 64v10"/></g><path d="M4 16h76" className="ss-celebration-trim"/></g>
-      <g transform="translate(207 8)"><path d="M5 36h91v37H5z"/><path d="M15 42h35v19H15z"/><path d="M57 42h17v19H57z"/><path d="M0 72h102v9H0z"/><path d="M75 18h12v18H75zM72 27h18v9H72z"/><path d="M24 28h29V17h8v19H24z"/><g className="ss-celebration-wheel"><circle cx="28" cy="83" r="10"/><path className="ss-celebration-wheel-spoke" d="M22 83h12M28 77v12"/></g><g className="ss-celebration-wheel"><circle cx="79" cy="83" r="10"/><path className="ss-celebration-wheel-spoke" d="M73 83h12M79 77v12"/></g><path d="M4 31h94" className="ss-celebration-trim"/></g>
+      {[36,174].map(x=><g key={x} transform={`translate(${x} 0)`}><rect className="ss-train-body" x="0" y="79" width="120" height="58" rx="8"/><path className="ss-train-roof" d="M-5 80Q60 51 125 80Z"/>{[12,47,82].map(w=><rect className="ss-train-window" key={w} x={w} y="88" width="25" height="23" rx="4"/>)}<path className="ss-train-trim" d="M0 123H120"/>{wheel(26,143)}{wheel(95,143)}<path className="ss-train-coupling" d="M120 133h18"/></g>)}
+      <g className="ss-train-engine">
+        <path className="ss-train-roof" d="M314 64h88l8 12H306z"/>
+        <rect className="ss-train-body" x="318" y="76" width="80" height="65" rx="4"/>
+        <rect className="ss-train-window" x="332" y="84" width="43" height="33" rx="5"/>
+        <path className="ss-train-boiler" d="M398 97h108q36 0 36 40H398Z"/>
+        <path className="ss-train-trim" d="M429 99v38M481 99v38"/>
+        <path className="ss-train-body" d="M480 97V67h25v30z"/>
+        <path className="ss-train-roof" d="M473 60h39v13h-39z"/>
+        <path className="ss-train-cowcatcher" d="M534 131l37 23h-42z"/>
+        <circle cx="535" cy="110" r="8" fill="#fff2a1" stroke="#f9bd55" strokeWidth="3"/>
+        <path className="ss-train-base" d="M310 135h225v8H310z"/>
+        {wheel(344,141,18)}{wheel(398,141,18)}{wheel(455,143,15)}{wheel(509,143,15)}
+        <path className="ss-train-rod" d="M344 141h54"/>
+        {[0,1,2].map(i=><circle key={i} className="ss-train-steam" cx="493" cy="48" r={10+i*4} style={{animationDelay:`${-i*.6}s`}}/>)}
+      </g>
     </g>
   </svg>;
 }
@@ -54,14 +69,14 @@ export default function Celebration({ message, appearance, creator, brandImage, 
   const [duration] = useState(() => Number.isFinite(remainingSeconds) ? Math.max(0.1, remainingSeconds) : Math.max(0.1, Number(appearance?.durationSeconds) || 8));
   const color = safeColor(appearance?.color);
   const creatorName = typeof creator === "string" ? creator : creator?.displayName || creator?.login || creator?.name;
-  const styleLabel = { "hype-train": "LIVE EXPRESS", spotlight: "IN THE SPOTLIGHT", hearts: "SENDING LOVE", starfall: "A WISH FOR YOU", fireworks: "MAKE SOME NOISE", bubbles: "A LITTLE MOMENT", meteor: "MAKING AN ENTRANCE", aurora: "AURORA MOMENT", arcade: "BONUS ROUND", petals: "A MOMENT IN BLOOM", orbit: "IN YOUR ORBIT" }[style] || "A MOMENT TO CELEBRATE";
+  const styleLabel = { "hype-train": "ALL ABOARD · HYPE TRAIN", spotlight: "IN THE SPOTLIGHT", hearts: "SENDING LOVE", starfall: "A WISH FOR YOU", fireworks: "MAKE SOME NOISE", bubbles: "A LITTLE MOMENT", meteor: "MAKING AN ENTRANCE", aurora: "AURORA MOMENT", arcade: "BONUS ROUND", petals: "A MOMENT IN BLOOM", orbit: "IN YOUR ORBIT" }[style] || "A MOMENT TO CELEBRATE";
   const rootStyle = { "--ss-celebration-color": color, "--ss-celebration-duration": `${duration}s` };
   return <div className={`ss-celebration ss-celebration-${style}`} style={rootStyle} data-event-id={eventId} data-full-motion={previewFullMotion || undefined}>
     <div className="ss-celebration-stage">
       <div className="ss-celebration-effects" aria-hidden="true">
         {style === "confetti" && <div className="ss-celebration-cannon">{PARTICLES.map((vars, index) => <i key={index} style={vars} />)}</div>}
         {style === "spotlight" && <><div className="ss-celebration-rays"/><i className="ss-celebration-orbit ss-celebration-orbit-one"/><i className="ss-celebration-orbit ss-celebration-orbit-two"/><i className="ss-celebration-orbit ss-celebration-orbit-three"/></>}
-        {style === "hype-train" && <TrainArt />}
+        
         {["hearts", "starfall", "bubbles", "meteor", "arcade", "petals"].includes(style) && <div className={`ss-celebration-motifs ss-celebration-motifs-${style}`}>{MOTIFS.map((vars, index) => <i key={index} style={vars} />)}</div>}
         {style === "aurora" && <div className="ss-celebration-aurora"><i/><i/><i/></div>}
         {style === "orbit" && <div className="ss-celebration-dot-orbit">{MOTIFS.slice(0, 14).map((vars, index) => <i key={index} style={vars} />)}</div>}
@@ -76,6 +91,7 @@ export default function Celebration({ message, appearance, creator, brandImage, 
           <p className="ss-celebration-message">{message || "Let's hear it!"}</p>
           {creatorName && <span className="ss-celebration-creator">Created by @{creatorName} with Scene Studio</span>}
         </div>
+        {style === "hype-train" && <TrainArt />}
         <div className="ss-celebration-rule" aria-hidden="true"><i /></div>
       </section>
     </div>

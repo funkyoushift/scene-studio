@@ -3,11 +3,13 @@ import { liveText } from "./live-context.mjs";
 import { watchAutomationEvents } from "./automation-twitch.mjs";
 import Celebration from "./Celebration.jsx";
 import CelebrationAudio from "./CelebrationAudio.jsx";
+import HypeTrain from "./HypeTrain.jsx";
 
 // This component deliberately imports no editor CSS: html/body and the video
 // stay transparent, and only the visible object captures pointer events.
 export default function AutomationViewer({ helper, auth, creator, viewMode = "overlay", brandImage }) {
   const [active, setActive] = useState(null), [slideIndex, setSlideIndex] = useState(0);
+  const [hype, setHype] = useState(null), [hiddenTrain, setHiddenTrain] = useState(null);
   const [connection, setConnection] = useState({ state: "loading", message: "Loading live moments…" });
   const [retry, setRetry] = useState(0);
   const container = useRef(null);
@@ -16,14 +18,16 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
   }, [active, viewMode, creator?.login]);
   useEffect(() => {
     setActive(null);
+    setHype(null); setHiddenTrain(null);
     setConnection({ state: "loading", message: "Loading live moments…" });
     if (!helper || !auth?.token || !auth.channelId) return;
     return watchAutomationEvents(helper, auth, next => {
       setConnection({ state: "ready", message: "Channel effects loaded. Waiting for a live moment." });
       setActive(previous => previous && previous.event.revision !== next.revision ? null : previous);
+      setHype(previous => previous && previous.revision !== next.revision ? null : previous);
     }, (event, config) => { setSlideIndex(0); setActive({ event, config }); }, message => {
       setConnection({ state: "error", message: `Live moments could not connect. ${message}` });
-    }, undefined, undefined, { catchUp: viewMode === "mobile" });
+    }, undefined, undefined, { catchUp: viewMode === "mobile", onHype: event => setHype(event) });
   }, [helper, auth?.channelId, auth?.token, retry, viewMode]);
   useEffect(() => {
     if (!active) return;
@@ -31,8 +35,13 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
     const advance = setInterval(() => setSlideIndex(index => index + 1), 5000);
     return () => { clearTimeout(dismiss); clearInterval(advance); };
   }, [active]);
-  const soundControls = <div style={viewMode === "mobile" ? { position: "relative", zIndex: 1100 } : { position: "fixed", right: "3%", bottom: "8%", zIndex: 1100, pointerEvents: "none", maxWidth: "94%" }}><CelebrationAudio key={auth?.channelId || "disconnected"} eventId={active?.event.eventId} sound={active?.event.effect.appearance?.sound} expires={active?.event.expires} /></div>;
-  if (!active || !creator?.login) return <>{soundControls}{viewMode === "mobile" ? <section className="mobile-live-status" aria-label="Live moments connection">
+  useEffect(() => { if (!hype) return; const timer = setTimeout(() => setHype(null), Math.max(0, hype.expires - Date.now())); return () => clearTimeout(timer); }, [hype]);
+  const visibleHype = hype && hype.hype.id !== hiddenTrain ? hype : null;
+  const hypeView = visibleHype && <div className={`ss-hype-live${viewMode === "mobile" ? " ss-hype-mobile" : ""}`}><HypeTrain event={visibleHype} onDismiss={() => setHiddenTrain(visibleHype.hype.id)}/></div>;
+  const soundEvent = visibleHype || active?.event;
+  const soundKey = visibleHype ? `${visibleHype.hype.id}:${visibleHype.hype.level}:${visibleHype.hype.phase}` : active?.event.eventId;
+  const soundControls = <div style={viewMode === "mobile" ? { position: "relative", zIndex: 1100 } : { position: "fixed", right: "3%", bottom: "8%", zIndex: 1100, pointerEvents: "none", maxWidth: "94%" }}><CelebrationAudio key={auth?.channelId || "disconnected"} eventId={soundKey} sound={soundEvent?.effect.appearance?.sound} expires={soundEvent?.expires} /></div>;
+  if (!active || !creator?.login) return <>{hypeView}{soundControls}{viewMode === "mobile" && !visibleHype ? <section className="mobile-live-status" aria-label="Live moments connection">
     <p role="status">{connection.message}</p>
     <button className="mobile-secondary" disabled={connection.state === "loading"} onClick={() => setRetry(value => value + 1)}>Reconnect live moments</button>
   </section> : null}</>;
@@ -43,7 +52,7 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
   const layout = viewMode !== "mobile" && carousel?.layout;
   const placement = layout ? { left: `${layout.x}%`, top: `${layout.y}%`, right: "auto", bottom: "auto", width: `${layout.width}%`, maxHeight: `${layout.height}%`, zIndex: layout.layer } : undefined;
   const brand = <div className="ss-live-brand">{brandImage && <img src={brandImage} alt="" />}<span>@{creator.login}</span></div>;
-  return <>{soundControls}<div ref={container} className={`ss-live-automation${viewMode === "mobile" ? " ss-live-mobile" : ""}${effect.type === "celebrate" ? " ss-live-animated" : ""}`} style={layout ? {zIndex:layout.layer} : undefined}>
+  return <>{hypeView}{soundControls}<div ref={container} className={`ss-live-automation${viewMode === "mobile" ? " ss-live-mobile" : ""}${effect.type === "celebrate" ? " ss-live-animated" : ""}`} style={layout ? {zIndex:layout.layer} : undefined}>
     <style>{`
       .ss-live-automation{position:fixed;inset:0;z-index:1000;pointer-events:none;font:14px system-ui,sans-serif;color:#f5f8ff}
       .ss-live-card{position:absolute;bottom:9%;right:3%;width:min(300px,38vw);max-height:78%;overflow:auto;border:1px solid #52cfde66;border-radius:16px;background:#0c1527f7;box-shadow:0 10px 40px #0008,0 0 22px #39c9de18;pointer-events:auto;animation:ss-live-enter .28s ease-out both}

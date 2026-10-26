@@ -3,7 +3,8 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import PopupPlacement from "./PopupPlacement.jsx";
 import { AUTOMATION_LIMITS, deriveLegacyAutomationPages } from "./live-flows.mjs";
 import { CELEBRATION_SOUNDS } from "./automations.mjs";
-import { EXPERIENCE_PRESETS, addExperiencePreset, removeExperience } from "./experience-presets.mjs";
+import { EXPERIENCE_PRESETS, addExperiencePreset, removeExperience, hypeTrainEffect } from "./experience-presets.mjs";
+import { createCelebrationPlayer } from "./celebration-audio.mjs";
 import { prepareImage } from "./images.mjs";
 import "./flows.css";
 
@@ -12,11 +13,11 @@ const uid = prefix => `${prefix}-${crypto.randomUUID().replaceAll("-", "").slice
 const actualPages = design => design.pages ?? deriveLegacyAutomationPages(design);
 const triggerTitle = trigger => trigger.type === "keyword" ? `Chat says “${trigger.phrase}”` : trigger.type === "interval" ? `Every ${trigger.everySeconds} seconds` : trigger.type === "twitch" ? eventLabels[trigger.event] || "Twitch event" : `External event: ${trigger.event}`;
 const celebrationDefaults = { style: "confetti", color: "#a3e635", durationSeconds: 8 };
-const celebrationSoundLabels = { chime: "Chime", arcade: "Arcade", fanfare: "Fanfare", bell: "Bell", space: "Space" };
+const celebrationSoundLabels = { chime: "Chime", arcade: "Arcade", fanfare: "Fanfare", bell: "Bell", space: "Space", train: "Train whistle & wheels" };
 const celebrationStyles = [
   { value: "confetti", title: "Confetti cannon", detail: "A bright burst of celebration", icon: "✦" },
   { value: "spotlight", title: "Subscriber spotlight", detail: "A focused moment in the spotlight", icon: "◉" },
-  { value: "hype-train", title: "Hype express", detail: "A bold, high-energy arrival", icon: "↗" },
+  { value: "hype-train", title: "Steam train", detail: "Locomotive, carriages, steam & turning wheels", icon: "🚂" },
   { value: "hearts", title: "Hearts", detail: "A warm note of appreciation", icon: "♥" },
   { value: "starfall", title: "Starfall", detail: "A wishful shower of stars", icon: "✧" },
   { value: "fireworks", title: "Fireworks", detail: "A vivid, sky-wide burst", icon: "✺" },
@@ -67,8 +68,15 @@ function MessageSuggestions({ trigger, onSelect }) {
 }
 
 function CelebrationAppearance({ effect, onChange, idPrefix }) {
+  const samplePlayer = useRef(null);
+  const [sampleStatus, setSampleStatus] = useState("");
+  useEffect(() => () => { void samplePlayer.current?.dispose(); samplePlayer.current = null; }, []);
   const appearance = { ...celebrationDefaults, ...(effect.appearance || {}) };
-  const update = patch => onChange({ ...effect, appearance: { ...appearance, ...patch } });
+  const update = patch => {
+    const next = { ...appearance, ...patch };
+    if (next.style !== "hype-train") delete next.hypeLifecycle;
+    onChange({ ...effect, appearance: next });
+  };
   const sound = effect.appearance?.sound;
   const chooseSound = preset => {
     if (preset === "none") {
@@ -91,17 +99,26 @@ function CelebrationAppearance({ effect, onChange, idPrefix }) {
     </div>
     <div className="flow-celebration-tuning">
       <label>ACCENT COLOR<input type="color" value={appearance.color} onChange={event => update({ color: event.target.value })}/><small>Choose the celebration’s highlight color.</small></label>
-      <label>DURATION · {appearance.durationSeconds} SECONDS<input type="range" min="4" max="20" step="1" value={appearance.durationSeconds} onChange={event => update({ durationSeconds: Number(event.target.value) })}/><small>How long the celebration stays on screen.</small></label>
+      {appearance.hypeLifecycle ? <p>Follows the whole Hype Train: live level, progress, countdown, then a 12-second thank-you. Twitch controls the timer.</p> : <label>DURATION · {appearance.durationSeconds} SECONDS<input type="range" min="4" max="20" step="1" value={appearance.durationSeconds} onChange={event => update({ durationSeconds: Number(event.target.value) })}/><small>How long the celebration stays on screen.</small></label>}
     </div>
     <div className="flow-celebration-sound">
       <label>SOUND<select value={sound?.preset || "none"} onChange={event => chooseSound(event.target.value)}><option value="none">None · silent</option>{CELEBRATION_SOUNDS.map(preset => <option key={preset} value={preset}>{celebrationSoundLabels[preset] || preset}</option>)}</select></label>
       {sound && <label>EVENT VOLUME · {sound.volume}%<input type="range" min="0" max="100" step="1" value={sound.volume} onChange={event => update({ sound: { ...sound, volume: Number(event.target.value) } })}/><small>Set the sound level for this celebration.</small></label>}
+      {sound && <button type="button" className="flow-secondary" onClick={async () => {
+        try {
+          samplePlayer.current ??= createCelebrationPlayer();
+          await samplePlayer.current.unlock(); samplePlayer.current.stop();
+          const played = samplePlayer.current.play(sound.preset, sound.volume);
+          setSampleStatus(played ? `Playing ${celebrationSoundLabels[sound.preset]}.` : "Choose a volume above zero to hear the sample.");
+        } catch (error) { setSampleStatus(error.message); }
+      }}>▶ Hear {celebrationSoundLabels[sound.preset]}</button>}
+      {sampleStatus && <small role="status">{sampleStatus}</small>}
       <small className="flow-celebration-sound-note">Viewers start muted. Enable celebration sound in the preview to listen.</small>
     </div>
   </div>;
 }
 
-export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evaluate, onOpenDetails, requestedPageId, onBack, merchDeclarations = {}, onDeclareMerch }) {
+export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evaluate, onOpenDetails, requestedPageId, onBack, merchDeclarations = {}, onDeclareMerch, onPreviewHype }) {
   const lastValidPages = useRef([]);
   const pageState = useMemo(() => {
     try {
@@ -148,6 +165,11 @@ export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evalu
   const patchTrigger = patch => primaryRule && patchRule(primaryRule.id, { trigger: { ...primaryRule.trigger, ...patch } });
   const patchEffect = patch => primaryRule && patchRule(primaryRule.id, { effect: { ...primaryRule.effect, ...patch } });
   const replaceEffect = effect => primaryRule && patchRule(primaryRule.id, { effect });
+  const useTrainTheme = () => {
+    const ids = new Set(rules.filter(rule => rule.trigger.type === "twitch" && ["hype_begin", "hype_progress", "hype_end"].includes(rule.trigger.event)).map(rule => rule.id));
+    setDesign(current => ({ ...current, rules: current.rules.map(rule => ids.has(rule.id) ? { ...rule, effect: { ...hypeTrainEffect(rule.trigger.event), ...(rule.effect.type === "celebrate" ? { message: rule.effect.message } : {}) } } : rule) }));
+    setNotice("Train animation and sound applied to this experience’s Hype Train events. Your carousel content is still saved. Test the draft, then publish when ready.");
+  };
   const patchCarousel = (id, patch) => onUpdateCarousel?.(id, patch);
   const addPreset = key => {
     try {
@@ -193,6 +215,7 @@ export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evalu
   };
   const test = () => {
     if (!primaryRule) return;
+    if (primaryRule.effect.appearance?.hypeLifecycle) { onPreviewHype?.(primaryRule.effect); return; }
     const trigger = primaryRule.trigger;
     evaluate?.(trigger.type === "keyword" ? { type: "message", text: trigger.phrase } : trigger.type === "twitch" ? { type: "twitch", event: trigger.event, id: `experience-preview-${Date.now()}`, context: trigger.event.startsWith("hype_") ? { hypeLevel: 3 } : { subscriber: "Sample viewer" } } : trigger.type === "external" ? { type: "external", name: trigger.event } : { type: "tick" }, primaryRule.id);
   };
@@ -219,6 +242,7 @@ export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evalu
               </div>
             </section>
             <section className="flow-panel"><header><span>02</span><div><h3>Content</h3><p>Edit what viewers see.</p></div></header>
+              {primaryRule.trigger.type === "twitch" && primaryRule.trigger.event.startsWith("hype_") && <div className="flow-fields"><button type="button" className="flow-primary" onClick={useTrainTheme}>🚂 Use train animation &amp; sound</button><small>Apply a steam train and whistle to this experience’s Hype Train events. This replaces their displayed effect; saved carousel content stays available.</small></div>}
               <div className="flow-fields"><label>WHAT VIEWERS SEE<select value={primaryRule.effect.type} onChange={event => { const type = event.target.value; if (type === "carousel") replaceEffect({ type, carouselId: design.carousels[0].id }); else if (type === "choose") replaceEffect({ type, mode: "rotate", options: [{ type: "celebrate", message: "A moment for the stream!" }] }); else replaceEffect({ type: "celebrate", message: "A moment for the stream!" }); }}><option value="carousel" disabled={!design.carousels.length}>Content carousel</option><option value="celebrate">Celebration message</option><option value="choose">Choose between effects (advanced)</option></select></label>
                 {primaryRule.effect.type === "carousel" && <><label>CONTENT SET<select value={primaryRule.effect.carouselId} onChange={event => patchEffect({ carouselId: event.target.value })}>{design.carousels.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>{carousel && <><label>CAROUSEL TITLE<input maxLength={80} value={carousel.title} onChange={event => patchCarousel(carousel.id, { title: event.target.value })}/></label><label>DISPLAY DURATION (SECONDS)<input type="number" min={AUTOMATION_LIMITS.displaySeconds[0]} max={AUTOMATION_LIMITS.displaySeconds[1]} value={carousel.displaySeconds} onChange={event => patchCarousel(carousel.id, { displaySeconds: Math.max(AUTOMATION_LIMITS.displaySeconds[0], Math.min(AUTOMATION_LIMITS.displaySeconds[1], Number(event.target.value) || AUTOMATION_LIMITS.displaySeconds[0])) })}/></label>
                     {carousel.slides.some(slide => slide.url) && <div className="flow-link-requirements"><p>Links work in preview. Live destinations must be permitted for your channel; entering a link does not grant Twitch approval.</p><label><input type="checkbox" checked={merchDeclarations[carousel.id] === true} onChange={event => onDeclareMerch?.(carousel.id, event.target.checked)}/>Any merchandise here is my own branded merch, with no sponsor sales or affiliate links.</label></div>}

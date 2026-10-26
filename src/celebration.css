@@ -143,3 +143,27 @@
   .ss-celebration:not([data-full-motion]) .ss-celebration-firework i { opacity: .55; transform: rotate(var(--ss-firework-angle)) translateY(calc(-1 * var(--ss-firework-distance))) scale(.7); }
   .ss-celebration:not([data-full-motion]) .ss-celebration-dot-orbit { transform: translate(-50%,-50%) rotate(-17deg); }
 }
+
+/* Keep the train inside its own visible lane, above the card background.
+   A rolling sway, moving track and steam show motion without sending it off-screen. */
+.ss-celebration-hype-train .ss-celebration-card { padding-bottom: 12px; }
+.ss-celebration-hype-train .ss-celebration-train-art { position: relative; display: block; left: auto; bottom: auto; width: 100%; height: auto; max-height: none; margin: 0 auto; overflow: hidden; }
+.ss-celebration-train-cars { animation: ss-train-roll 2.4s ease-in-out infinite alternate; fill: none; stroke: none; }
+.ss-train-body { fill: var(--ss-celebration-color); stroke: #ffe8bd; stroke-width: 2; }
+.ss-train-boiler { fill: var(--ss-celebration-color); stroke: #ffe8bd; stroke-width: 2; }
+.ss-train-roof,.ss-train-base { fill: #26394e; stroke: #aac2db; stroke-width: 2; }
+.ss-train-window { fill: #fff0a8; stroke: #614427; stroke-width: 3; }
+.ss-train-trim { stroke: #ffe8bd; stroke-width: 4; }
+.ss-train-coupling { stroke: #d1ddeb; stroke-width: 5; }
+.ss-train-cowcatcher { fill: #d5a64d; stroke: #fff0a8; stroke-width: 2; }
+.ss-train-rod { fill: none; stroke: #f7df9e; stroke-width: 4; }
+.ss-train-steam { fill: #e2eef3; opacity: .65; animation: ss-train-puff 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+.ss-train-track { animation: ss-train-track .6s linear infinite; }
+@keyframes ss-train-roll { from { transform: translateX(-12px); } to { transform: translateX(12px); } }
+@keyframes ss-train-puff { from { opacity: .7; transform: translate(0,0) scale(.6); } to { opacity: 0; transform: translate(-50px,-35px) scale(1.8); } }
+@keyframes ss-train-track { to { transform: translateX(-30px); } }
+@media (prefers-reduced-motion: reduce) {
+  .ss-celebration:not([data-full-motion]) .ss-train-steam,.ss-celebration:not([data-full-motion]) .ss-train-track { animation: none !important; }
+  .ss-celebration:not([data-full-motion]) .ss-train-steam:nth-last-child(2) { transform: translate(-22px,-14px); opacity: .4; }
+  .ss-celebration:not([data-full-motion]) .ss-train-steam:last-child { transform: translate(-46px,-28px); opacity: .2; }
+}

@@ -11,7 +11,7 @@ test("all experience presets add valid, page-linked designs with the intended tr
   assert.ok(["Community", "Stream info", "Gaming", "Promotion", "Engagement"].every(category => EXPERIENCE_PRESETS.some(preset => preset.category === category)));
   assert.deepEqual(EXPERIENCE_PRESETS.filter(preset => ["subscriber-thanks", "hype-train", "chat-celebration"].includes(preset.key)).map(({ key, title, description }) => ({ key, title, description })), [
     { key: "subscriber-thanks", title: "Subscriber thanks", description: "Thank {subscriber} with a purple spotlight when they subscribe." },
-    { key: "hype-train", title: "Hype Train", description: "Call out Hype Train level {hypeLevel} in an orange Hype express celebration." },
+    { key: "hype-train", title: "Hype Train", description: "Follow the whole train with live levels, progress, countdown and a steam-train celebration." },
     { key: "chat-celebration", title: "Chat celebration", description: "Start a lime confetti celebration when chat says party." },
   ]);
   for (const preset of EXPERIENCE_PRESETS) {
@@ -25,7 +25,7 @@ test("all experience presets add valid, page-linked designs with the intended tr
       assert.deepEqual(rule.effect, { type: "celebrate", message: "Thanks, {subscriber}!", appearance: { style: "spotlight", color: "#a855f7", durationSeconds: 8 } });
     } else if (preset.key === "hype-train") {
       assert.deepEqual(rule.trigger, { type: "twitch", event: "hype_begin" });
-      assert.deepEqual(rule.effect, { type: "celebrate", message: "Level {hypeLevel} Hype Train! Join the celebration!", appearance: { style: "hype-train", color: "#f97316", durationSeconds: 12 } });
+      assert.deepEqual(rule.effect, { type: "celebrate", message: "Level {hypeLevel} Hype Train! Join the celebration!", appearance: { style: "hype-train", color: "#f97316", durationSeconds: 12, hypeLifecycle: true, sound: { preset: "train", volume: 70 } } });
     } else if (preset.key === "chat-celebration") {
       assert.deepEqual(rule.trigger, { type: "keyword", phrase: "party", match: "word" });
       assert.deepEqual(rule.effect, { type: "celebrate", message: "Chat celebration!", appearance: { style: "confetti", color: "#a3e635", durationSeconds: 8 } });
@@ -68,7 +68,7 @@ test("requested community, gaming, promotion, event, and randomized starters use
     "gift-thanks": { type: "twitch", event: "gift" },
     "hype-progress": { type: "twitch", event: "hype_progress" },
     "hype-finish": { type: "twitch", event: "hype_end" },
-    "random-party": { type: "keyword", phrase: "party", match: "word" },
+    "random-party": { type: "keyword", phrase: "surprise", match: "word" },
     "random-cheer": { type: "keyword", phrase: "cheer", match: "word" },
     "stream-checkin": { type: "interval", everySeconds: 1800 },
     "stretch-break": { type: "interval", everySeconds: 3600 },
@@ -187,4 +187,16 @@ test('existing fifteen-rule setup can add all four curated layouts without repla
   assert.equal(design.carousels.length, 6);
   assert.deepEqual(design.rules.slice(0,15), source.rules);
   assert.deepEqual(source, before);
+});
+
+test('all Hype Train starters include the train graphic and matching sound', async () => {
+  const { hypeTrainEffect } = await import('../src/experience-presets.mjs');
+  for (const event of ['hype_begin','hype_progress','hype_end']) {
+    const effect=hypeTrainEffect(event);
+    assert.equal(effect.appearance.style,'hype-train');
+    assert.equal(effect.appearance.sound.preset,'train');
+    assert.ok(effect.appearance.sound.volume>0);
+    effect.appearance.sound.volume=0;
+    assert.ok(hypeTrainEffect(event).appearance.sound.volume>0);
+  }
 });

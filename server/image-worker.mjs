@@ -187,12 +187,12 @@ export default {
         if (env.CHAT_TRIGGERS_ENABLED !== "true") return json({error:"Chat triggers are not enabled."},404);
         return handleChatWebhook(request,env,webhook[1],{processInput:processAutomationInput,hasMatchingKeywordRule,waitUntil:ctx ? promise=>ctx.waitUntil(promise) : undefined});
       }
-      const automation = url.pathname.match(/^\/v1\/automations\/([1-9][0-9]{0,19})\/(config|fire|active)$/);
+      const automation = url.pathname.match(/^\/v1\/automations\/([1-9][0-9]{0,19})\/(config|fire|active|hype)$/);
       if (automation) {
         if (env.AUTOMATIONS_ENABLED !== "true") return json({error:"Live automations are not enabled."},404);
         if (!env.EXTENSION_ORIGIN || origin !== env.EXTENSION_ORIGIN) return json({error:"Open Scene Studio on Twitch."},403);
         if (request.method === "OPTIONS") return new Response(null,{status:204,headers:{...Object.fromEntries(headers),"Access-Control-Allow-Methods":"GET, PUT, POST, OPTIONS","Access-Control-Allow-Headers":"Authorization, Content-Type"}});
-        const claims = request.method === "GET" && ["config", "active"].includes(automation[2])
+        const claims = request.method === "GET" && ["config", "active", "hype"].includes(automation[2])
           ? await extensionClaims(request,env.EXTENSION_SECRET,automation[1])
           : await broadcaster(request,env.EXTENSION_SECRET,automation[1]);
         const response = await automationRequest(request,env,automation[1],{claims});

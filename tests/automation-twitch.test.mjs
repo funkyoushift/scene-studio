@@ -271,3 +271,22 @@ test("mobile catch-up rejects wrong-channel, expired and old-revision responses"
     await flush(); assert.equal(shown.length, 0); stop();
   }
 });
+
+test('Hype lifecycle watcher admits saved snapshots, keeps end terminal, and rejects foreign or altered effects', async t => {
+  const h = helper(), received=[];
+  const effect={type:'celebrate',message:'Level {hypeLevel} train',appearance:{style:'hype-train',color:'#f97316',durationSeconds:12,hypeLifecycle:true,sound:{preset:'train',volume:70}}};
+  const saved=config(); saved.design.rules=[{id:'train',name:'Train',enabled:true,trigger:{type:'twitch',event:'hype_begin'},effect,cooldownSeconds:0}];
+  const snapshot=(patch={})=>({type:'scene-studio-hype',eventId:crypto.randomUUID(),channelId:'123',revision:1,created:1000,expires:101000,effect,hype:{id:'train-1',phase:'active',level:1,progress:25,goal:100,expiresAt:101000,updatedAt:1000},...patch});
+  const stop=watchAutomationEvents(h,auth,()=>{},()=>assert.fail('Train entered ordinary effect queue'),()=>{},async url=>url.endsWith('/hype')?reply({channelId:'123',revision:1,event:null}):reply(saved),()=>2000,{onHype:event=>received.push(event)});
+  t.after(stop); await flush(); await flush();
+  const begin=snapshot(); await send(h,begin); await send(h,begin);
+  assert.equal(received.filter(Boolean).length,1);
+  await send(h,snapshot({channelId:'456'}));
+  await send(h,snapshot({effect:{...effect,message:'Unsaved content'}}));
+  assert.equal(received.filter(Boolean).length,1);
+  const end=snapshot({created:2000,expires:14000,hype:{...begin.hype,phase:'ended',level:2,expiresAt:14000,updatedAt:2000}});
+  await send(h,end);
+  await send(h,snapshot({created:2500,hype:{...begin.hype,updatedAt:2500}}));
+  assert.equal(received.filter(Boolean).length,2,'late active snapshot cannot reopen an ended train');
+  assert.equal(received.at(-1).hype.phase,'ended');
+});

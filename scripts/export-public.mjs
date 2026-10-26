@@ -26,7 +26,7 @@ const required = [
   "src/AutomationStudio.jsx", "src/DeveloperPanel.jsx", "src/automation-entry.jsx",
   "src/automations.css", "src/automations.mjs",
   "src/AutomationViewer.jsx", "src/automation-twitch.mjs",
-  "src/Celebration.jsx", "src/celebration.css",
+  "src/Celebration.jsx", "src/celebration.css", "src/HypeTrain.jsx", "src/hype-train.css", "src/hype-state.mjs", "server/hype-schema.sql", "tests/hype-state.test.mjs",
   "src/CelebrationAudio.jsx", "src/celebration-audio.mjs", "tests/celebration-audio.test.mjs",
   "src/FlowBuilder.jsx", "src/flows.css", "src/live-flows.mjs", "src/live-context.mjs",
   "src/ThemeToggle.jsx", "src/editor-theme.mjs", "tests/editor-theme.test.mjs", "tests/live-context.test.mjs",
@@ -289,6 +289,7 @@ or credentials. Create the D1 database once, then copy its returned ID into conf
     node scripts/cloudflare.mjs d1 create scene-studio-images
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/automation-schema.sql
+    node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/hype-schema.sql
     node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/chat-triggers-schema.sql
     node scripts/cloudflare.mjs deploy
     node scripts/cloudflare.mjs secret put EXTENSION_SECRET

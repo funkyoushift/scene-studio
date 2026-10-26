@@ -48,7 +48,7 @@ function design() {
 }
 function fixture(t) {
   t.mock.method(Date, "now", () => now);
-  const db = new DatabaseSync(":memory:"); db.exec(readFileSync(new URL("../server/automation-schema.sql", import.meta.url), "utf8")); t.after(() => db.close());
+  const db = new DatabaseSync(":memory:"); db.exec(readFileSync(new URL("../server/automation-schema.sql", import.meta.url), "utf8")); db.exec(readFileSync(new URL("../server/hype-schema.sql", import.meta.url), "utf8")); t.after(() => db.close());
   let queries = 0;
   const env = { AUTOMATIONS_ENABLED: "true", EXTENSION_ORIGIN: origin, EXTENSION_SECRET: Buffer.alloc(32, 5).toString("base64"), EXTENSION_CLIENT_ID: "testclient", EXTENSION_OWNER: "999", MERCH_TEST_STORES: '{"123":"https://streamlabs.com/FunkYouSHiFT/merch"}',
     IMAGES: { prepare(sql) { return { bind(...args) { const query = db.prepare(sql), values = Object.fromEntries(args.map((value, index) => [String(index + 1), value]));
@@ -83,6 +83,64 @@ test("config read accepts channel viewer proof; mutations require own broadcaste
   s.env.AUTOMATIONS_ENABLED = "false";
   assert.equal((await s.call()).status, 404);
   assert.deepEqual(await tickAutomations(s.env), { checked: 0, sent: 0 });
+});
+
+test("Hype lifecycle persists signed snapshots through cooldown and closes with a bounded thank-you", async t => {
+  const s = fixture(t);
+  const appearance = { style: "hype-train", color: "#FF33AA", durationSeconds: 8, hypeLifecycle: true };
+  const candidate = { version: 1, carousels: [], rules: [
+    { id: "begin", name: "Train", enabled: true, trigger: { type: "twitch", event: "hype_begin" }, effect: { type: "celebrate", message: "Train rolling", appearance }, cooldownSeconds: 60 },
+    { id: "progress", name: "Progress", enabled: true, trigger: { type: "twitch", event: "hype_progress" }, effect: { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Keep going", appearance }] }, cooldownSeconds: 60 },
+  ] };
+  assert.equal((await s.save(candidate)).status, 200);
+  s.sent.length = 0;
+  const input = (phase, id, at, changes = {}) => ({ type: "twitch", event: `hype_${phase}`, id,
+    hype: { id: "train_1", level: 1, total: 10, progress: 10, goal: 100, startedAt: new Date(now).toISOString(),
+      expiresAt: new Date(at + 300000).toISOString(), sentAt: at, ...changes } });
+  const begin = await processAutomationInput(s.env, "123", input("begin", "begin_1", now), { now, fetcher: s.fetcher });
+  assert.equal(begin.status, "sent");
+  assert.equal(begin.event.hype.phase, "active");
+  assert.equal((await s.call("hype", { at: now + 1 })).body.event.hype.progress, 10);
+  const progress = await processAutomationInput(s.env, "123", input("progress", "progress_1", now + 1000, { level: 2, total: 155, progress: 55 }), { now: now + 1000, fetcher: s.fetcher });
+  assert.equal(progress.status, "cooldown");
+  assert.equal((await s.call("hype", { at: now + 1001 })).body.event.hype.progress, 55);
+  assert.equal((await s.call("hype", { at: now + 1001 })).body.event.effect.message, "Keep going");
+  assert.equal(s.sent.length, 1, "cooldown bounds broadcasts, not persisted progress");
+  const retainedExpiry = (await s.call("hype", { at: now + 1001 })).body.event.expires;
+  assert.equal((await processAutomationInput(s.env, "123", input("progress", "missing_expiry", now + 1200, { expiresAt: undefined, total: 160 }), { now: now + 1200, fetcher: s.fetcher })).status, "no_match");
+  assert.equal((await processAutomationInput(s.env, "123", input("progress", "past_expiry", now + 1300, { expiresAt: new Date(now).toISOString(), total: 160 }), { now: now + 1300, fetcher: s.fetcher })).status, "no_match");
+  assert.equal((await processAutomationInput(s.env, "123", input("progress", "lower_level", now + 1400, { level: 1, total: 160, expiresAt: new Date(now + 10000).toISOString() }), { now: now + 1400, fetcher: s.fetcher })).status, "no_match");
+  assert.equal((await s.call("hype", { at: now + 1401 })).body.event.expires, retainedExpiry);
+  assert.equal((await processAutomationInput(s.env, "123", input("progress", "late_1", now + 500, { total: 5, progress: 5 }), { now: now + 1100, fetcher: s.fetcher })).status, "no_match");
+  const ended = await processAutomationInput(s.env, "123", input("end", "end_1", now + 2000, { total: 200, progress: undefined, goal: undefined }), { now: now + 2000, fetcher: s.fetcher });
+  assert.equal(ended.status, "cooldown");
+  assert.equal(ended.event.hype.phase, "ended");
+  assert.equal(ended.event.effect.message, "Train rolling", "missing end rule falls back to saved begin effect");
+  assert.equal((await s.call("hype", { at: now + 2001 })).body.event.hype.phase, "ended");
+  assert.equal((await s.call("hype", { at: now + 14000 })).body.event, null);
+  assert.equal((await processAutomationInput(s.env, "123", input("begin", "reopen_1", now + 3000), { now: now + 3000, fetcher: s.fetcher })).status, "no_match");
+  assert.equal(s.db.prepare("SELECT phase FROM hype_sessions WHERE channel='123'").get().phase, "ended");
+  assert.equal((await s.call("hype", { at: now + 1, auth: null })).status, 401);
+  assert.equal((await s.call("hype", { at: now + 1, method: "POST" })).status, 405);
+  assert.equal((await s.call("hype", { at: now + 1, from: "https://other.example" })).status, 403);
+});
+
+test("Hype progress may precede begin and an edited design invalidates catch-up", async t => {
+  const s = fixture(t);
+  const candidate = { version: 1, carousels: [], rules: [{ id: "begin", name: "Train", enabled: true,
+    trigger: { type: "twitch", event: "hype_begin" }, effect: { type: "celebrate", message: "Train",
+      appearance: { style: "hype-train", color: "#33AAFF", durationSeconds: 8, hypeLifecycle: true } }, cooldownSeconds: 0 }] };
+  assert.equal((await s.save(candidate)).status, 200);
+  const source = (event, id, sentAt) => ({ type: "twitch", event, id, hype: { id: "train_early", level: 1,
+    total: 30, progress: 30, goal: 100, startedAt: new Date(now).toISOString(),
+    expiresAt: new Date(now + 300000).toISOString(), sentAt } });
+  const first = await processAutomationInput(s.env, "123", source("hype_progress", "progress_first", now + 1000), { now: now + 1000, fetcher: s.fetcher });
+  assert.equal(first.event?.hype.progress, 30);
+  assert.equal((await processAutomationInput(s.env, "123", source("hype_begin", "late_begin", now), { now: now + 1100, fetcher: s.fetcher })).status, "no_match");
+  assert.equal((await s.call("hype", { at: now + 1100 })).body.event.hype.progress, 30);
+  candidate.rules[0].enabled = false;
+  assert.equal((await s.save(candidate, { input: { design: candidate, expectedRevision: 1 } })).status, 200);
+  assert.equal((await s.call("hype", { at: now + 1100 })).body.event, null);
 });
 
 test("active catch-up returns the latest sent moment without writes, receipt data, or new broadcasts", async t => {

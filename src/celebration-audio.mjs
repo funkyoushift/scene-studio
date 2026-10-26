@@ -4,9 +4,10 @@ const TONES = Object.freeze({
   fanfare: Object.freeze({ wave: "triangle", notes: [[392, 0.2], [523.25, 0.2], [659.25, 0.2], [783.99, 0.42]] }),
   bell: Object.freeze({ wave: "sine", notes: [[880, 0.42], [1174.66, 0.5]] }),
   space: Object.freeze({ wave: "triangle", notes: [[293.66, 0.24], [440, 0.28], [587.33, 0.3], [880, 0.32]] }),
+  train: Object.freeze({ train: true }),
 });
 const MAX_GAIN = 0.12;
-const MAX_PLAY_MS = 1800;
+const MAX_PLAY_MS = 3000;
 
 function clampVolume(value) {
   const numeric = Number(value);
@@ -49,6 +50,7 @@ export function createCelebrationPlayer(AudioContextCtor) {
     const level = clampVolume(volume);
     if (!tone || level <= 0 || activeNodes.length) return false;
     const gainScale = MAX_GAIN * level / 100;
+    if (tone.train) return playTrain(gainScale);
     let start = context.currentTime || 0;
     let totalSeconds = 0;
     try {
@@ -71,6 +73,53 @@ export function createCelebrationPlayer(AudioContextCtor) {
         totalSeconds += duration + 0.035;
       }
       cleanupTimer = setTimeout(releaseNodes, Math.min(MAX_PLAY_MS, Math.ceil(totalSeconds * 1000) + 80));
+      return true;
+    } catch {
+      releaseNodes();
+      return false;
+    }
+  }
+
+  function playTrain(gainScale) {
+    const start = context.currentTime || 0;
+    const duration = 2.75;
+    try {
+      // Two lightly detuned whistle tones share 0.07 of the 0.12 total budget;
+      // the rhythmic low chug uses at most 0.045, leaving headroom throughout.
+      for (const [frequency, gainAmount] of [[660, 0.035], [880, 0.035]]) {
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(frequency, start);
+        oscillator.frequency.linearRampToValueAtTime(frequency * 0.91, start + 0.82);
+        oscillator.frequency.setValueAtTime(frequency * 1.02, start + 1.02);
+        oscillator.frequency.linearRampToValueAtTime(frequency * 0.84, start + 1.86);
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(gainScale * gainAmount / MAX_GAIN, start + 0.04);
+        gain.gain.setValueAtTime(gainScale * gainAmount / MAX_GAIN, start + 2.58);
+        gain.gain.linearRampToValueAtTime(0, start + duration);
+        oscillator.connect(gain); gain.connect(context.destination);
+        oscillator.start(start); oscillator.stop(start + duration + 0.01);
+        activeNodes.push(oscillator, gain);
+      }
+
+      const chug = context.createOscillator();
+      const chugGain = context.createGain();
+      chug.type = "triangle";
+      chug.frequency.setValueAtTime(92, start);
+      chugGain.gain.setValueAtTime(0, start);
+      // Repeated soft pulses make a rolling chug under the whistle.
+      for (let pulse = 0; pulse < 11; pulse++) {
+        const pulseStart = start + 0.12 + pulse * 0.23;
+        const peak = gainScale * 0.045 / MAX_GAIN;
+        chugGain.gain.setValueAtTime(0, pulseStart);
+        chugGain.gain.linearRampToValueAtTime(peak, pulseStart + 0.045);
+        chugGain.gain.linearRampToValueAtTime(0, pulseStart + 0.15);
+      }
+      chug.connect(chugGain); chugGain.connect(context.destination);
+      chug.start(start); chug.stop(start + duration + 0.01);
+      activeNodes.push(chug, chugGain);
+      cleanupTimer = setTimeout(releaseNodes, Math.min(MAX_PLAY_MS, Math.ceil(duration * 1000) + 80));
       return true;
     } catch {
       releaseNodes();

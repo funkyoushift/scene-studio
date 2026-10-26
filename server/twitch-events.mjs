@@ -242,7 +242,14 @@ export async function handleActivityWebhook(request,env,channel,event,{processIn
         const current=await sql(env,"SELECT nonce,status,grant_id FROM twitch_activity_subscriptions WHERE channel=?1 AND event=?2",channel,event).first();
         if(fresh.grantId===grant.grantId&&current?.nonce===row.nonce&&current.status==="enabled"&&current.grant_id===grant.grantId) {
           const context=safeLiveContext({ ...(["subscribe","resubscribe","gift"].includes(event)&&!incoming.is_anonymous?{subscriber:incoming.user_name}:{}), ...(event.startsWith("hype_")?{hypeLevel:incoming.level}:{}) });
-          const outcome=await processInput(env,channel,{type:"twitch",event,id:messageId,...(Object.keys(context).length?{context}:{})},{now:currentTime(),fetcher});
+          // Only nonpersonal, bounded train fields cross into lifecycle storage.
+          // The verified message timestamp and ID order provider snapshots.
+          const hype=event.startsWith("hype_")?{
+            id:incoming.id, level:incoming.level,
+            total:incoming.total, progress:incoming.progress, goal:incoming.goal,
+            expiresAt:incoming.expires_at, startedAt:incoming.started_at, sentAt,
+          }:undefined;
+          const outcome=await processInput(env,channel,{type:"twitch",event,id:messageId,...(Object.keys(context).length?{context}:{}),...(hype?{hype}:{})},{now:currentTime(),fetcher});
           status=["sent","uncertain","cooldown","no_match"].includes(outcome?.status)?outcome.status:"uncertain";
         } else status="denied";
       }catch{status="uncertain";} // A notification retry never repeats an uncertain automation effect.

@@ -13,7 +13,7 @@ export const CELEBRATION_STYLES = Object.freeze([
   "confetti", "spotlight", "hype-train", "hearts", "starfall", "fireworks",
   "bubbles", "meteor", "aurora", "arcade", "petals", "orbit",
 ]);
-export const CELEBRATION_SOUNDS = Object.freeze(["chime", "arcade", "fanfare", "bell", "space"]);
+export const CELEBRATION_SOUNDS = Object.freeze(["chime", "arcade", "fanfare", "bell", "space", "train"]);
 export const TWITCH_AUTOMATION_EVENTS = Object.freeze([
   "subscribe", "resubscribe", "gift", "hype_begin", "hype_progress", "hype_end",
 ]);
@@ -45,6 +45,10 @@ function celebrationEffect(value, label = "Celebration") {
           !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100)
         throw new Error("Celebration sound must use a supported preset and an integer volume from 0 to 100.");
       cleanAppearance.sound = { preset: sound.preset, volume: sound.volume };
+    }
+    if (Object.hasOwn(appearance, "hypeLifecycle")) {
+      if (appearance.hypeLifecycle !== true || appearance.style !== "hype-train") throw new Error("Hype lifecycle requires a Hype Train celebration.");
+      cleanAppearance.hypeLifecycle = true;
     }
     effect.appearance = cleanAppearance;
   }
@@ -224,6 +228,12 @@ export function validateAutomations(input) {
       });
       effect = { type: "choose", mode: target.mode, options };
     } else throw new Error("Choose a celebration or carousel effect.");
+    if (effect.type === "celebrate" && effect.appearance?.hypeLifecycle &&
+        !(trigger.type === "twitch" && ["hype_begin", "hype_progress", "hype_end"].includes(trigger.event)))
+      throw new Error("Hype lifecycle requires a Hype Train Twitch trigger.");
+    if (effect.type === "choose" && effect.options.some(option => option.appearance?.hypeLifecycle) &&
+        !(trigger.type === "twitch" && ["hype_progress", "hype_end"].includes(trigger.event)))
+      throw new Error("Hype lifecycle choices require a Hype Train progress or end trigger.");
     return { id, name, enabled: raw.enabled, trigger, effect, cooldownSeconds: duration(raw.cooldownSeconds, AUTOMATION_LIMITS.cooldownSeconds, "Rule cooldown") };
   });
   const result = { version: 1, carousels, rules };

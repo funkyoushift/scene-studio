@@ -2,6 +2,7 @@ import { AUTOMATION_DESIGN_BYTES, validateAutomations, evaluateAutomations, crea
 import { hostedImage } from "../src/image-address.mjs";
 import { signPartyToken } from "./party-service.mjs";
 import { safeLiveContext, ruleEffects } from "../src/live-context.mjs";
+import { safeHypeState, HYPE_ACTIVE_MAX_MS, HYPE_END_MS } from "../src/hype-state.mjs";
 
 export const HOSTED_AUTOMATION_LIMITS = Object.freeze({ designBytes: AUTOMATION_DESIGN_BYTES, channels: 100, receipts: 10000, channelReceipts: 1000, retentionMs: 86400000, channelCooldownMs: 8000, tickBatch: 2 });
 const utf8 = new TextEncoder();
@@ -25,6 +26,10 @@ function cleanCelebrationAppearance(value) {
         !Object.hasOwn(sound, "preset") || !Object.hasOwn(sound, "volume") ||
         !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100) return null;
     appearance.sound = { preset: sound.preset, volume: sound.volume };
+  }
+  if (Object.hasOwn(value, "hypeLifecycle")) {
+    if (value.hypeLifecycle !== true || value.style !== "hype-train") return null;
+    appearance.hypeLifecycle = true;
   }
   return appearance;
 }
@@ -147,6 +152,104 @@ async function activeMoment(env, channel, currentTime) {
   result.event = { type: event.type, eventId: event.eventId, channelId: channel, revision: row.revision, created: event.created, expires: event.expires, effect };
   return result;
 }
+
+const lifecycleOption = option => option?.type === "celebrate" && option.appearance?.style === "hype-train" && option.appearance.hypeLifecycle === true;
+function lifecycleEffect(design, phase) {
+  const event = phase === "active" ? "hype_progress" : "hype_end";
+  const rules = design.rules.filter(rule => rule.enabled && rule.trigger.type === "twitch");
+  const phaseRule = rules.find(rule => rule.trigger.event === event && ruleEffects(rule).some(lifecycleOption));
+  const anchor = rules.find(rule => rule.trigger.event === "hype_begin" && lifecycleOption(rule.effect));
+  const selected = phaseRule ? ruleEffects(phaseRule).find(lifecycleOption) : anchor?.effect;
+  return selected ? structuredClone(selected) : null;
+}
+function beginEffect(design) {
+  const rule = design.rules.find(item => item.enabled && item.trigger.type === "twitch" && item.trigger.event === "hype_begin" && lifecycleOption(item.effect));
+  return rule ? structuredClone(rule.effect) : null;
+}
+function sameLifecycleEffect(left, right) {
+  return left?.type === "celebrate" && right?.type === "celebrate" && left.message === right.message &&
+    left.appearance?.style === right.appearance?.style && left.appearance?.color === right.appearance?.color &&
+    left.appearance?.durationSeconds === right.appearance?.durationSeconds &&
+    left.appearance?.hypeLifecycle === right.appearance?.hypeLifecycle &&
+    (left.appearance?.sound?.preset ?? null) === (right.appearance?.sound?.preset ?? null) &&
+    (left.appearance?.sound?.volume ?? null) === (right.appearance?.sound?.volume ?? null);
+}
+async function hypeMoment(env, channel, currentTime) {
+  const result = { channelId: channel, revision: 0, event: null };
+  const row = await stmt(env, `SELECT c.revision,c.design,c.owned_merch,h.event,h.expires
+    FROM automation_configs c LEFT JOIN hype_sessions h ON h.channel=c.channel
+    WHERE c.channel=?1`, channel).first();
+  if (!row) return result;
+  result.revision = row.revision;
+  const now = currentTime();
+  if (!row.event || row.expires <= now || typeof row.event !== "string" || utf8.encode(row.event).length > 4096) return result;
+  let event;
+  try { event = safeHypeState(JSON.parse(row.event)); } catch { return result; }
+  if (!event || event.channelId !== channel || event.revision !== row.revision || event.created > now || event.expires <= now) return result;
+  const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
+  const anchor = beginEffect(design);
+  if (!anchor) return result;
+  const options = [anchor, lifecycleEffect(design, event.hype.phase)].filter(Boolean);
+  if (!options.some(option => sameLifecycleEffect(option, event.effect))) return result;
+  result.event = event;
+  return result;
+}
+
+const providerId = value => typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
+const providerNumber = value => Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000_000_000;
+function providerTime(value) {
+  if (typeof value !== "string" || value.length > 64) return null;
+  const at = Date.parse(value);
+  return Number.isSafeInteger(at) && at >= 0 ? at : null;
+}
+async function processHypeLifecycle(env, channel, event, row, design, { now, fetcher }) {
+  const anchor = beginEffect(design);
+  if (!anchor) return null;
+  const source = event.hype;
+  if (!source || !providerId(source.id) || !Number.isSafeInteger(source.sentAt) || Math.abs(now - source.sentAt) > 600000) return { status: "no_match" };
+  const startedAt = providerTime(source.startedAt);
+  if (startedAt === null || startedAt > source.sentAt + 600000 || startedAt > now + 600000) return { status: "no_match" };
+  const old = await stmt(env, "SELECT * FROM hype_sessions WHERE channel=?1", channel).first();
+  const same = old?.train_id === source.id;
+  if (old && (!same && startedAt <= old.started_at || same &&
+      (old.phase === "ended" || source.sentAt < old.source_at || source.sentAt === old.source_at && event.event !== "hype_end" && event.id <= old.source_id))) return { status: "no_match" };
+  const level = providerNumber(source.level) && source.level >= 1 && source.level <= 10000 ? source.level : same ? old.level : null;
+  const total = providerNumber(source.total) ? source.total : same ? old.total : null;
+  const progress = providerNumber(source.progress) ? source.progress : same ? old.progress : event.event === "hype_end" ? total : null;
+  const goal = providerNumber(source.goal) && source.goal >= 1 ? source.goal : same ? old.goal : event.event === "hype_end" ? Math.max(1, total ?? 0) : null;
+  if (level === null || total === null || progress === null || goal === null) return { status: "no_match" };
+  const phase = event.event === "hype_end" ? "ended" : "active";
+  if (same && phase === "active" && (level < old.level || total < old.total)) return { status: "no_match" };
+  const nextLevel = same ? Math.max(level, old.level) : level;
+  const nextTotal = same ? Math.max(total, old.total) : total;
+  const nextProgress = same && level < old.level ? old.progress : same && nextLevel === old.level ? Math.max(progress, old.progress) : progress;
+  const nextGoal = same && level < old.level ? old.goal : same && nextLevel === old.level ? Math.max(goal, old.goal) : goal;
+  const providerExpiry = providerTime(source.expiresAt);
+  if (phase === "active" && (providerExpiry === null || providerExpiry <= now)) return { status: "no_match" };
+  const expires = phase === "ended" ? now + HYPE_END_MS :
+    Math.min(source.sentAt + HYPE_ACTIVE_MAX_MS, Math.max(providerExpiry, same ? old.expires : 0));
+  const effect = event.event === "hype_begin" ? anchor : lifecycleEffect(design, phase) ?? anchor;
+  const snapshot = safeHypeState({ type: "scene-studio-hype", eventId: crypto.randomUUID(), channelId: channel,
+    revision: row.revision, created: now, expires, effect,
+    hype: { id: source.id, phase, level: nextLevel, progress: nextProgress, goal: nextGoal, expiresAt: expires, updatedAt: now } });
+  if (!snapshot) return { status: "no_match" };
+  const shouldBroadcast = !old || old.broadcast_at < 0 || old.broadcast_at <= now - HOSTED_AUTOMATION_LIMITS.channelCooldownMs;
+  const saved = await stmt(env, `INSERT INTO hype_sessions(channel,train_id,started_at,source_at,source_id,revision,level,total,progress,goal,phase,event,expires,broadcast_at)
+    SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14
+    WHERE EXISTS(SELECT 1 FROM automation_configs WHERE channel=?1 AND revision=?6)
+      AND ((SELECT count(*) FROM hype_sessions)<${HOSTED_AUTOMATION_LIMITS.channels} OR EXISTS(SELECT 1 FROM hype_sessions WHERE channel=?1))
+    ON CONFLICT(channel) DO UPDATE SET train_id=excluded.train_id,started_at=excluded.started_at,source_at=excluded.source_at,
+      source_id=excluded.source_id,revision=excluded.revision,level=excluded.level,total=excluded.total,progress=excluded.progress,goal=excluded.goal,
+      phase=excluded.phase,event=excluded.event,expires=excluded.expires,broadcast_at=excluded.broadcast_at
+    WHERE hype_sessions.train_id=?15 AND hype_sessions.source_at=?16 AND hype_sessions.source_id=?17 AND hype_sessions.phase=?18`,
+    channel, source.id, startedAt, source.sentAt, event.id, row.revision, nextLevel, nextTotal, nextProgress, nextGoal, phase,
+    JSON.stringify(snapshot), expires, shouldBroadcast ? now : old?.broadcast_at ?? -1,
+    old?.train_id ?? "", old?.source_at ?? -1, old?.source_id ?? "", old?.phase ?? "").run();
+  if (!saved.meta.changes) return { status: "no_match" };
+  if (!shouldBroadcast) return { status: "cooldown", event: snapshot };
+  try { await broadcast(env, channel, snapshot, fetcher, now); return { status: "sent", event: snapshot }; }
+  catch { return { status: "uncertain", event: snapshot }; }
+}
 async function admittedEffect(env, channel, row, inputId, inputHash, effect, nextState, { now, fetcher, context }) {
   await stmt(env, "DELETE FROM automation_receipts WHERE expires<=?1", now).run();
   const existing = () => stmt(env, "SELECT input_hash,status,event FROM automation_receipts WHERE channel=?1 AND input_id=?2", channel, inputId).first();
@@ -195,6 +298,10 @@ export async function processAutomationInput(env, channel, event, { now = Date.n
   const row = await load(env, channel);
   if (!row) return { status: "no_match" };
   const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
+  if (event.type === "twitch" && event.event.startsWith("hype_") && event.hype) {
+    const lifecycle = await processHypeLifecycle(env, channel, event, row, design, { now, fetcher });
+    if (lifecycle) return lifecycle;
+  }
   const previous = JSON.parse(row.engine_state);
   // Check receipts before cooldown evaluation, so an uncertain input cannot
   // become a different rule after its original rule enters cooldown.
@@ -245,11 +352,17 @@ export async function automationRequest(request, env, channel, { claims, now = D
   try {
     enabled(env, channel); clock(now);
     const path = new URL(request.url).pathname;
-    if (!["config", "fire", "active"].some(name => path === `/v1/automations/${channel}/${name}`)) fail(404, "not_found", "Endpoint not found.");
+    if (!["config", "fire", "active", "hype"].some(name => path === `/v1/automations/${channel}/${name}`)) fail(404, "not_found", "Endpoint not found.");
     const config = path.endsWith("/config");
     const active = path.endsWith("/active");
-    if (!(config ? ["GET", "PUT"] : active ? ["GET"] : ["POST"]).includes(request.method)) fail(405, "method_not_allowed", "Unsupported method.");
-    authorize(request, env, channel, claims, now, !((config || active) && request.method === "GET"));
+    const hype = path.endsWith("/hype");
+    if (!(config ? ["GET", "PUT"] : active || hype ? ["GET"] : ["POST"]).includes(request.method)) fail(405, "method_not_allowed", "Unsupported method.");
+    authorize(request, env, channel, claims, now, !((config || active || hype) && request.method === "GET"));
+    if (hype) {
+      const moment = await hypeMoment(env, channel, currentTime);
+      authorize(request, env, channel, claims, currentTime());
+      return json(moment);
+    }
     if (active) {
       const moment = await activeMoment(env, channel, currentTime);
       authorize(request, env, channel, claims, currentTime());

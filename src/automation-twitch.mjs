@@ -1,6 +1,7 @@
 import { AUTOMATION_DESIGN_BYTES, CELEBRATION_SOUNDS, CELEBRATION_STYLES, validateAutomations } from "./automations.mjs";
 import { IMAGE_ORIGIN, hostedImage } from "./image-address.mjs";
 import { prepareImage } from "./images.mjs";
+import { safeHypeState } from "./hype-state.mjs";
 
 export const AUTOMATION_CONFIG_BYTES = AUTOMATION_DESIGN_BYTES;
 const bytes = value => new TextEncoder().encode(value).length;
@@ -26,7 +27,10 @@ function matchesSavedCelebration(effect, option) {
       typeof appearance.color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(appearance.color) ||
       !Number.isInteger(appearance.durationSeconds) || appearance.durationSeconds < 4 || appearance.durationSeconds > 20) return false;
   const hasSound = Object.hasOwn(appearance, "sound");
-  if (Object.keys(appearance).length !== (hasSound ? 4 : 3)) return false;
+  const hasLifecycle = Object.hasOwn(appearance, "hypeLifecycle");
+  if (hasLifecycle && appearance.hypeLifecycle !== true) return false;
+  if (hasLifecycle !== Object.hasOwn(option.appearance ?? {}, "hypeLifecycle")) return false;
+  if (Object.keys(appearance).length !== 3 + Number(hasSound) + Number(hasLifecycle)) return false;
   let sound;
   if (hasSound) {
     sound = appearance.sound;
@@ -111,9 +115,38 @@ export async function fireAutomation(auth, effect, fetcher = fetch) {
 
 // The watcher owns channel/revision admission and event deduplication. It never
 // interprets preview messages as Twitch events or retries a fire request.
-export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError = () => {}, fetcher = fetch, clock = Date.now, { catchUp = false } = {}) {
+export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError = () => {}, fetcher = fetch, clock = Date.now, { catchUp = false, onHype } = {}) {
   const id = channel(auth), seen = new Map(), fetched = new Set();
   let active = true, config = null, loading = null, latestCreated = -Infinity;
+  let hypeTimer, latestHype = null, hypeReceivedAt = -Infinity, hypePresent = false;
+  async function receiveHype(raw) {
+    const event = safeHypeState(raw);
+    if (!active || !event || !validEnvelope(event) || event.created > clock() + 30_000 || event.expires <= clock()) return;
+    if (!config || event.revision > config.revision) await refresh(event.revision);
+    if (!active || config?.revision !== event.revision || event.expires <= clock()) return;
+    if (!config.design.rules.some(rule => rule.enabled && rule.trigger.type === "twitch" && rule.trigger.event.startsWith("hype_") &&
+      (rule.effect.type === "choose" ? rule.effect.options : [rule.effect]).some(option => matchesSavedCelebration(event.effect, option)))) return;
+    if (latestHype && (event.created < latestHype.created || event.eventId === latestHype.eventId ||
+      (event.hype.id === latestHype.hype.id && (event.hype.updatedAt < latestHype.hype.updatedAt || (latestHype.hype.phase === "ended" && event.hype.phase !== "ended"))))) return;
+    latestHype = event; hypeReceivedAt = clock(); hypePresent = true;
+    onHype?.(event, config);
+    if (typeof onHype === "function") { clearTimeout(hypeTimer); hypeTimer = setTimeout(pollHype, 10000); }
+  }
+  async function pollHype() {
+    if (!active || typeof onHype !== "function") return;
+    const requestedAt = clock();
+    try {
+      const result = await request(auth, "hype", "GET", undefined, fetcher);
+      if (!active || result?.channelId !== id || !Number.isSafeInteger(result.revision) || result.revision < 0) return;
+      if (result.revision > (config?.revision ?? 0)) await refresh(result.revision);
+      if (result.event) {
+        if (result.event.revision === result.revision) await receiveHype(result.event);
+      } else if (requestedAt >= hypeReceivedAt && config?.revision === result.revision) {
+        hypePresent = false; onHype(null, config);
+      }
+    } catch { /* Existing snapshots expire locally if the service is unavailable. */ }
+    finally { if (active) { clearTimeout(hypeTimer); hypeTimer = setTimeout(pollHype, hypePresent && latestHype?.hype.phase === "active" && latestHype.expires > clock() ? 10000 : 60000); } }
+  }
   function report(message) { try { onError(message); } catch {} }
   function validEnvelope(event) {
     return event?.channelId === id && Number.isSafeInteger(event.revision) && event.revision > 0;
@@ -133,6 +166,7 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
     let event;
     try { event = JSON.parse(message); } catch { return; }
     if (!validEnvelope(event)) return;
+    if (event.type === "scene-studio-hype") { await receiveHype(event); return; }
     if (event.type === "scene-studio-automation-config") {
       if (!config || event.revision > config.revision) await refresh(event.revision);
       return;
@@ -162,6 +196,7 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
     try { onEvent(event, config); } catch (error) { report(error.message); }
   }
   helper.listen("broadcast", receive);
+  if (typeof onHype === "function") void refresh().then(pollHype);
   void refresh().then(async () => {
     if (!active || !config || !catchUp) return;
     try {
@@ -173,5 +208,5 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
       if (result.event) await receive("broadcast", "application/json", JSON.stringify(result.event));
     } catch (error) { if (active) report(error.message); }
   });
-  return () => { active = false; helper.unlisten("broadcast", receive); };
+  return () => { active = false; clearTimeout(hypeTimer); helper.unlisten("broadcast", receive); };
 }

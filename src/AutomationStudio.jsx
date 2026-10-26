@@ -21,6 +21,7 @@ import { liveText, safeLiveContext } from "./live-context.mjs";
 import FlowBuilder from "./FlowBuilder.jsx";
 import Celebration from "./Celebration.jsx";
 import CelebrationAudio from "./CelebrationAudio.jsx";
+import { HypeTrainDemo } from "./HypeTrain.jsx";
 
 const KEY = "scene-studio-automation-preview-v1";
 const uid = () => crypto.randomUUID();
@@ -67,6 +68,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [previewFullMotion, setPreviewFullMotion] = useState(false);
+  const [hypePreview, setHypePreview] = useState(null);
   useEffect(() => {
     const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
     const update = () => setReducedMotion(preference.matches);
@@ -481,6 +483,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
           </nav>
           {tab === "builder" ? (
             <FlowBuilder
+              onPreviewHype={setHypePreview}
               design={design}
               requestedPageId={requestedPageId}
               merchDeclarations={merchDeclarations}
@@ -1226,6 +1229,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
           </details>
         </section>
       </main>
+      {hypePreview && <HypeTrainDemo effect={hypePreview} onClose={() => setHypePreview(null)}/>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T16:08:01.700Z",
+  "createdUtc": "2026-10-26T16:31:03.049Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -116,8 +116,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 12396,
-      "sha256": "1dbc8c368f4b7d7bd39fc7b918032ace7aebbbbf8cd5ca919c260725728826b8"
+      "bytes": 12498,
+      "sha256": "96843bc63deee9ec189520bfe059d4ab53c54021d3d5e626943c78ebf3ec2934"
     },
     {
       "path": "scripts/build-pages.mjs",
@@ -141,8 +141,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 24709,
-      "sha256": "782455892b186ca6a16264d7b700c429cfb7d64269719d6d23c799fa20135c14"
+      "bytes": 24932,
+      "sha256": "066797b14211e0289d362c63e1f9beb408516a89710380cb681b2248df45b986"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -171,8 +171,8 @@
     },
     {
       "path": "server/automation-service.mjs",
-      "bytes": 24044,
-      "sha256": "b3dc27317c9f878597e67608138a6903dec96a71f61531af73840cd3f3d5e793"
+      "bytes": 32493,
+      "sha256": "c66ebec14ea1f2d3fe0720ed1b1d656856ca4f501695cc2ecc1aa5d6dc1f7e44"
     },
     {
       "path": "server/chat-authorization.mjs",
@@ -200,9 +200,14 @@
       "sha256": "42d153b59d9496b9d085d93e4a50afe0b7290a9c52ae5d1271439fcdfe3b3db6"
     },
     {
+      "path": "server/hype-schema.sql",
+      "bytes": 684,
+      "sha256": "04a7c2ca8bd86796ffb5d731d98e225ce13284c0db26f2e135f1a7fdd6111dd5"
+    },
+    {
       "path": "server/image-worker.mjs",
-      "bytes": 19986,
-      "sha256": "3cc6c4f26ef4742e655aa496646e1501295a712ab574635cceefed1d98d791a5"
+      "bytes": 19999,
+      "sha256": "34173d17f00a7b85701b01896706ff78398d8e07b01e59353da6da6d2da38e00"
     },
     {
       "path": "server/party-service.mjs",
@@ -226,8 +231,8 @@
     },
     {
       "path": "server/twitch-events.mjs",
-      "bytes": 22049,
-      "sha256": "73e90ad04348661b9baba32e01ebf2d08783ea01396242cdac77f0365e00e6fe"
+      "bytes": 22514,
+      "sha256": "311b4388e9cfd93bc9bb9c211f4f85f568221804a95370a21b17ddaef84e09dd"
     },
     {
       "path": "src/automation-entry.jsx",
@@ -236,8 +241,8 @@
     },
     {
       "path": "src/automation-twitch.mjs",
-      "bytes": 12680,
-      "sha256": "710988b3039b7fc7faf9261388d5ab96763a721a6dee0b062bc0971419f71379"
+      "bytes": 15359,
+      "sha256": "0655e5b997335a7a8d66b4d528dae5ddedff3d7670bb8914cadace80fad72f4c"
     },
     {
       "path": "src/automations.css",
@@ -246,33 +251,33 @@
     },
     {
       "path": "src/automations.mjs",
-      "bytes": 20345,
-      "sha256": "203bf228946c56c8b365d5788d86061aa7487bf93953f21553f99a1f236ccd0c"
+      "bytes": 21166,
+      "sha256": "1ff1d8dc56c92526dd078eb8ba0276b3fe6c126ee5d0cfafc3a61d2cbec3ea0b"
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 61821,
-      "sha256": "76d922536b33fa2b356f37b68284d877a11f3e78158a42aec0e038a06b5a2c20"
+      "bytes": 62073,
+      "sha256": "9c3a442d2aac6243a37939570f9db4373a381a70f12ba5d0f04eb865c478dbcf"
     },
     {
       "path": "src/AutomationViewer.jsx",
-      "bytes": 9660,
-      "sha256": "87f0f4a0a8481580acb92f6ea40f71fa86b87c568f2d100e709aef42deef5018"
+      "bytes": 10619,
+      "sha256": "b5c758b459d6a38eb5b05f533d1dda664db9c1bd23ba98ef4a2eb529e85ac20d"
     },
     {
       "path": "src/celebration-audio.mjs",
-      "bytes": 3912,
-      "sha256": "abf1110129dec2629bd34ca575cc3a5672e1de7c6de44d618e5fabde1836c5f0"
+      "bytes": 6280,
+      "sha256": "16ce8627abae7c177276d413a751161a1034461bf95b1de67d3e190523852749"
     },
     {
       "path": "src/celebration.css",
-      "bytes": 18874,
-      "sha256": "c7e897a30337692839f6a5c8b97c5abf7f6821cd90b98478cd79b174c361f171"
+      "bytes": 20987,
+      "sha256": "f44826d18c9bf5114ae5eeb984b7d48335dcb03c382b141b65b76dc74c37846a"
     },
     {
       "path": "src/Celebration.jsx",
-      "bytes": 6865,
-      "sha256": "df672a0c8c3878384394a91e4d67645f7f0c9e1668bb63ebcd332b23a6c5e00b"
+      "bytes": 7448,
+      "sha256": "ebc0ce09fbcded0b54595da77503ecf2915b8fe0fbc8c3cf008e9ec28af512d5"
     },
     {
       "path": "src/CelebrationAudio.jsx",
@@ -296,8 +301,8 @@
     },
     {
       "path": "src/experience-presets.mjs",
-      "bytes": 19049,
-      "sha256": "5b96d46c71e1995378e82025ad57902e8f5d88fd2969c20aede5a56820447e80"
+      "bytes": 19656,
+      "sha256": "e786191116b84033449d27a69102ec4723bc74dc5007604b93d058c7ac82ead8"
     },
     {
       "path": "src/experience-preview.mjs",
@@ -311,13 +316,28 @@
     },
     {
       "path": "src/FlowBuilder.jsx",
-      "bytes": 31059,
-      "sha256": "dfe33c5b2524ef388ce2143014db0e639d579b8d18b61016638bff924fc73279"
+      "bytes": 33496,
+      "sha256": "aca8ac5d359674f01f5cc8453a45bf0345c44daa577123a17dd1bda8ea3ebe33"
     },
     {
       "path": "src/flows.css",
       "bytes": 22550,
       "sha256": "6cc5700d37608752bd4e880a00bf304c0c44dc3e922503d98e4fdc2111c2d9b8"
+    },
+    {
+      "path": "src/hype-state.mjs",
+      "bytes": 2901,
+      "sha256": "2a4e7dfccffaa6fc5964a0af6feb68bfb6b943897dc85e4f9a5cc9806fa4ca6b"
+    },
+    {
+      "path": "src/hype-train.css",
+      "bytes": 2850,
+      "sha256": "497651395627852e4de67854abcb12eb4eda282ba6ca392e2038cc998c75fc47"
+    },
+    {
+      "path": "src/HypeTrain.jsx",
+      "bytes": 4386,
+      "sha256": "5334f604bade6978a09002a2fabc2cfdd5aae3c68ff2d6c8093a8dd55d4a14c7"
     },
     {
       "path": "src/image-address.mjs",
@@ -431,13 +451,13 @@
     },
     {
       "path": "tests/automation-service.test.mjs",
-      "bytes": 34313,
-      "sha256": "8d3289e11bdbfee4f4f9fbbf6096d6ee7cf101f116d99f3b068e793e07f161d8"
+      "bytes": 39912,
+      "sha256": "9271947f38250ba8fb6ab2209e8922e218ff47a40780b083885c8767804cb56d"
     },
     {
       "path": "tests/automation-twitch.test.mjs",
-      "bytes": 18630,
-      "sha256": "f7e4d2030a0cda21b8293bbc6ce541d3afeaef89b4969e8b32ab31eb214c30d1"
+      "bytes": 20361,
+      "sha256": "a8755a40d2016fd61041a0dc4b1955c9383c7a02fd73010cb905872afb2ef472"
     },
     {
       "path": "tests/automations.test.mjs",
@@ -446,8 +466,8 @@
     },
     {
       "path": "tests/celebration-audio.test.mjs",
-      "bytes": 3399,
-      "sha256": "21b5d6263331fa70f748d4e66a5f002160cd2003fdfb2cda591ea6a4e47bb2bc"
+      "bytes": 4547,
+      "sha256": "5adf93640727357ae5d669cf5d06dd6b25c3b2606e73aec971ed394e8d562cdd"
     },
     {
       "path": "tests/chat-authorization.test.mjs",
@@ -486,8 +506,8 @@
     },
     {
       "path": "tests/experience-presets.test.mjs",
-      "bytes": 13321,
-      "sha256": "603e13649acc2ceaf2f25e35f97dd1ef8240b5aaa14d6499ec6c7bac3ec64565"
+      "bytes": 13952,
+      "sha256": "5aaf8709aafa338854a9dc6014c5d108b11790f406851a0124c1e75e84f09806"
     },
     {
       "path": "tests/experience-preview.test.mjs",
@@ -503,6 +523,11 @@
       "path": "tests/fixtures/mobile-mounted.jsx",
       "bytes": 5048,
       "sha256": "82e10b1461e4a18c9699d01df7b6ba876f60286f1eb8bcb5aefcf8aae5d97640"
+    },
+    {
+      "path": "tests/hype-state.test.mjs",
+      "bytes": 1937,
+      "sha256": "b40b80d5b38918df1c61d261cb1b892bab317c27ad72789f6e4ef1d190d27ee3"
     },
     {
       "path": "tests/image-client.test.mjs",
@@ -546,8 +571,8 @@
     },
     {
       "path": "tests/twitch-events.test.mjs",
-      "bytes": 17122,
-      "sha256": "7bc18c8b9ea37be14a594de7f107d90809e035a656af00790f2a437afee80943"
+      "bytes": 19689,
+      "sha256": "f944158e538a20e04818c23e9cce8035619bb3f1296db9dc6ecc2bc782488238"
     },
     {
       "path": "tests/twitch.test.mjs",

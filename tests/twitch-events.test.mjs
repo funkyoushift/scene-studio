@@ -8,7 +8,7 @@ import { automationRequest, processAutomationInput } from "../server/automation-
 
 const now=Date.now(),origin="https://example.ext-twitch.tv",claims={role:"broadcaster",user_id:"123",channel_id:"123"};
 function fixture(t) {
- const db=new DatabaseSync(":memory:");db.exec(CHAT_AUTH_SCHEMA);db.exec(readFileSync(new URL("../server/twitch-events-schema.sql",import.meta.url),"utf8"));db.exec(readFileSync(new URL("../server/automation-schema.sql",import.meta.url),"utf8"));t.after(()=>db.close());
+ const db=new DatabaseSync(":memory:");db.exec(CHAT_AUTH_SCHEMA);db.exec(readFileSync(new URL("../server/twitch-events-schema.sql",import.meta.url),"utf8"));db.exec(readFileSync(new URL("../server/automation-schema.sql",import.meta.url),"utf8"));db.exec(readFileSync(new URL("../server/hype-schema.sql",import.meta.url),"utf8"));t.after(()=>db.close());
  const env={TWITCH_ACTIVITY_ENABLED:"true",CHAT_TRIGGERS_ENABLED:"true",AUTOMATIONS_ENABLED:"true",EXTENSION_ORIGIN:origin,EXTENSION_SECRET:Buffer.alloc(32,7).toString("base64"),EXTENSION_CLIENT_ID:"testclient",EXTENSION_OWNER:"999",TWITCH_CHAT_CLIENT_ID:"testclient",TWITCH_CHAT_CLIENT_SECRET:"testsecret",PUBLIC_SERVICE_URL:"https://service.example",IMAGES:{prepare(query){return{bind(...args){const stmt=db.prepare(query),values=Object.fromEntries(args.map((value,index)=>[String(index+1),value]));return{first:async()=>stmt.get(values)||null,run:async()=>({meta:stmt.run(values)}),all:async()=>({results:stmt.all(values)})};}};}}};
  const options={scopes:["moderation:read",...ACTIVITY_SCOPES],failDelete:false,loseCreate:false,expired:false,refreshes:0};const calls=[],subscriptions=[],effects=[];
  const fetcher=async(address,init={})=>{
@@ -142,6 +142,31 @@ test("signed Twitch notifications run saved subscribe and Hype Train rules throu
  }
  assert.equal(s.effects.length,2,"each distinct signed Twitch message produces one PubSub broadcast");
  assert.deepEqual(s.effects.map(message=>({type:message.type,channelId:message.channelId,effect:message.effect})),Array.from({length:2},()=>({type:"scene-studio-automation",channelId:"123",effect:{type:"carousel",carouselId:"welcome"}})));
+});
+
+test("signed Hype Train snapshots retain only public state and end despite broadcast cooldown",async t=>{
+ t.mock.method(Date,"now",()=>now);
+ const s=fixture(t);await s.consent("activity");await ensureActivitySubscriptions(s.env,"123",{fetcher:s.fetcher,now});
+ const appearance={style:"hype-train",color:"#AA33FF",durationSeconds:8,hypeLifecycle:true};
+ const design={version:1,carousels:[],rules:[{id:"train",name:"Train",enabled:true,trigger:{type:"twitch",event:"hype_begin"},effect:{type:"celebrate",message:"Thanks for the train",appearance},cooldownSeconds:60}]};
+ const saveRequest=new Request("https://service.example/v1/automations/123/config",{method:"PUT",headers:{origin,"content-type":"application/json"},body:JSON.stringify({design,expectedRevision:0})});
+ const auth={role:"broadcaster",user_id:"123",channel_id:"123",exp:Math.floor(now/1000)+3600};
+ assert.equal((await automationRequest(saveRequest,s.env,"123",{claims:auth,fetcher:s.fetcher,now})).status,200);
+ s.effects.length=0;
+ for(const event of ["hype_begin","hype_progress","hype_end"])assert.equal((await s.handle(await s.signed(event,"webhook_callback_verification"),{event})).status,200);
+ const base={id:"train_1",broadcaster_user_id:"123",user_name:"private-contributor",top_contributions:[{user_name:"private-contributor"}],
+  level:1,total:100,progress:100,goal:500,started_at:new Date(now).toISOString(),expires_at:new Date(now+300000).toISOString()};
+ for(const [event,at,fields] of [["hype_begin",now,{}],["hype_progress",now+1000,{level:2,total:600,progress:100,goal:1000}],["hype_end",now+2000,{total:700,progress:undefined,goal:undefined,expires_at:undefined}]]){
+  const request=await s.signed(event,"notification",{...base,...fields},at);
+  assert.equal((await s.handle(request,{event,now:at,clock:()=>at,processInput:processAutomationInput})).status,204);
+ }
+ const row=s.db.prepare("SELECT * FROM hype_sessions WHERE channel='123'").get();
+ assert.equal(row.phase,"ended");assert.equal(row.level,2);assert.equal(row.total,700);
+ assert.equal(JSON.stringify(row).includes("private-contributor"),false);
+ assert.equal(s.effects.length,1,"progress and end persist even when PubSub is bounded to one send per eight seconds");
+ const get=new Request("https://service.example/v1/automations/123/hype",{headers:{origin}});
+ const response=await automationRequest(get,s.env,"123",{claims:auth,now:now+2001,fetcher:s.fetcher});
+ assert.equal((await response.json()).event.hype.phase,"ended");
 });
 
 test("uncertain provider registration is reconciled before retry, and disconnect disables locally",async t=>{
