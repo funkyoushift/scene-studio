@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { liveText } from "./live-context.mjs";
 import { watchAutomationEvents } from "./automation-twitch.mjs";
+import Celebration from "./Celebration.jsx";
+import CelebrationAudio from "./CelebrationAudio.jsx";
 
 // This component deliberately imports no editor CSS: html/body and the video
 // stay transparent, and only the visible object captures pointer events.
@@ -29,10 +31,11 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
     const advance = setInterval(() => setSlideIndex(index => index + 1), 5000);
     return () => { clearTimeout(dismiss); clearInterval(advance); };
   }, [active]);
-  if (!active || !creator?.login) return viewMode === "mobile" ? <section className="mobile-live-status" aria-label="Live moments connection">
+  const soundControls = <div style={viewMode === "mobile" ? { position: "relative", zIndex: 1100 } : { position: "fixed", right: "3%", bottom: "8%", zIndex: 1100, pointerEvents: "none", maxWidth: "94%" }}><CelebrationAudio key={auth?.channelId || "disconnected"} eventId={active?.event.eventId} sound={active?.event.effect.appearance?.sound} expires={active?.event.expires} /></div>;
+  if (!active || !creator?.login) return <>{soundControls}{viewMode === "mobile" ? <section className="mobile-live-status" aria-label="Live moments connection">
     <p role="status">{connection.message}</p>
     <button className="mobile-secondary" disabled={connection.state === "loading"} onClick={() => setRetry(value => value + 1)}>Reconnect live moments</button>
-  </section> : null;
+  </section> : null}</>;
   const effect = active.event.effect;
   const carousel = effect.type === "carousel" ? active.config.design.carousels.find(c => c.id === effect.carouselId) : null;
   const slide = carousel?.slides[((slideIndex % carousel.slides.length) + carousel.slides.length) % carousel.slides.length];
@@ -40,7 +43,7 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
   const layout = viewMode !== "mobile" && carousel?.layout;
   const placement = layout ? { left: `${layout.x}%`, top: `${layout.y}%`, right: "auto", bottom: "auto", width: `${layout.width}%`, maxHeight: `${layout.height}%`, zIndex: layout.layer } : undefined;
   const brand = <div className="ss-live-brand">{brandImage && <img src={brandImage} alt="" />}<span>@{creator.login}</span></div>;
-  return <div ref={container} className={`ss-live-automation${viewMode === "mobile" ? " ss-live-mobile" : ""}`} style={layout ? {zIndex:layout.layer} : undefined}>
+  return <>{soundControls}<div ref={container} className={`ss-live-automation${viewMode === "mobile" ? " ss-live-mobile" : ""}${effect.type === "celebrate" ? " ss-live-animated" : ""}`} style={layout ? {zIndex:layout.layer} : undefined}>
     <style>{`
       .ss-live-automation{position:fixed;inset:0;z-index:1000;pointer-events:none;font:14px system-ui,sans-serif;color:#f5f8ff}
       .ss-live-card{position:absolute;bottom:9%;right:3%;width:min(300px,38vw);max-height:78%;overflow:auto;border:1px solid #52cfde66;border-radius:16px;background:#0c1527f7;box-shadow:0 10px 40px #0008,0 0 22px #39c9de18;pointer-events:auto;animation:ss-live-enter .28s ease-out both}
@@ -62,6 +65,7 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
       @media(max-width:500px){.ss-live-card{width:52vw;bottom:10%;right:2%;font-size:12px}.ss-live-copy strong{font-size:14px}.ss-live-brand{font-size:12px}}
       @media(max-height:500px){.ss-live-card{font-size:12px}.ss-live-card header{padding:6px 10px}.ss-live-brand img{width:28px;height:28px;flex-basis:28px}.ss-live-copy{padding:9px 12px}.ss-live-copy strong{font-size:14px}.ss-live-copy p{line-height:1.35;margin:6px 0}.ss-live-credit{font-size:10px;padding-bottom:7px}}
       .ss-live-mobile{position:relative;inset:auto;z-index:auto;font-size:15px;min-width:0;max-width:100%}
+      .ss-live-mobile.ss-live-animated{min-height:320px;height:45vh;max-height:480px}
       .ss-live-mobile .ss-live-card{position:relative;inset:auto;width:100%;max-height:none;box-sizing:border-box;margin-bottom:16px;font-size:15px}
       .ss-live-mobile .ss-live-card header{font-size:14px}.ss-live-mobile .ss-live-copy strong{font-size:18px}
       .ss-live-mobile .ss-live-card > .ss-live-product-image{height:180px;max-height:45vh}
@@ -80,6 +84,6 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
       {carousel.slides.length > 1 && <div className="ss-live-nav"><button aria-label="Previous slide" onClick={() => setSlideIndex(index => index - 1)}>←</button><span>{((slideIndex % carousel.slides.length) + carousel.slides.length) % carousel.slides.length + 1} / {carousel.slides.length}</span><button aria-label="Next slide" onClick={() => setSlideIndex(index => index + 1)}>→</button></div>}
       <small className="ss-live-credit">Created by @{creator.login} with Scene Studio</small>
     </aside>}
-    {effect.type === "celebrate" && <div key={active.event.eventId} className="ss-live-celebration" role="status"><header>{brand}<button aria-label="Dismiss celebration" onClick={() => setActive(null)}>×</button></header><div className="ss-live-stars" aria-hidden="true">✦ ✨ ✦</div><strong>{text(effect.message)}</strong><div className="ss-live-stars" aria-hidden="true">✦ ✨ ✦</div><small className="ss-live-credit">Created by @{creator.login} with Scene Studio</small></div>}
-  </div>;
+    {effect.type === "celebrate" && <Celebration key={active.event.eventId} eventId={active.event.eventId} message={text(effect.message)} appearance={effect.appearance} creator={creator.login} brandImage={brandImage} remainingSeconds={(active.event.expires - Date.now()) / 1000} onDismiss={() => setActive(null)} />}
+  </div></>;
 }

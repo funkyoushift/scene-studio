@@ -8,6 +8,11 @@ export const AUTOMATION_LIMITS = Object.freeze({
   everySeconds: Object.freeze([5, 3600]),
   cooldownSeconds: Object.freeze([0, 3600]),
 });
+export const CELEBRATION_STYLES = Object.freeze([
+  "confetti", "spotlight", "hype-train", "hearts", "starfall", "fireworks",
+  "bubbles", "meteor", "aurora", "arcade", "petals", "orbit",
+]);
+export const CELEBRATION_SOUNDS = Object.freeze(["chime", "arcade", "fanfare", "bell", "space"]);
 export const TWITCH_AUTOMATION_EVENTS = Object.freeze([
   "subscribe", "resubscribe", "gift", "hype_begin", "hype_progress", "hype_end",
 ]);
@@ -25,6 +30,24 @@ function duration(value, bounds, label) {
   if (!Number.isInteger(value) || value < bounds[0] || value > bounds[1])
     throw new Error(`${label} must be a whole number from ${bounds[0]} to ${bounds[1]} seconds.`);
   return value;
+}
+function celebrationEffect(value, label = "Celebration") {
+  const effect = { type: "celebrate", message: text(value.message, 160, "Celebration message", true) };
+  if (Object.hasOwn(value, "appearance") && value.appearance !== undefined) {
+    const appearance = record(value.appearance, `${label} appearance`);
+    if (!CELEBRATION_STYLES.includes(appearance.style)) throw new Error("Choose a supported celebration style.");
+    if (typeof appearance.color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(appearance.color)) throw new Error("Celebration color must be a six-digit #RRGGBB color.");
+    const cleanAppearance = { style: appearance.style, color: appearance.color, durationSeconds: duration(appearance.durationSeconds, [4, 20], "Celebration duration") };
+    if (Object.hasOwn(appearance, "sound")) {
+      const sound = record(appearance.sound, `${label} sound`);
+      if (Object.keys(sound).length !== 2 || !Object.hasOwn(sound, "preset") || !Object.hasOwn(sound, "volume") ||
+          !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100)
+        throw new Error("Celebration sound must use a supported preset and an integer volume from 0 to 100.");
+      cleanAppearance.sound = { preset: sound.preset, volume: sound.volume };
+    }
+    effect.appearance = cleanAppearance;
+  }
+  return effect;
 }
 function range(value, min, max, label) {
   if (!Number.isFinite(value) || value < min || value > max) throw new Error(`${label} must be between ${min} and ${max}.`);
@@ -181,7 +204,7 @@ export function validateAutomations(input) {
     const target = record(raw.effect, "Effect");
     let effect;
     if (target.type === "celebrate") {
-      effect = { type: "celebrate", message: text(target.message, 160, "Celebration message", true) };
+      effect = celebrationEffect(target);
     } else if (target.type === "carousel") {
       const carouselId = text(target.carouselId, 64, "Target carousel ID", true);
       if (!carouselIds.has(carouselId)) throw new Error("Choose a carousel that exists in this design.");
@@ -195,7 +218,7 @@ export function validateAutomations(input) {
           if (!carouselIds.has(carouselId)) throw new Error("Choose a carousel that exists in this design.");
           return { type: "carousel", carouselId };
         }
-        if (option.type === "celebrate") return { type: "celebrate", message: text(option.message, 160, "Celebration message", true) };
+        if (option.type === "celebrate") return celebrationEffect(option, "Choice celebration");
         throw new Error("Choose a carousel or celebration for each option.");
       });
       effect = { type: "choose", mode: target.mode, options };

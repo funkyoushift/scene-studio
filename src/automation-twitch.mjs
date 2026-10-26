@@ -1,4 +1,4 @@
-import { validateAutomations } from "./automations.mjs";
+import { CELEBRATION_SOUNDS, CELEBRATION_STYLES, validateAutomations } from "./automations.mjs";
 import { IMAGE_ORIGIN, hostedImage } from "./image-address.mjs";
 import { prepareImage } from "./images.mjs";
 
@@ -16,6 +16,28 @@ export function connectAutomationSession(helper, suppliedSession, onSession) {
 function channel(auth) {
   if (!auth?.token || !/^[1-9][0-9]{0,19}$/.test(auth.channelId)) throw Error("Open this editor inside your channel's Twitch extension configuration.");
   return auth.channelId;
+}
+function matchesSavedCelebration(effect, option) {
+  if (option.type !== "celebrate" || option.message !== effect.message) return false;
+  if (!Object.hasOwn(effect, "appearance")) return !Object.hasOwn(option, "appearance");
+  const appearance = effect.appearance;
+  if (!appearance || typeof appearance !== "object" || Array.isArray(appearance) ||
+      !CELEBRATION_STYLES.includes(appearance.style) ||
+      typeof appearance.color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(appearance.color) ||
+      !Number.isInteger(appearance.durationSeconds) || appearance.durationSeconds < 4 || appearance.durationSeconds > 20) return false;
+  const hasSound = Object.hasOwn(appearance, "sound");
+  if (Object.keys(appearance).length !== (hasSound ? 4 : 3)) return false;
+  let sound;
+  if (hasSound) {
+    sound = appearance.sound;
+    if (!sound || typeof sound !== "object" || Array.isArray(sound) || Object.keys(sound).length !== 2 ||
+        !Object.hasOwn(sound, "preset") || !Object.hasOwn(sound, "volume") ||
+        !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100) return false;
+  }
+  if (hasSound !== Object.hasOwn(option.appearance ?? {}, "sound")) return false;
+  return option.appearance?.style === appearance.style && option.appearance?.color === appearance.color &&
+    option.appearance?.durationSeconds === appearance.durationSeconds &&
+    (!hasSound || (option.appearance.sound.preset === sound.preset && option.appearance.sound.volume === sound.volume));
 }
 export function currentAutomationPublisher(expectedAuth, currentAuth, viewer) {
   if (!currentAuth?.token || currentAuth.channelId !== expectedAuth?.channelId || viewer?.role !== "broadcaster" || viewer?.isLinked !== true)
@@ -133,7 +155,7 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
     if (effect?.type === "carousel") {
       if (!config.design.carousels.some(c => c.id === effect.carouselId)) return;
     } else if (effect?.type === "celebrate") {
-      if (!config.design.rules.some(r => r.enabled && (r.effect.type === "choose" ? r.effect.options : [r.effect]).some(option => option.type === "celebrate" && option.message === effect.message))) return;
+      if (!config.design.rules.some(r => r.enabled && (r.effect.type === "choose" ? r.effect.options : [r.effect]).some(option => matchesSavedCelebration(effect, option)))) return;
     } else return;
     if (event.created < latestCreated) return;
     latestCreated = event.created;

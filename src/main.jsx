@@ -539,6 +539,7 @@ function Viewer() {
 }
 
 function Editor() {
+  const bundleApi = useRef(null);
   const [homeOpen, setHomeOpen] = useState(true),
     [flowRequest, setFlowRequest] = useState(null),
     [flowPages, setFlowPages] = useState([]);
@@ -570,6 +571,8 @@ function Editor() {
     [saveStatus, setSaveStatus] = useState("Saved on this device");
   const sceneRef = useRef(scene),
     authRef = useRef(null),
+    editorChannel = useRef(null),
+    channelChanged = useRef(false),
     profileRequest = useRef(0),
     publishBarRef = useRef(null),
     lastSentScene = useRef(null),
@@ -643,6 +646,17 @@ function Editor() {
     let active = true;
     helper.onAuthorized((auth) => {
       if (!active) return;
+      if (channelChanged.current || (editorChannel.current && editorChannel.current !== auth.channelId)) {
+        // Twitch configuration callbacks carry no channel ID. Keep the old draft
+        // exportable but require a fresh iframe before binding another channel.
+        channelChanged.current = true;
+        authRef.current = null;
+        setAuthorized(false); setLinked(false); setConfigReady(false);
+        setProfile(null); setAutomationSession(null);
+        setNotice("The Twitch channel changed. Export any unsaved objects, then reopen this channel's extension configuration before editing or publishing.");
+        return;
+      }
+      editorChannel.current = auth.channelId;
       authRef.current = auth;
       setAutomationSession({ auth, viewer: { role: helper.viewer?.role, isLinked: helper.viewer?.isLinked === true } });
       setAuthorized(helper.viewer?.role === "broadcaster");
@@ -650,7 +664,7 @@ function Editor() {
       refreshChannelProfile(auth);
     });
     helper.configuration.onChanged(() => {
-      if (!active) return;
+      if (!active || channelChanged.current) return;
       const raw = helper.configuration.broadcaster?.content;
       setConfigReady(true);
       if (raw) {
@@ -740,6 +754,18 @@ function Editor() {
     } catch (error) {
       setNotice(error.message);
     }
+  }
+  function addLayoutBundle({ flowKeys = [], widgetKeys = [] }) {
+    const additions = [...new Set(widgetKeys)].flatMap(createInteractivePreset);
+    if (scene.objects.length + additions.length > MAX_OBJECTS) throw new Error(`These layouts need ${additions.length} object slots. Your scene has ${MAX_OBJECTS - scene.objects.length} available; choose fewer layouts or remove an existing object.`);
+    const nextScene = validateScene({ ...scene, objects: [...scene.objects, ...additions] });
+    if (flowKeys.length) {
+      if (!bundleApi.current) throw new Error("The live moment editor is still loading. Try again shortly.");
+      bundleApi.current.add(flowKeys);
+    }
+    if (additions.length) { commit(nextScene); setSelected(additions[0].id); }
+    setNotice(`Added your selected layouts. Open each experience to customize its animation, text, timing, and placement.`);
+    // Stay on the overview so every selected layout remains easy to find.
   }
   function add(action) {
     if (scene.objects.length >= MAX_OBJECTS) {
@@ -837,7 +863,10 @@ function Editor() {
       setBusy(true);
       setNotice("Preparing your overlay…");
       const snapshot = sceneRef.current;
-      const prepared = await publishImages(snapshot, authRef.current);
+      const publishingAuth = authRef.current;
+      const prepared = await publishImages(snapshot, publishingAuth);
+      if (channelChanged.current || !authRef.current || authRef.current.channelId !== publishingAuth?.channelId || helper.viewer?.role !== "broadcaster" || (prepared.objects.length && !helper.viewer?.isLinked))
+        throw new Error("Your Twitch channel or permissions changed during upload. Nothing was published; reopen configuration for the intended channel.");
       const message = sendTwitchScene(helper, prepared);
       lastSentScene.current = prepared;
       // Keep edits made during a slow upload; never overwrite a newer draft.
@@ -882,6 +911,8 @@ function Editor() {
     <>
     {homeOpen && <ExperienceHome objects={scene.objects} flows={flowPages} channelName={profile?.login} live={isConfig}
       onChooseWidget={addInteractivePreset}
+      onChooseBundle={addLayoutBundle}
+      onOpenAI={() => { setHomeOpen(false); setAutomationOpen(false); setJson(""); setModal("ai"); }}
       onChooseFlow={key => { setFlowRequest({ key, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
       onEditObject={id => { setSelected(id); setPreview(false); setHomeOpen(false); setAutomationOpen(false); }}
       onEditFlows={pageId => { setFlowRequest({ pageId, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
@@ -1591,7 +1622,7 @@ function Editor() {
     </div>
     </div>
     <div hidden={!automationOpen || homeOpen}>
-      <AutomationStudio session={isConfig ? { auth: automationSession?.auth, viewer: automationSession?.viewer, profile } : undefined} visible={automationOpen && !homeOpen} experienceRequest={flowRequest} onRequestHandled={setFlowRequest} onPagesChange={setFlowPages} onBack={() => { setAutomationOpen(false); setHomeOpen(true); }} />
+      <AutomationStudio bundleApi={bundleApi} session={isConfig ? { auth: automationSession?.auth, viewer: automationSession?.viewer, profile } : undefined} visible={automationOpen && !homeOpen} experienceRequest={flowRequest} onRequestHandled={setFlowRequest} onPagesChange={setFlowPages} onBack={() => { setAutomationOpen(false); setHomeOpen(true); }} />
     </div>
     </>
   );

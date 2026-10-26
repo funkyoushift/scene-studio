@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AUTOMATION_LIMITS, TWITCH_AUTOMATION_EVENTS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule, deriveLegacyAutomationPages, createAutomationPage, addRuleToAutomationPage, addCarouselToAutomationPage, removeAutomationPage } from "../src/automations.mjs";
+import { AUTOMATION_LIMITS, CELEBRATION_SOUNDS, CELEBRATION_STYLES, TWITCH_AUTOMATION_EVENTS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule, deriveLegacyAutomationPages, createAutomationPage, addRuleToAutomationPage, addCarouselToAutomationPage, removeAutomationPage } from "../src/automations.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
 
 function fixture() {
@@ -81,6 +81,51 @@ test("automation validation enforces counts, IDs, references, supported actions 
   assert.deepEqual(validateAutomations({ version: 1, carousels: [], rules: [] }), { version: 1, carousels: [], rules: [] });
 });
 
+test("celebration appearance validates on direct and chosen effects and stays backward compatible", () => {
+  const appearance = { style: "hype-train", color: "#Aa12fF", durationSeconds: 12 };
+  const direct = fixture(); direct.rules[0].effect.appearance = appearance;
+  assert.deepEqual(validateAutomations(direct).rules[0].effect, { type: "celebrate", message: "Welcome in!", appearance });
+  const legacy = validateAutomations(fixture()).rules[0].effect;
+  assert.deepEqual(legacy, { type: "celebrate", message: "Welcome in!" });
+  const chosen = fixture(); chosen.rules[0].effect = { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Welcome in!", appearance }] };
+  chosen.rules[0].cooldownSeconds = 0;
+  const fired = evaluateAutomations(chosen, createAutomationState(0), { type: "message", text: "hello" }, 0);
+  assert.deepEqual(fired.events[0].effect, { type: "celebrate", message: "Welcome in!", appearance });
+  for (const style of CELEBRATION_STYLES) {
+    const styled = fixture(); styled.rules[0].effect.appearance = { ...appearance, style };
+    const roundTrip = parseAutomations(JSON.stringify(validateAutomations(styled)));
+    assert.deepEqual(roundTrip.rules[0].effect.appearance, { ...appearance, style });
+  }
+  for (const preset of CELEBRATION_SOUNDS) {
+    const withSound = fixture();
+    withSound.rules[0].effect.appearance = { ...appearance, sound: { preset, volume: preset === "bell" ? 0 : 73 } };
+    const roundTrip = parseAutomations(JSON.stringify(validateAutomations(withSound)));
+    assert.deepEqual(roundTrip.rules[0].effect.appearance.sound, withSound.rules[0].effect.appearance.sound);
+  }
+  for (const invalid of [
+    { ...appearance, style: "laser" }, { ...appearance, style: "Confetti" }, { ...appearance, color: "red" }, { ...appearance, color: "#12345G" },
+    { ...appearance, durationSeconds: 3 }, { ...appearance, durationSeconds: 21 }, { ...appearance, durationSeconds: 4.5 },
+  ]) for (const chosenEffect of [false, true]) {
+    const candidate = fixture();
+    candidate.rules[0].effect = chosenEffect
+      ? { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Hello", appearance: invalid }] }
+      : { type: "celebrate", message: "Hello", appearance: invalid };
+    assert.throws(() => validateAutomations(candidate));
+  }
+  for (const sound of [
+    { preset: "siren", volume: 50 }, { preset: "chime", volume: -1 }, { preset: "chime", volume: 101 },
+    { preset: "chime", volume: 1.5 }, { preset: "chime", volume: 50, extra: true }, { preset: "chime" },
+    { volume: 50 }, { preset: "chime", volume: 50, file: "https://example.invalid/audio" },
+  ]) for (const chosenEffect of [false, true]) {
+    const candidate = fixture();
+    const celebration = { type: "celebrate", message: "Hello", appearance: { ...appearance, sound } };
+    candidate.rules[0].effect = chosenEffect
+      ? { type: "choose", mode: "rotate", options: [celebration] }
+      : celebration;
+    assert.throws(() => validateAutomations(candidate));
+  }
+});
+
 test("automation limits accept eight carousels and eighteen rules, then reject excess", () => {
   const base = fixture();
   const accepted = structuredClone(base);
@@ -152,7 +197,7 @@ test("choose effects resolve to concrete effects with per-rule rotation and inje
   design.rules[0].trigger = { type: "keyword", phrase: "hello", match: "word" };
   design.rules[0].cooldownSeconds = 0;
   design.rules[0].effect = { type: "choose", mode: "rotate", options: [
-    { type: "carousel", carouselId: "features" }, { type: "celebrate", message: "A surprise!" },
+    { type: "carousel", carouselId: "features" }, { type: "celebrate", message: "A surprise!", appearance: { style: "confetti", color: "#123456", durationSeconds: 10 } },
   ] };
   let state = createAutomationState(0);
   const unmatched = evaluateAutomations(design, state, { type: "message", text: "something else" }, 0);
@@ -162,11 +207,11 @@ test("choose effects resolve to concrete effects with per-rule rotation and inje
   assert.equal(result.state.choiceIndexes.cheer, 1);
   state = result.state;
   result = evaluateAutomations(design, state, { type: "message", text: "hello" }, 1);
-  assert.deepEqual(result.events[0].effect, { type: "celebrate", message: "A surprise!" });
+  assert.deepEqual(result.events[0].effect, { type: "celebrate", message: "A surprise!", appearance: { style: "confetti", color: "#123456", durationSeconds: 10 } });
   assert.equal(result.state.choiceIndexes.cheer, 0);
   design.rules[0].effect.mode = "random";
   result = evaluateAutomations(design, createAutomationState(0), { type: "message", text: "hello" }, 0, { random: () => 0.99 });
-  assert.deepEqual(result.events[0].effect, { type: "celebrate", message: "A surprise!" });
+  assert.deepEqual(result.events[0].effect, { type: "celebrate", message: "A surprise!", appearance: { style: "confetti", color: "#123456", durationSeconds: 10 } });
   assert.equal(Object.hasOwn(result.state, "choiceIndexes"), false, "random selection does not advance rotation state");
 });
 

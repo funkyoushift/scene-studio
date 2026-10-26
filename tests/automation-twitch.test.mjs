@@ -131,6 +131,43 @@ test("viewer rejects cross-channel, stale revision, expired and unknown effects;
   assert.equal(shown.length, 1); assert.equal(h.stopped, true);
 });
 
+test("viewer admits only the saved celebration appearance and keeps it intact", async () => {
+  const h = helper(), shown = [], saved = design();
+  const appearance = { style: "spotlight", color: "#aBc123", durationSeconds: 13, sound: { preset: "fanfare", volume: 85 } };
+  saved.rules[0].effect.appearance = appearance;
+  const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async () => reply({ ...config(), design: saved }), () => 2000);
+  await flush();
+  await send(h, event({ eventId: "good-look", effect: { type: "celebrate", message: "Hooray", appearance } }));
+  for (const [eventId, candidateAppearance] of [
+    ["wrong-style", { ...appearance, style: "confetti" }],
+    ["wrong-color", { ...appearance, color: "#ffffff" }],
+    ["wrong-duration", { ...appearance, durationSeconds: 20 }],
+    ["unknown-style", { ...appearance, style: "laser" }],
+    ["bad-color", { ...appearance, color: "red" }],
+    ["bad-duration", { ...appearance, durationSeconds: 21 }],
+    ["extra-field", { ...appearance, metadata: "untrusted" }],
+    ["bad-sound", { ...appearance, sound: { preset: "siren", volume: 85 } }],
+    ["bad-volume", { ...appearance, sound: { preset: "fanfare", volume: 101 } }],
+    ["extra-sound-field", { ...appearance, sound: { ...appearance.sound, audioUrl: "https://example.invalid/tone" } }],
+  ]) await send(h, event({ eventId, effect: { type: "celebrate", message: "Hooray", appearance: candidateAppearance } }));
+  await send(h, event({ eventId: "missing-appearance", effect: { type: "celebrate", message: "Hooray" } }));
+  assert.equal(shown.length, 1);
+  assert.deepEqual(shown[0].effect.appearance, appearance);
+  stop();
+});
+
+test("viewer admits an appearance saved inside an enabled choose effect", async () => {
+  const h = helper(), shown = [], saved = design();
+  const appearance = { style: "hype-train", color: "#123ABC", durationSeconds: 8 };
+  saved.rules[0].effect = { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Hooray", appearance }] };
+  const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async () => reply({ ...config(), design: saved }), () => 2000);
+  await flush();
+  await send(h, event({ effect: { type: "celebrate", message: "Hooray", appearance } }));
+  assert.equal(shown.length, 1);
+  assert.deepEqual(shown[0].effect.appearance, appearance);
+  stop();
+});
+
 test("configuration notifications fetch once per new revision and only matching-revision effects display", async () => {
   const h = helper(), shown = []; let revision = 1, reads = 0;
   const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async () => { reads++; return reply(config(revision)); }, () => 2000);

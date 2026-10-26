@@ -1,4 +1,4 @@
-import { validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS } from "../src/automations.mjs";
+import { validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES, CELEBRATION_SOUNDS } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
 import { signPartyToken } from "./party-service.mjs";
 import { safeLiveContext, ruleEffects } from "../src/live-context.mjs";
@@ -12,6 +12,22 @@ export class AutomationError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
 const fail = (status, code, message) => { throw new AutomationError(status, code, message); };
+function cleanCelebrationAppearance(value) {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== "object" || Array.isArray(value) ||
+      !CELEBRATION_STYLES.includes(value.style) ||
+      typeof value.color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(value.color) ||
+      !Number.isInteger(value.durationSeconds) || value.durationSeconds < 4 || value.durationSeconds > 20) return null;
+  const appearance = { style: value.style, color: value.color, durationSeconds: value.durationSeconds };
+  if (Object.hasOwn(value, "sound")) {
+    const sound = value.sound;
+    if (!sound || typeof sound !== "object" || Array.isArray(sound) || Object.keys(sound).length !== 2 ||
+        !Object.hasOwn(sound, "preset") || !Object.hasOwn(sound, "volume") ||
+        !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100) return null;
+    appearance.sound = { preset: sound.preset, volume: sound.volume };
+  }
+  return appearance;
+}
 function enabled(env, channel) {
   if (env.AUTOMATIONS_ENABLED !== "true") fail(404, "not_enabled", "Hosted automations are not enabled.");
   if (typeof channel !== "string" || !numericId.test(channel)) fail(400, "invalid_channel", "Invalid channel.");
@@ -121,8 +137,11 @@ async function activeMoment(env, channel, currentTime) {
   let effect;
   if (event.effect?.type === "carousel" && typeof event.effect.carouselId === "string" && event.effect.carouselId.length > 0 && event.effect.carouselId.length <= 64)
     effect = { type: "carousel", carouselId: event.effect.carouselId };
-  else if (event.effect?.type === "celebrate" && typeof event.effect.message === "string" && event.effect.message.length > 0 && event.effect.message.length <= 160)
-    effect = { type: "celebrate", message: event.effect.message };
+  else if (event.effect?.type === "celebrate" && typeof event.effect.message === "string" && event.effect.message.length > 0 && event.effect.message.length <= 160) {
+    const appearance = cleanCelebrationAppearance(event.effect.appearance);
+    if (appearance === null) return result;
+    effect = { type: "celebrate", message: event.effect.message, ...(appearance ? { appearance } : {}) };
+  }
   else return result;
   // Return only the same public visual envelope as PubSub, never receipt data.
   result.event = { type: event.type, eventId: event.eventId, channelId: channel, revision: row.revision, created: event.created, expires: event.expires, effect };
@@ -136,7 +155,7 @@ async function admittedEffect(env, channel, row, inputId, inputHash, effect, nex
     if (old.input_hash !== inputHash) fail(409, "input_conflict", "This input ID has already been used for a different event.");
     return receipt(old, true);
   }
-  const duration = effect.type === "carousel" ? JSON.parse(row.design).carousels.find(item => item.id === effect.carouselId).displaySeconds : 8;
+  const duration = effect.type === "carousel" ? JSON.parse(row.design).carousels.find(item => item.id === effect.carouselId).displaySeconds : effect.appearance?.durationSeconds ?? 8;
   const event = { type: "scene-studio-automation", eventId: crypto.randomUUID(), channelId: channel, revision: row.revision, created: now, expires: now + duration * 1000, effect };
   const inserted = await stmt(env, `INSERT OR IGNORE INTO automation_receipts(channel,input_id,input_hash,event_id,revision,engine_state,event,created,expires,status)
     SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,'pending' WHERE
@@ -264,7 +283,16 @@ export async function automationRequest(request, env, channel, { claims, now = D
     const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
     let effect;
     if (input.type === "carousel" && design.carousels.some(item => item.id === input.carouselId)) effect = { type: "carousel", carouselId: input.carouselId };
-    else if (input.type === "celebrate" && design.rules.some(rule => rule.enabled && ruleEffects(rule).some(option => option.type === "celebrate" && option.message === input.message))) effect = { type: "celebrate", message: input.message };
+    else if (input.type === "celebrate" && typeof input.message === "string") {
+      const requestedAppearance = cleanCelebrationAppearance(input.appearance);
+      if (requestedAppearance === null) fail(409, "effect_not_saved", "Choose a saved celebration appearance.");
+      const matches = design.rules.filter(rule => rule.enabled).flatMap(ruleEffects)
+        .filter(option => option.type === "celebrate" && option.message === input.message &&
+          (input.appearance === undefined || JSON.stringify(option.appearance) === JSON.stringify(requestedAppearance)));
+      if (matches.length === 1) effect = structuredClone(matches[0]);
+      else if (matches.length > 1) fail(409, "effect_ambiguous", "Choose a specific saved celebration appearance.");
+      else fail(409, "effect_not_saved", "Choose a carousel or enabled celebration from the saved design.");
+    }
     else fail(409, "effect_not_saved", "Choose a carousel or enabled celebration from the saved design.");
     const inputHash = await hash(JSON.stringify(effect));
     const result = await admittedEffect(env, channel, row, `manual:${input.eventId}`, inputHash, effect, JSON.parse(row.engine_state), { now: currentTime(), fetcher });

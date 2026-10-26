@@ -96,6 +96,30 @@ test("active catch-up excludes uncertain, pending, old-revision and misbound env
   assert.deepEqual((await s.call("active")).body, { channelId: "123", revision: 2, event: null });
 });
 
+test("active catch-up preserves only valid saved celebration appearance metadata", async t => {
+  const s = fixture(t), candidate = design();
+  candidate.rules[0].effect.appearance = { style: "spotlight", color: "#abcdef", durationSeconds: 14, sound: { preset: "space", volume: 37 } };
+  await s.save(candidate);
+  const input = { type: "message", id: "appearance-chat", text: "party" };
+  const fired = await processAutomationInput(s.env, "123", input, { now, fetcher: s.fetcher });
+  assert.deepEqual(fired.event.effect, { type: "celebrate", message: "The party is here", appearance: candidate.rules[0].effect.appearance });
+  assert.equal(fired.event.expires, now + 14000);
+  const active = await s.call("active", { at: now + 1000 });
+  assert.deepEqual(active.body.event.effect, fired.event.effect);
+  assert.equal((await s.call("active", { at: now + 14000 })).body.event, null);
+  for (const appearance of [
+    { ...candidate.rules[0].effect.appearance, style: "unknown" },
+    { ...candidate.rules[0].effect.appearance, durationSeconds: 21 },
+    { ...candidate.rules[0].effect.appearance, sound: { preset: "space", volume: 101 } },
+    { ...candidate.rules[0].effect.appearance, sound: { preset: "space", volume: 37, extra: true } },
+  ]) {
+    s.db.prepare("UPDATE automation_receipts SET event=?").run(JSON.stringify({ ...fired.event, effect: { ...fired.event.effect, appearance } }));
+    assert.equal((await s.call("active", { at: now + 1000 })).body.event, null);
+  }
+  s.db.prepare("UPDATE automation_receipts SET event=?").run(JSON.stringify({ ...fired.event, effect: { ...fired.event.effect, appearance: { ...fired.event.effect.appearance, untrusted: "drop" } } }));
+  assert.deepEqual((await s.call("active", { at: now + 1000 })).body.event.effect, fired.event.effect);
+});
+
 test("active catch-up authorizes before storage and supports GET only", async t => {
   const s = fixture(t);
   for (const options of [{ auth: null }, { auth: claims("456") }, { auth: { ...claims(), exp: now / 1000 } }, { from: "null" }, { from: "https://other.example" }])
@@ -170,6 +194,22 @@ test("manual actions only broadcast saved effects and duplicates never resend", 
   assert.equal((await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "celebrate", message: "untrusted injected words" }, at: now + 30000 })).status, 409);
   assert.equal((await s.call("fire", { method: "POST", input: { ...input, eventId: crypto.randomUUID() }, at: now + 7999 })).status, 429);
   assert.equal((await s.call("fire", { method: "POST", input: { ...input, eventId: crypto.randomUUID() }, at: now + 8000 })).body.status, "sent");
+});
+
+test("manual celebration resolves and fires the saved appearance, including chosen effects", async t => {
+  const s = fixture(t), candidate = design();
+  const appearance = { style: "confetti", color: "#00aBcD", durationSeconds: 11, sound: { preset: "arcade", volume: 62 } };
+  candidate.rules[0].effect = { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "The party is here", appearance }] };
+  candidate.rules[2].effect = { type: "celebrate", message: "The party is here", appearance: { style: "spotlight", color: "#ABCDEF", durationSeconds: 16, sound: { preset: "chime", volume: 10 } } };
+  await s.save(candidate); s.sent.length = 0;
+  const request = { eventId: crypto.randomUUID(), type: "celebrate", message: "The party is here", appearance };
+  const first = await s.call("fire", { method: "POST", input: request });
+  assert.equal(first.body.status, "sent");
+  assert.deepEqual(first.body.event.effect, { type: "celebrate", message: request.message, appearance });
+  assert.equal(first.body.event.expires, now + 11000);
+  assert.equal((await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "celebrate", message: request.message } })).body.error, "effect_ambiguous");
+  assert.equal((await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "celebrate", message: request.message, appearance: { ...appearance, color: "#ffffff" } } })).status, 409);
+  assert.equal((await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "celebrate", message: request.message, appearance: { ...appearance, sound: { ...appearance.sound, volume: 61 } } } })).status, 409);
 });
 
 test("keyword and external triggers use saved messages, per-rule cooldowns, no raw chat persistence", async t => {

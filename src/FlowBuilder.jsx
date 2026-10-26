@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import ThemeToggle from "./ThemeToggle.jsx";
 import PopupPlacement from "./PopupPlacement.jsx";
 import { AUTOMATION_LIMITS, deriveLegacyAutomationPages } from "./live-flows.mjs";
+import { CELEBRATION_SOUNDS } from "./automations.mjs";
 import { EXPERIENCE_PRESETS, addExperiencePreset, removeExperience } from "./experience-presets.mjs";
 import { prepareImage } from "./images.mjs";
 import "./flows.css";
@@ -10,6 +11,95 @@ const eventLabels = { subscribe: "New subscription", resubscribe: "Resubscriptio
 const uid = prefix => `${prefix}-${crypto.randomUUID().replaceAll("-", "").slice(0, 16)}`;
 const actualPages = design => design.pages ?? deriveLegacyAutomationPages(design);
 const triggerTitle = trigger => trigger.type === "keyword" ? `Chat says “${trigger.phrase}”` : trigger.type === "interval" ? `Every ${trigger.everySeconds} seconds` : trigger.type === "twitch" ? eventLabels[trigger.event] || "Twitch event" : `External event: ${trigger.event}`;
+const celebrationDefaults = { style: "confetti", color: "#a3e635", durationSeconds: 8 };
+const celebrationSoundLabels = { chime: "Chime", arcade: "Arcade", fanfare: "Fanfare", bell: "Bell", space: "Space" };
+const celebrationStyles = [
+  { value: "confetti", title: "Confetti cannon", detail: "A bright burst of celebration", icon: "✦" },
+  { value: "spotlight", title: "Subscriber spotlight", detail: "A focused moment in the spotlight", icon: "◉" },
+  { value: "hype-train", title: "Hype express", detail: "A bold, high-energy arrival", icon: "↗" },
+  { value: "hearts", title: "Hearts", detail: "A warm note of appreciation", icon: "♥" },
+  { value: "starfall", title: "Starfall", detail: "A wishful shower of stars", icon: "✧" },
+  { value: "fireworks", title: "Fireworks", detail: "A vivid, sky-wide burst", icon: "✺" },
+  { value: "bubbles", title: "Bubbles", detail: "A light, playful moment", icon: "◌" },
+  { value: "meteor", title: "Meteor", detail: "A fast, bright entrance", icon: "☄" },
+  { value: "aurora", title: "Aurora", detail: "A calm wave of color", icon: "≋" },
+  { value: "arcade", title: "Arcade bonus", detail: "A playful bonus-round feel", icon: "▣" },
+  { value: "petals", title: "Falling petals", detail: "A gentle moment in bloom", icon: "❀" },
+  { value: "orbit", title: "Orbit", detail: "A cosmic moment around the message", icon: "◎" },
+];
+
+function suggestedMessages(trigger) {
+  if (trigger.type !== "twitch") return [
+    { label: "Warm welcome", text: "Thanks for being here, chat!" },
+    { label: "Opt-in support note", text: "If you’re enjoying the stream, you’re welcome to subscribe whenever you like." },
+  ];
+  if (trigger.event === "subscribe") return [
+    { label: "Thank them", text: "Thanks, {subscriber}! We’re glad you’re here." },
+    { label: "Welcome them", text: "Welcome in, {subscriber}! Make yourself at home." },
+  ];
+  if (trigger.event === "resubscribe") return [
+    { label: "Thank them again", text: "Welcome back, {subscriber}! Thanks for continuing to support the stream." },
+    { label: "Appreciate their support", text: "Thanks for another month, {subscriber}! It means a lot to have you here." },
+  ];
+  if (trigger.event === "gift") return [
+    { label: "Thank the gifter", text: "Thank you for sharing a gift subscription with the community!" },
+    { label: "Celebrate the gift", text: "A gift subscription just made someone’s day—thank you!" },
+  ];
+  if (trigger.event === "hype_begin") return [
+    { label: "Welcome the train", text: "Level {hypeLevel} — the Hype Train is here! All aboard!" },
+    { label: "Invite the moment", text: "The Hype Train has arrived at level {hypeLevel}. Enjoy the ride, chat!" },
+  ];
+  if (trigger.event === "hype_progress") return [
+    { label: "Hype Train update", text: "Level {hypeLevel} — keep the Hype Train rolling!" },
+    { label: "Celebrate progress", text: "We’ve reached Hype Train level {hypeLevel}. What a ride!" },
+  ];
+  if (trigger.event === "hype_end") return [
+    { label: "Thank chat", text: "The Hype Train reached level {hypeLevel}. Thanks for riding together!" },
+    { label: "Close the moment", text: "Thanks for bringing the energy to Hype Train level {hypeLevel}, chat!" },
+  ];
+  return [{ label: "Warm welcome", text: "Thanks for being here, chat!" }];
+}
+
+function MessageSuggestions({ trigger, onSelect }) {
+  const suggestions = suggestedMessages(trigger);
+  const tokens = [...new Set(suggestions.flatMap(item => [...item.text.matchAll(/\{(subscriber|hypeLevel)\}/g)].map(match => match[0])))];
+  return <div className="flow-message-suggestions"><span>MESSAGE STARTERS</span><div>{suggestions.map(item => <button type="button" key={item.label} onClick={() => onSelect(item.text)}>{item.label}</button>)}</div><small>Select a starter to replace the current message.{tokens.length > 0 && <> Supported tokens in these starters: {tokens.map((token, index) => <React.Fragment key={token}>{index > 0 ? ", " : ""}<code>{token}</code></React.Fragment>)}.</>}</small></div>;
+}
+
+function CelebrationAppearance({ effect, onChange, idPrefix }) {
+  const appearance = { ...celebrationDefaults, ...(effect.appearance || {}) };
+  const update = patch => onChange({ ...effect, appearance: { ...appearance, ...patch } });
+  const sound = effect.appearance?.sound;
+  const chooseSound = preset => {
+    if (preset === "none") {
+      if (!sound) return;
+      const nextAppearance = { ...effect.appearance };
+      delete nextAppearance.sound;
+      onChange({ ...effect, appearance: nextAppearance });
+      return;
+    }
+    update({ sound: { preset, volume: sound?.volume ?? 70 } });
+  };
+  return <div className="flow-celebration-appearance">
+    <span className="flow-options-label">CELEBRATION STYLE</span>
+    <div className="flow-celebration-styles" role="radiogroup" aria-label="Celebration style">
+      {celebrationStyles.map(style => <label className={`flow-celebration-style ${appearance.style === style.value ? "selected" : ""}`} style={{ "--flow-celebration-color": appearance.color }} key={style.value}>
+        <input type="radio" name={`${idPrefix}-style`} value={style.value} checked={appearance.style === style.value} onChange={() => update({ style: style.value })}/>
+        <span className={`flow-celebration-icon flow-celebration-icon-${style.value}`} aria-hidden="true"><i>{style.icon}</i></span>
+        <span className="flow-celebration-style-copy"><b>{style.title}</b><small>{style.detail}</small></span>
+      </label>)}
+    </div>
+    <div className="flow-celebration-tuning">
+      <label>ACCENT COLOR<input type="color" value={appearance.color} onChange={event => update({ color: event.target.value })}/><small>Choose the celebration’s highlight color.</small></label>
+      <label>DURATION · {appearance.durationSeconds} SECONDS<input type="range" min="4" max="20" step="1" value={appearance.durationSeconds} onChange={event => update({ durationSeconds: Number(event.target.value) })}/><small>How long the celebration stays on screen.</small></label>
+    </div>
+    <div className="flow-celebration-sound">
+      <label>SOUND<select value={sound?.preset || "none"} onChange={event => chooseSound(event.target.value)}><option value="none">None · silent</option>{CELEBRATION_SOUNDS.map(preset => <option key={preset} value={preset}>{celebrationSoundLabels[preset] || preset}</option>)}</select></label>
+      {sound && <label>EVENT VOLUME · {sound.volume}%<input type="range" min="0" max="100" step="1" value={sound.volume} onChange={event => update({ sound: { ...sound, volume: Number(event.target.value) } })}/><small>Set the sound level for this celebration.</small></label>}
+      <small className="flow-celebration-sound-note">Viewers start muted. Enable celebration sound in the preview to listen.</small>
+    </div>
+  </div>;
+}
 
 export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evaluate, onOpenDetails, requestedPageId, onBack, merchDeclarations = {}, onDeclareMerch }) {
   const lastValidPages = useRef([]);
@@ -133,8 +223,8 @@ export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evalu
                 {primaryRule.effect.type === "carousel" && <><label>CONTENT SET<select value={primaryRule.effect.carouselId} onChange={event => patchEffect({ carouselId: event.target.value })}>{design.carousels.map(item => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>{carousel && <><label>CAROUSEL TITLE<input maxLength={80} value={carousel.title} onChange={event => patchCarousel(carousel.id, { title: event.target.value })}/></label><label>DISPLAY DURATION (SECONDS)<input type="number" min={AUTOMATION_LIMITS.displaySeconds[0]} max={AUTOMATION_LIMITS.displaySeconds[1]} value={carousel.displaySeconds} onChange={event => patchCarousel(carousel.id, { displaySeconds: Math.max(AUTOMATION_LIMITS.displaySeconds[0], Math.min(AUTOMATION_LIMITS.displaySeconds[1], Number(event.target.value) || AUTOMATION_LIMITS.displaySeconds[0])) })}/></label>
                     {carousel.slides.some(slide => slide.url) && <div className="flow-link-requirements"><p>Links work in preview. Live destinations must be permitted for your channel; entering a link does not grant Twitch approval.</p><label><input type="checkbox" checked={merchDeclarations[carousel.id] === true} onChange={event => onDeclareMerch?.(carousel.id, event.target.checked)}/>Any merchandise here is my own branded merch, with no sponsor sales or affiliate links.</label></div>}
                     <div className="flow-slides"><div className="flow-slides-head"><b>SLIDES</b><span>{carousel.slides.length}/{AUTOMATION_LIMITS.slides}</span></div>{carousel.slides.map((slide, index) => { const isOpen = expandedSlide.carouselId === carousel.id && expandedSlide.slideId === slide.id; return <article className={`flow-slide ${isOpen ? "open" : ""}`} key={slide.id}><div className="flow-slide-title"><b>Slide {index + 1} · {slide.title || "Untitled"}</b><div><button className="flow-remove" type="button" onClick={() => setExpandedSlide({ carouselId: carousel.id, slideId: isOpen ? "" : slide.id })}>{isOpen ? "Done" : "Edit"}</button><button className="flow-remove" type="button" disabled={carousel.slides.length <= 1} onClick={() => removeSlide(slide.id)}>Remove</button></div></div>{isOpen && <><label>TITLE<input maxLength={70} value={slide.title} onChange={event => updateSlide(slide.id, { title: event.target.value })}/></label><label>CAPTION<input maxLength={100} value={slide.caption} onChange={event => updateSlide(slide.id, { caption: event.target.value })}/></label><label>LINK (OPTIONAL)<input type="url" maxLength={1000} placeholder="https://…" value={slide.url || ""} onChange={event => updateSlide(slide.id, { url: event.target.value })}/></label><label>IMAGE<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading === slide.id} onChange={event => upload(slide.id, event.target.files?.[0])}/><small>{uploading === slide.id ? "Preparing image…" : slide.image ? "Image added · choose a file to replace it" : "Optional · PNG, JPEG, WebP, or GIF up to 10 MB. Animated GIFs become still images."}</small></label>{slide.image && <img className="flow-slide-image" src={slide.image} alt="Slide preview"/>}</>}</article>; })}<button className="flow-add-slide" type="button" disabled={carousel.slides.length >= AUTOMATION_LIMITS.slides} onClick={addSlide}>＋ Add slide</button></div></>}</>}
-                {primaryRule.effect.type === "celebrate" && <label>MESSAGE<input maxLength={160} value={primaryRule.effect.message} onChange={event => patchEffect({ message: event.target.value })}/></label>}
-                {primaryRule.effect.type === "choose" && <div className="flow-choice"><label>HOW TO CHOOSE<select value={primaryRule.effect.mode} onChange={event => patchEffect({ mode: event.target.value })}><option value="rotate">Rotate</option><option value="random">Random</option></select></label><span className="flow-options-label">INCLUDE EXISTING CONTENT</span>{design.carousels.map(item => { const checked = primaryRule.effect.options.some(option => option.type === "carousel" && option.carouselId === item.id); return <label className="flow-option-check" key={item.id}><input type="checkbox" checked={checked} disabled={!checked && primaryRule.effect.options.length >= AUTOMATION_LIMITS.chooseOptions} onChange={event => patchEffect({ options: event.target.checked ? [...primaryRule.effect.options, { type: "carousel", carouselId: item.id }] : primaryRule.effect.options.filter(option => !(option.type === "carousel" && option.carouselId === item.id)) })}/>{item.title}</label>; })}{(() => { const celebration = primaryRule.effect.options.find(option => option.type === "celebrate"); return <><label className="flow-option-check"><input type="checkbox" checked={!!celebration} disabled={!celebration && primaryRule.effect.options.length >= AUTOMATION_LIMITS.chooseOptions} onChange={event => patchEffect({ options: event.target.checked ? [...primaryRule.effect.options, { type: "celebrate", message: "A moment for the stream!" }] : primaryRule.effect.options.filter(option => option.type !== "celebrate") })}/>Celebration message</label>{celebration && <label>CELEBRATION TEXT<input maxLength={160} value={celebration.message} onChange={event => patchEffect({ options: primaryRule.effect.options.map(option => option.type === "celebrate" ? { ...option, message: event.target.value } : option) })}/></label>}</>; })()}</div>}
+                {primaryRule.effect.type === "celebrate" && <><label>MESSAGE<input maxLength={160} value={primaryRule.effect.message} onChange={event => patchEffect({ message: event.target.value })}/></label><MessageSuggestions trigger={primaryRule.trigger} onSelect={text => patchEffect({ message: text })}/><CelebrationAppearance effect={primaryRule.effect} idPrefix={`rule-${primaryRule.id}`} onChange={next => replaceEffect(next)}/></>}
+                {primaryRule.effect.type === "choose" && <div className="flow-choice"><label>HOW TO CHOOSE<select value={primaryRule.effect.mode} onChange={event => patchEffect({ mode: event.target.value })}><option value="rotate">Rotate</option><option value="random">Random</option></select></label><span className="flow-options-label">INCLUDE EXISTING CONTENT</span>{design.carousels.map(item => { const checked = primaryRule.effect.options.some(option => option.type === "carousel" && option.carouselId === item.id); return <label className="flow-option-check" key={item.id}><input type="checkbox" checked={checked} disabled={!checked && primaryRule.effect.options.length >= AUTOMATION_LIMITS.chooseOptions} onChange={event => patchEffect({ options: event.target.checked ? [...primaryRule.effect.options, { type: "carousel", carouselId: item.id }] : primaryRule.effect.options.filter(option => !(option.type === "carousel" && option.carouselId === item.id)) })}/>{item.title}</label>; })}{(() => { const celebration = primaryRule.effect.options.find(option => option.type === "celebrate"); return <><label className="flow-option-check"><input type="checkbox" checked={!!celebration} disabled={!celebration && primaryRule.effect.options.length >= AUTOMATION_LIMITS.chooseOptions} onChange={event => patchEffect({ options: event.target.checked ? [...primaryRule.effect.options, { type: "celebrate", message: "A moment for the stream!" }] : primaryRule.effect.options.filter(option => option.type !== "celebrate") })}/>Celebration message</label>{celebration && <><label>CELEBRATION TEXT<input maxLength={160} value={celebration.message} onChange={event => patchEffect({ options: primaryRule.effect.options.map(option => option.type === "celebrate" ? { ...option, message: event.target.value } : option) })}/></label><MessageSuggestions trigger={primaryRule.trigger} onSelect={text => patchEffect({ options: primaryRule.effect.options.map(option => option.type === "celebrate" ? { ...option, message: text } : option) })}/><CelebrationAppearance effect={celebration} idPrefix={`rule-${primaryRule.id}-option`} onChange={next => patchEffect({ options: primaryRule.effect.options.map(option => option.type === "celebrate" ? next : option) })}/></>}</>; })()}</div>}
               </div>
             </section>
             <section className="flow-panel flow-appearance"><header><span>03</span><div><h3>Appearance</h3><p>Choose how the experience is placed on the stream.</p></div></header><div className="flow-fields">{carousel && <PopupPlacement carousel={carousel} onChange={layout => patchCarousel(carousel.id, { layout })}/>}

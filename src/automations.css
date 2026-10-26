@@ -682,7 +682,7 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .director * {
+  .director *:not(.ss-celebration[data-full-motion] *) {
     animation: none !important;
     transition: none !important;
   }
@@ -847,3 +847,4 @@
 
 .director.experience-director .experience-save-note{margin:10px 4vw;color:#bbc9b9;font-size:13px}
 .director.experience-director[data-editor-theme="light"] .experience-save-note{color:#405a45}
+.director .preview-motion-note{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;margin:0 0 10px;font-size:12px;background:var(--editor-surface,#172321);border:1px solid var(--editor-border,#3d4f47);border-radius:10px;color:var(--editor-text,#f1f6ee)}

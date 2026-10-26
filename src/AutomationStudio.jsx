@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useImperativeHandle, useRef, useState } from "react";
 import {
   AUTOMATION_LIMITS,
   validateAutomations,
@@ -9,7 +9,7 @@ import {
   TWITCH_AUTOMATION_EVENTS,
 } from "./automations.mjs";
 import { prepareImage } from "./images.mjs";
-import { addExperiencePreset } from "./experience-presets.mjs";
+import { addExperiencePreset, addExperiencePresets } from "./experience-presets.mjs";
 import { previewExperienceRule } from "./experience-preview.mjs";
 import { deriveLegacyAutomationPages } from "./automations.mjs";
 import "./automations.css";
@@ -19,6 +19,8 @@ import { channelProfile } from "./twitch.mjs";
 import { IMAGE_ORIGIN } from "./image-address.mjs";
 import { liveText, safeLiveContext } from "./live-context.mjs";
 import FlowBuilder from "./FlowBuilder.jsx";
+import Celebration from "./Celebration.jsx";
+import CelebrationAudio from "./CelebrationAudio.jsx";
 
 const KEY = "scene-studio-automation-preview-v1";
 const uid = () => crypto.randomUUID();
@@ -32,7 +34,7 @@ function initialDesign() {
   return emptyDesign();
 }
 
-export default function AutomationStudio({ session, onBack, visible = true, experienceRequest, onPagesChange, onRequestHandled }) {
+export default function AutomationStudio({ session, onBack, visible = true, experienceRequest, onPagesChange, onRequestHandled, bundleApi }) {
   const [requestedPageId, setRequestedPageId] = useState(null);
   const consumedRequest = useRef(null);
   const managed = session !== undefined;
@@ -63,10 +65,29 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
     [busy, setBusy] = useState(false), [chatStatus, setChatStatus] = useState(null), [authorizeUrl, setAuthorizeUrl] = useState("");
   const [activityStatus, setActivityStatus] = useState(null), [activityAuthorize, setActivityAuthorize] = useState(false);
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  const [previewFullMotion, setPreviewFullMotion] = useState(false);
+  useEffect(() => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(preference.matches);
+    preference.addEventListener("change", update);
+    return () => preference.removeEventListener("change", update);
+  }, []);
   const authRef = useRef(null), loadGeneration = useRef(0), viewerRef = useRef(null);
   viewerRef.current = managed ? session?.viewer : window.Twitch?.ext?.viewer;
   const dirty = liveEditor && savedConfig && JSON.stringify(design) !== JSON.stringify(savedConfig.design);
   const backUrl = liveEditor ? `./config.html${location.search}` : "./";
+  useImperativeHandle(bundleApi, () => ({
+    add(keys) {
+      if (busy || (liveEditor && !savedConfig)) throw new Error("Wait for this channel's saved experiences to load before adding a layout.");
+      const result = addExperiencePresets(design, keys);
+      setDesign(result.design);
+      setRequestedPageId(result.pageIds[0] || null);
+      setTab("builder");
+      setNotice(`Added ${result.pageIds.length} live moments to your draft. Each has its own settings and preview.`);
+      return result;
+    },
+  }), [design, busy, liveEditor, savedConfig]);
   useEffect(() => {
     if (!dirty) return;
     const warn = event => { event.preventDefault(); event.returnValue = ""; };
@@ -244,7 +265,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
   useEffect(() => {
     if (
       active &&
-      now - active.startedAt >= (active.carousel?.displaySeconds ?? 4) * 1000
+      now - active.startedAt >= (active.carousel?.displaySeconds ?? active.effect.appearance?.durationSeconds ?? 8) * 1000
     )
       setActive(null);
   }, [active, now]);
@@ -433,7 +454,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
         <h3>Subscription & Hype Train popups</h3><p>Connect once, then choose a Twitch event in your rules. Requires read-only subscription and Hype Train access. Events display your saved popup or celebration; they do not send chat messages.</p>
         <div className="live-automation-actions"><button disabled={!auth || !linked || busy} onClick={() => chatConnection(true, false, true)}>Connect subscriptions & Hype Trains</button><button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, false, true)}>Refresh event status</button>{activityStatus?.authorized && !activityStatus?.connected && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, true, true)}>Retry event listeners</button>}{activityStatus?.authorized && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, false, true, true)}>Disconnect event listeners</button>}</div>
         {activityStatus && <p role="status">Twitch events: {activityStatus.connected ? "connected" : "not connected"}. {Array.isArray(activityStatus.events) ? `${activityStatus.events.filter(e => e.connected).length} of 6 listeners ready.` : ""} {activityStatus.reconnectRequired ? "Authorization required." : ""} {typeof activityStatus.status === "string" ? activityStatus.status : ""}</p>}
-        {savedConfig?.revision > 0 && <><h3>Fire a saved action on Twitch</h3><p>These buttons use saved revision {savedConfig.revision}, not unsaved edits. They send a real viewer effect; they do not post a chat message.</p><div className="live-automation-actions">{savedConfig.design.carousels.map(c => <button disabled={busy || !linked} key={c.id} onClick={() => fireLive({ type: "carousel", carouselId: c.id })}>Fire on Twitch · {c.title}</button>)}{savedConfig.design.rules.filter(r => r.enabled && r.effect.type === "celebrate").map(r => <button disabled={busy || !linked} key={r.id} onClick={() => fireLive({ type: "celebrate", message: r.effect.message })}>Fire on Twitch · {r.name}</button>)}</div></>}
+        {savedConfig?.revision > 0 && <><h3>Fire a saved action on Twitch</h3><p>These buttons use saved revision {savedConfig.revision}, not unsaved edits. They send a real viewer effect; they do not post a chat message.</p><div className="live-automation-actions">{savedConfig.design.carousels.map(c => <button disabled={busy || !linked} key={c.id} onClick={() => fireLive({ type: "carousel", carouselId: c.id })}>Fire on Twitch · {c.title}</button>)}{savedConfig.design.rules.filter(r => r.enabled).flatMap(r => (r.effect.type === "choose" ? r.effect.options : [r.effect]).filter(effect => effect.type === "celebrate").map((effect, index) => <button disabled={busy || !linked} key={`${r.id}-${index}`} onClick={() => fireLive(effect)}>Fire on Twitch · {r.name}{r.effect.type === "choose" ? ` · ${index + 1}` : ""}</button>))}</div></>}
       </details>}
       <main className={`director-grid${tab === "builder" ? " flow-director-grid" : ""}`} inert={busy ? true : undefined}>
         <section className="control-panel">
@@ -977,6 +998,8 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
             <span>INTERACTIVE PREVIEW</span>
             <button onClick={() => setPreviewExpanded(value => !value)}>{previewExpanded ? "Close large preview" : "Expand preview"}</button>
           </div>
+          {reducedMotion && <p className="preview-motion-note">Your device requests reduced motion. {previewFullMotion ? "Full animation is enabled in this preview only." : "Celebrations use a still version."} <button onClick={() => setPreviewFullMotion(value => !value)}>{previewFullMotion ? "Respect reduced motion" : "Preview full motion"}</button></p>}
+          <CelebrationAudio key={auth?.channelId || "preview"} preview eventId={active?.startedAt} sound={active?.effect.appearance?.sound} expires={active ? active.startedAt - offset.current + (active.effect.appearance?.durationSeconds ?? 8) * 1000 : undefined} />
           <div className="director-stage">
             <div className="stage-scenery">
               <span className="stream-tag">YOUR STREAM</span>
@@ -990,14 +1013,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
               <p>Your moments appear when you decide.</p>
             </div>
             {active?.effect.type === "celebrate" && (
-              <div className="director-burst" role="status">
-                <strong>{liveText(active.effect.message, active.context)}</strong>
-                {Array.from({ length: 20 }, (_, i) => (
-                  <i key={i} style={{ "--i": i }}>
-                    ✦
-                  </i>
-                ))}
-              </div>
+              <Celebration key={`${active.startedAt}-${previewFullMotion}`} eventId={String(active.startedAt)} message={liveText(active.effect.message, active.context)} appearance={active.effect.appearance} previewFullMotion={previewFullMotion} remainingSeconds={Math.max(.1, (active.effect.appearance?.durationSeconds ?? 8) - (now - active.startedAt) / 1000)} onDismiss={() => setActive(null)} />
             )}
             {shown && currentSlide && (
               <aside className="popup-carousel" aria-label="Carousel preview" style={shown.layout ? { left: `${shown.layout.x}%`, top: `${shown.layout.y}%`, right: "auto", bottom: "auto", width: `${shown.layout.width}%`, maxHeight: `${shown.layout.height}%`, zIndex: shown.layout.layer } : undefined}>

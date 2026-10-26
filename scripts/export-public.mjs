@@ -26,6 +26,8 @@ const required = [
   "src/AutomationStudio.jsx", "src/DeveloperPanel.jsx", "src/automation-entry.jsx",
   "src/automations.css", "src/automations.mjs",
   "src/AutomationViewer.jsx", "src/automation-twitch.mjs",
+  "src/Celebration.jsx", "src/celebration.css",
+  "src/CelebrationAudio.jsx", "src/celebration-audio.mjs", "tests/celebration-audio.test.mjs",
   "src/FlowBuilder.jsx", "src/flows.css", "src/live-flows.mjs", "src/live-context.mjs",
   "src/ThemeToggle.jsx", "src/editor-theme.mjs", "tests/editor-theme.test.mjs", "tests/live-context.test.mjs",
   "src/MobileViewer.jsx", "src/mobile-entry.jsx", "src/mobile.css",

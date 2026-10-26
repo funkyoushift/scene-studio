@@ -1427,7 +1427,7 @@ body.viewer #root {
   margin-top: 6px;
 }
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *:not(.ss-celebration[data-full-motion] *) {
     animation-duration: 0.01ms !important;
     transition: none !important;
   }

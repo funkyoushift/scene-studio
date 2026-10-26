@@ -1,0 +1,145 @@
+.ss-celebration,
+.ss-celebration * { box-sizing: border-box; }
+.ss-celebration {
+  position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center;
+  overflow: hidden; pointer-events: none; color: #fff; font-family: "DM Sans", system-ui, sans-serif;
+  --ss-celebration-color: #c9f27b; --ss-celebration-duration: 8s;
+}
+.ss-celebration-stage { position: relative; width: min(100%, 720px); min-height: 250px; display: grid; place-items: center; padding: 28px; }
+.ss-celebration-effects { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.ss-celebration-card {
+  position: relative; width: min(100%, 580px); min-height: 168px; padding: 14px 20px 12px;
+  overflow: hidden; text-align: center; border: 1px solid color-mix(in srgb, var(--ss-celebration-color) 70%, white);
+  border-radius: 20px; background: linear-gradient(135deg, #111522f5, #17182bf2 60%, #101521f5);
+  box-shadow: 0 22px 65px #000a, 0 0 35px color-mix(in srgb, var(--ss-celebration-color) 23%, transparent);
+  pointer-events: none; animation: ss-celebration-life var(--ss-celebration-duration) linear both;
+}
+.ss-celebration-eyebrow { min-height: 24px; display: flex; justify-content: center; align-items: center; position: relative; }
+.ss-celebration-mark { color: var(--ss-celebration-color); font-size: 10px; font-weight: 900; letter-spacing: .2em; }
+.ss-celebration-dismiss { position: absolute; right: -8px; top: -7px; width: 36px; height: 36px; border: 1px solid #ffffff40; border-radius: 50%; background: #080b14cc; color: #fff; font: 24px/1 system-ui,sans-serif; cursor: pointer; pointer-events: auto; }
+.ss-celebration-dismiss:hover { background: #ffffff20; }
+.ss-celebration-dismiss:focus-visible { outline: 3px solid var(--ss-celebration-color); outline-offset: 2px; }
+.ss-celebration-content { min-height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+.ss-celebration-message { max-width: 100%; margin: 4px 0 0; color: #fff; font: 850 clamp(22px, 5vw, 42px)/1.08 Manrope, "DM Sans", sans-serif; letter-spacing: -.035em; overflow-wrap: anywhere; text-shadow: 0 3px 24px #000b; }
+.ss-celebration-creator { color: #d8deec; font-size: 13px; font-weight: 650; }
+.ss-celebration-brand { width: 38px; height: 38px; object-fit: contain; border-radius: 10px; background: #fff; padding: 3px; box-shadow: 0 0 22px color-mix(in srgb, var(--ss-celebration-color) 50%, transparent); }
+.ss-celebration-rule { height: 2px; width: 62%; margin: 8px auto 0; background: #ffffff20; overflow: hidden; }
+.ss-celebration-rule i { display: block; height: 100%; background: var(--ss-celebration-color); transform-origin: left; animation: ss-celebration-progress var(--ss-celebration-duration) linear both; }
+@keyframes ss-celebration-life { 0% { opacity: 0; transform: translateY(18px) scale(.94); } 7% { opacity: 1; transform: translateY(0) scale(1); } 91% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-10px) scale(.98); } }
+@keyframes ss-celebration-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* Confetti launches from a small central burst and drifts clear of the headline. */
+.ss-celebration-cannon { position: absolute; inset: 0; }
+.ss-celebration-cannon i { position: absolute; left: 50%; top: 53%; width: 8px; height: 13px; border-radius: var(--ss-particle-shape); background: hsl(var(--ss-particle-hue) 83% 69%); box-shadow: 0 0 8px #fff4; opacity: 0; animation: ss-celebration-confetti 1.9s cubic-bezier(.13,.56,.31,1) var(--ss-particle-delay) both; }
+@keyframes ss-celebration-confetti { 0% { opacity: 0; transform: rotate(var(--ss-particle-angle)) translateY(0) rotate(0) scale(.2); } 9% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--ss-particle-angle)) translateY(calc(-1 * var(--ss-particle-distance))) rotate(510deg) scale(1); } }
+
+/* Spotlight uses a slowly turning shutter and three independent elliptical halos. */
+.ss-celebration-spotlight .ss-celebration-stage::before { content: ""; position: absolute; width: min(115vw, 820px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(ellipse, color-mix(in srgb, var(--ss-celebration-color) 18%, transparent) 0 24%, transparent 65%); animation: ss-celebration-breathe 3.8s ease-in-out infinite alternate; }
+.ss-celebration-rays { position: absolute; width: 440px; height: 440px; left: 50%; top: 50%; transform: translate(-50%,-50%); border-radius: 50%; opacity: .44; background: repeating-conic-gradient(from 4deg, transparent 0deg 13deg, color-mix(in srgb, var(--ss-celebration-color) 35%, transparent) 14deg 16deg, transparent 17deg 30deg); mask-image: radial-gradient(circle, transparent 0 28%, #000 46% 74%, transparent 76%); animation: ss-celebration-shutter 36s linear infinite; }
+.ss-celebration-orbit { position: absolute; left: 50%; top: 50%; border: 1px solid color-mix(in srgb, var(--ss-celebration-color) 68%, white); border-radius: 50%; transform: translate(-50%,-50%) rotate(-25deg); box-shadow: 0 0 16px color-mix(in srgb, var(--ss-celebration-color) 38%, transparent), inset 0 0 14px color-mix(in srgb, var(--ss-celebration-color) 13%, transparent); }
+.ss-celebration-orbit-one { width: min(92vw, 650px); height: 128px; animation: ss-celebration-orbit-a 11s linear infinite; }
+.ss-celebration-orbit-two { width: min(78vw, 570px); height: 174px; border-style: dashed; opacity: .63; animation: ss-celebration-orbit-b 17s linear infinite; }
+.ss-celebration-orbit-three { width: min(64vw, 470px); height: 218px; opacity: .38; animation: ss-celebration-orbit-a 23s linear infinite reverse; }
+@keyframes ss-celebration-orbit-a { to { transform: translate(-50%,-50%) rotate(335deg); } }
+@keyframes ss-celebration-orbit-b { to { transform: translate(-50%,-50%) rotate(-385deg); } }
+@keyframes ss-celebration-shutter { to { transform: translate(-50%,-50%) rotate(360deg); } }
+@keyframes ss-celebration-breathe { to { transform: scale(1.12); opacity: .62; } }
+
+/* The locomotive and two coupled cars cross the lower third; wheels rotate in place. */
+.ss-celebration-train-art { position: absolute; left: 0; bottom: 3px; width: 100%; max-height: 105px; overflow: visible; filter: drop-shadow(0 6px 12px #0009); }
+.ss-celebration-train-cars { fill: color-mix(in srgb, var(--ss-celebration-color) 54%, #263650); stroke: #f2f6e9; stroke-width: 2; animation: ss-celebration-traverse 7s cubic-bezier(.4,0,.55,1) infinite; }
+.ss-celebration-trim { fill: none; stroke: var(--ss-celebration-color); stroke-width: 4; }
+.ss-celebration-wheel { fill: #171b27; stroke: var(--ss-celebration-color); stroke-width: 3; transform-box: fill-box; transform-origin: center; animation: ss-celebration-wheelspin .8s linear infinite; }
+.ss-celebration-train-art::before { content: ""; }
+@keyframes ss-celebration-traverse { 0% { transform: translateX(-108%); } 72%,100% { transform: translateX(110%); } }
+@keyframes ss-celebration-wheelspin { to { transform: rotate(360deg); } }
+.ss-celebration-hype-train .ss-celebration-card { padding-bottom: 34px; }
+
+@media (max-width: 540px) {
+  .ss-celebration-stage { min-height: 215px; padding: 16px; }
+  .ss-celebration-card { min-height: 150px; padding: 12px 15px 10px; border-radius: 16px; }
+  .ss-celebration-content { min-height: 82px; }
+  .ss-celebration-mark { font-size: 9px; letter-spacing: .15em; }
+  .ss-celebration-message { font-size: clamp(20px, 7vw, 32px); }
+  .ss-celebration-orbit-one { height: 90px; }.ss-celebration-orbit-two { height: 125px; }.ss-celebration-orbit-three { height: 155px; }
+  .ss-celebration-train-art { width: 130%; left: -15%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-celebration:not([data-full-motion]) .ss-celebration-card, .ss-celebration:not([data-full-motion]) .ss-celebration-rule i, .ss-celebration:not([data-full-motion]) .ss-celebration-cannon i, .ss-celebration:not([data-full-motion]) .ss-celebration-rays, .ss-celebration:not([data-full-motion]) .ss-celebration-orbit, .ss-celebration:not([data-full-motion]) .ss-celebration-stage::before, .ss-celebration:not([data-full-motion]) .ss-celebration-train-cars, .ss-celebration:not([data-full-motion]) .ss-celebration-wheel { animation: none !important; }
+  .ss-celebration:not([data-full-motion]) .ss-celebration-card { opacity: 1; transform: none; }
+  .ss-celebration:not([data-full-motion]) .ss-celebration-rule i { transform: scaleX(.55); }
+  .ss-celebration:not([data-full-motion]) .ss-celebration-cannon i { display: none; }
+  .ss-celebration:not([data-full-motion]) .ss-celebration-rays, .ss-celebration:not([data-full-motion]) .ss-celebration-orbit, .ss-celebration:not([data-full-motion]) .ss-celebration-stage::before { opacity: .3; }
+  .ss-celebration:not([data-full-motion]) .ss-celebration-train-cars { transform: translateX(0); }
+}
+
+/* Extra breathing room keeps the perimeter choreography visible around the banner. */
+.ss-celebration-stage { width: min(100%, 960px); min-height: clamp(280px, 46vh, 390px); padding: 24px; }
+.ss-celebration-card { z-index: 2; width: min(100%, 500px); min-height: 150px; background: linear-gradient(135deg, #111522e8, #17182be8 60%, #101521e8); }
+.ss-celebration-effects { z-index: 1; overflow: visible; }
+.ss-celebration-cannon i { left: var(--ss-particle-x); top: var(--ss-particle-y); }
+.ss-celebration-train-art { bottom: 0; }
+.ss-celebration-wheel-spoke { fill: none; stroke: #eef5e5; stroke-width: 1.8; stroke-linecap: round; }
+
+/* Floating hearts: offset side lanes drift at different speeds and gently turn. */
+.ss-celebration-motifs { position: absolute; inset: 0; overflow: hidden; }
+.ss-celebration-motifs i { position: absolute; left: var(--ss-motif-x); top: var(--ss-motif-y); width: var(--ss-motif-size); height: var(--ss-motif-size); font-style: normal; }
+.ss-celebration-motifs-hearts i { color: color-mix(in srgb, var(--ss-celebration-color) 62%, #ff5688); text-shadow: 0 0 13px color-mix(in srgb, var(--ss-celebration-color) 46%, transparent); animation: ss-celebration-heart-rise 4.8s ease-in-out var(--ss-motif-delay) infinite; }
+.ss-celebration-motifs-hearts i::before { content: "♥"; font-size: calc(var(--ss-motif-size) + 5px); }
+@keyframes ss-celebration-heart-rise { 0%,100% { opacity: .38; transform: translateY(18px) rotate(-14deg) scale(.82); } 50% { opacity: 1; transform: translateY(-25px) rotate(12deg) scale(1.1); } }
+
+/* Starfall: each star draws its own slanted trail across the open perimeter. */
+.ss-celebration-motifs-starfall i { width: 3px; height: 3px; border-radius: 50%; background: #fff; box-shadow: 0 0 9px 3px color-mix(in srgb, var(--ss-celebration-color) 80%, white); animation: ss-celebration-starfall 3.5s ease-in var(--ss-motif-delay) infinite; }
+.ss-celebration-motifs-starfall i::after { content: ""; position: absolute; width: 38px; height: 2px; right: 1px; top: 1px; transform: rotate(-30deg); transform-origin: right; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ss-celebration-color) 30%, transparent), #fff); }
+@keyframes ss-celebration-starfall { 0% { opacity: 0; transform: translate(-20px,-24px); } 12%,58% { opacity: 1; } 100% { opacity: 0; transform: translate(46px,52px); } }
+
+/* Fireworks are one-shot radial spokes staggered across three launch points. */
+.ss-celebration-fireworks { position: absolute; inset: 0; }
+.ss-celebration-firework { position: absolute; left: var(--ss-firework-x); top: var(--ss-firework-y); width: 1px; height: 1px; }
+.ss-celebration-firework i { position: absolute; left: 0; top: 0; width: 4px; height: 8px; border-radius: 4px; background: var(--ss-celebration-color); box-shadow: 0 0 9px color-mix(in srgb, var(--ss-celebration-color) 70%, white); animation: ss-celebration-firework-pop 1.45s cubic-bezier(.16,.62,.28,1) calc(var(--ss-firework-delay) + var(--ss-firework-spark-delay)) both; }
+.ss-celebration-firework i:nth-child(3n) { background: #fff2a9; }
+@keyframes ss-celebration-firework-pop { 0% { opacity: 0; transform: rotate(var(--ss-firework-angle)) translateY(0) scale(.2); } 13% { opacity: 1; } 100% { opacity: 0; transform: rotate(var(--ss-firework-angle)) translateY(calc(-1 * var(--ss-firework-distance))) scale(.7); } }
+
+/* Bubbles rise with visible rims and small reflected highlights. */
+.ss-celebration-motifs-bubbles i { width: var(--ss-motif-size); height: var(--ss-motif-size); border: 1px solid color-mix(in srgb, var(--ss-celebration-color) 78%, white); border-radius: 50%; background: radial-gradient(circle at 30% 26%, #ffffffaa 0 5%, color-mix(in srgb, var(--ss-celebration-color) 22%, transparent) 17% 58%, transparent 72%); box-shadow: inset -3px -4px 8px #ffffff1a, 0 0 10px color-mix(in srgb, var(--ss-celebration-color) 30%, transparent); animation: ss-celebration-bubble-rise 5.6s ease-in-out var(--ss-motif-delay) infinite; }
+@keyframes ss-celebration-bubble-rise { from { opacity: 0; transform: translateY(105px) translateX(-8px) scale(.75); } 18%,80% { opacity: .85; } to { opacity: 0; transform: translateY(-130px) translateX(15px) scale(1.12); } }
+
+/* A handful of long meteors cross the scene in clear diagonal lanes. */
+.ss-celebration-motifs-meteor i { width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 11px 4px color-mix(in srgb, var(--ss-celebration-color) 62%, white); animation: ss-celebration-meteor 3.1s cubic-bezier(.28,.02,.7,.3) var(--ss-motif-delay) infinite; }
+.ss-celebration-motifs-meteor i::after { content: ""; position: absolute; right: 2px; top: 2px; width: 92px; height: 3px; transform: rotate(-34deg); transform-origin: right center; border-radius: 4px; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ss-celebration-color) 45%, transparent), white); }
+@keyframes ss-celebration-meteor { 0%,20% { opacity: 0; transform: translate(-90px,-75px) scale(.45); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(86px,78px) scale(.65); } }
+
+/* Aurora: broad translucent curtains roll slowly behind the text. */
+.ss-celebration-aurora { position: absolute; left: -8%; right: -8%; bottom: 9%; height: 72%; overflow: hidden; filter: blur(13px); opacity: .54; }
+.ss-celebration-aurora i { position: absolute; left: -20%; width: 140%; height: 64%; bottom: -8%; border-radius: 50%; background: radial-gradient(ellipse at center, color-mix(in srgb, var(--ss-celebration-color) 44%, transparent), color-mix(in srgb, var(--ss-celebration-color) 14%, transparent) 44%, transparent 70%); transform: rotate(-9deg); animation: ss-celebration-aurora-wave 16s ease-in-out infinite alternate; }
+.ss-celebration-aurora i:nth-child(2) { bottom: 12%; left: -34%; opacity: .7; transform: rotate(8deg) scale(.9); animation-delay: -6s; }
+.ss-celebration-aurora i:nth-child(3) { bottom: 24%; left: -10%; opacity: .52; transform: rotate(-3deg) scale(.78); animation-delay: -11s; }
+@keyframes ss-celebration-aurora-wave { to { transform: translate(7%, -16%) rotate(10deg) scale(1.08); } }
+
+/* Arcade pixels hop in a deliberate low/high rhythm, like a bonus screen. */
+.ss-celebration-motifs-arcade i { width: var(--ss-motif-size); height: var(--ss-motif-size); border: 2px solid color-mix(in srgb, var(--ss-celebration-color) 60%, white); border-radius: 2px; background: var(--ss-celebration-color); box-shadow: 3px 3px 0 #121721, 0 0 12px color-mix(in srgb, var(--ss-celebration-color) 50%, transparent); animation: ss-celebration-pixel-hop 1.35s steps(4,end) var(--ss-motif-delay) infinite alternate; }
+@keyframes ss-celebration-pixel-hop { from { opacity: .45; transform: translateY(15px) rotate(0) scale(.75); } to { opacity: 1; transform: translateY(-19px) rotate(45deg) scale(1.05); } }
+
+/* Petals tumble with a narrow leaf silhouette and a fine center vein. */
+.ss-celebration-motifs-petals i { width: calc(var(--ss-motif-size) * .72); height: calc(var(--ss-motif-size) * 1.35); border: 1px solid color-mix(in srgb, var(--ss-celebration-color) 72%, white); border-radius: 100% 0 100% 0; background: linear-gradient(135deg, color-mix(in srgb, var(--ss-celebration-color) 62%, #fff0c8), color-mix(in srgb, var(--ss-celebration-color) 32%, #ed6da0)); box-shadow: 0 0 11px color-mix(in srgb, var(--ss-celebration-color) 34%, transparent); animation: ss-celebration-petal-fall 5.5s ease-in-out var(--ss-motif-delay) infinite; }
+.ss-celebration-motifs-petals i::after { content: ""; position: absolute; left: 48%; top: 12%; width: 1px; height: 72%; background: #ffffff99; transform: rotate(-18deg); }
+@keyframes ss-celebration-petal-fall { 0% { opacity: 0; transform: translateY(-45px) rotate(-28deg); } 15%,75% { opacity: .92; } 100% { opacity: 0; transform: translateY(76px) rotate(96deg) translateX(24px); } }
+
+/* Orbit uses a visible oval track with individually spaced satellites. */
+.ss-celebration-dot-orbit { position: absolute; left: 50%; top: 50%; width: min(92vw, 850px); height: 245px; border: 1px solid color-mix(in srgb, var(--ss-celebration-color) 24%, transparent); border-radius: 50%; transform: translate(-50%,-50%) rotate(-17deg); animation: ss-celebration-orbit-track 25s linear infinite; }
+.ss-celebration-dot-orbit i { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4px; border-radius: 50%; background: var(--ss-celebration-color); box-shadow: 0 0 14px 3px color-mix(in srgb, var(--ss-celebration-color) 55%, transparent); transform: rotate(var(--ss-motif-angle)) translateX(185px); }
+.ss-celebration-dot-orbit i:nth-child(even) { width: 5px; height: 5px; transform: rotate(var(--ss-motif-angle)) translateX(122px); }
+@keyframes ss-celebration-orbit-track { to { transform: translate(-50%,-50%) rotate(343deg); } }
+
+@media (max-width: 540px) {
+  .ss-celebration-stage { width: 100%; min-height: clamp(255px, 42vh, 320px); padding: 14px; }
+  .ss-celebration-card { width: min(100%, 500px); min-height: 144px; padding: 12px 14px 10px; }
+  .ss-celebration-dot-orbit { height: 174px; }
+  .ss-celebration-dot-orbit i { transform: rotate(var(--ss-motif-angle)) translateX(min(36vw, 158px)); }
+  .ss-celebration-dot-orbit i:nth-child(even) { transform: rotate(var(--ss-motif-angle)) translateX(min(25vw, 108px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ss-celebration:not([data-full-motion]) .ss-celebration-motifs i, .ss-celebration:not([data-full-motion]) .ss-celebration-firework i, .ss-celebration:not([data-full-motion]) .ss-celebration-aurora i, .ss-celebration:not([data-full-motion]) .ss-celebration-dot-orbit { animation: none !important; }
+  .ss-celebration:not([data-full-motion]) .ss-celebration-firework i { opacity: .55; transform: rotate(var(--ss-firework-angle)) translateY(calc(-1 * var(--ss-firework-distance))) scale(.7); }
+  .ss-celebration:not([data-full-motion]) .ss-celebration-dot-orbit { transform: translate(-50%,-50%) rotate(-17deg); }
+}

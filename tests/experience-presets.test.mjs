@@ -6,7 +6,14 @@ import { addExperiencePreset, EXPERIENCE_PRESETS, removeExperience } from "../sr
 const empty = () => ({ version: 1, carousels: [], rules: [] });
 
 test("all experience presets add valid, page-linked designs with the intended trigger", () => {
-  assert.equal(EXPERIENCE_PRESETS.length, 6);
+  assert.ok(EXPERIENCE_PRESETS.length >= 24, "the experience library should offer dozens of starters");
+  assert.equal(new Set(EXPERIENCE_PRESETS.map(preset => preset.key)).size, EXPERIENCE_PRESETS.length);
+  assert.ok(["Community", "Stream info", "Gaming", "Promotion", "Engagement"].every(category => EXPERIENCE_PRESETS.some(preset => preset.category === category)));
+  assert.deepEqual(EXPERIENCE_PRESETS.filter(preset => ["subscriber-thanks", "hype-train", "chat-celebration"].includes(preset.key)).map(({ key, title, description }) => ({ key, title, description })), [
+    { key: "subscriber-thanks", title: "Subscriber thanks", description: "Thank {subscriber} with a purple spotlight when they subscribe." },
+    { key: "hype-train", title: "Hype Train", description: "Call out Hype Train level {hypeLevel} in an orange Hype express celebration." },
+    { key: "chat-celebration", title: "Chat celebration", description: "Start a lime confetti celebration when chat says party." },
+  ]);
   for (const preset of EXPERIENCE_PRESETS) {
     const { design, pageId } = addExperiencePreset(empty(), preset.key);
     assert.deepEqual(validateAutomations(design), design);
@@ -15,24 +22,64 @@ test("all experience presets add valid, page-linked designs with the intended tr
     const rule = design.rules[0];
     if (preset.key === "subscriber-thanks") {
       assert.deepEqual(rule.trigger, { type: "twitch", event: "subscribe" });
-      assert.deepEqual(rule.effect, { type: "celebrate", message: "Thanks, {subscriber}!" });
+      assert.deepEqual(rule.effect, { type: "celebrate", message: "Thanks, {subscriber}!", appearance: { style: "spotlight", color: "#a855f7", durationSeconds: 8 } });
     } else if (preset.key === "hype-train") {
       assert.deepEqual(rule.trigger, { type: "twitch", event: "hype_begin" });
-      assert.deepEqual(rule.effect, { type: "celebrate", message: "Level {hypeLevel} Hype Train! Join the celebration!" });
+      assert.deepEqual(rule.effect, { type: "celebrate", message: "Level {hypeLevel} Hype Train! Join the celebration!", appearance: { style: "hype-train", color: "#f97316", durationSeconds: 12 } });
+    } else if (preset.key === "chat-celebration") {
+      assert.deepEqual(rule.trigger, { type: "keyword", phrase: "party", match: "word" });
+      assert.deepEqual(rule.effect, { type: "celebrate", message: "Chat celebration!", appearance: { style: "confetti", color: "#a3e635", durationSeconds: 8 } });
     }
-    if (["merch-carousel", "discord-invite", "custom-popup"].includes(preset.key)) {
+    if (rule.effect.type === "carousel") {
       const carousel = design.carousels[0];
-      assert.equal(rule.effect.type, "carousel");
       assert.equal(rule.effect.carouselId, carousel.id);
       assert.deepEqual(design.pages[0].carouselIds, [carousel.id]);
-      assert.equal(carousel.slides.length, preset.key === "merch-carousel" ? 3 : 1);
+      assert.ok(carousel.slides.length >= 1 && carousel.slides.length <= AUTOMATION_LIMITS.slides);
+      assert.ok(carousel.displaySeconds >= AUTOMATION_LIMITS.displaySeconds[0] && carousel.displaySeconds <= AUTOMATION_LIMITS.displaySeconds[1]);
       for (const slide of carousel.slides) {
         assert.equal(slide.image, "");
         assert.equal(slide.url, "");
       }
     }
-    assert.ok(rule.cooldownSeconds >= 20);
+    if (rule.effect.type === "choose") {
+      assert.equal(rule.effect.mode, "random");
+      assert.ok(rule.effect.options.length >= 2);
+      assert.ok(rule.effect.options.every(option => option.type === "celebrate"));
+    }
+    assert.ok(Number.isInteger(rule.cooldownSeconds) && rule.cooldownSeconds >= AUTOMATION_LIMITS.cooldownSeconds[0] && rule.cooldownSeconds <= AUTOMATION_LIMITS.cooldownSeconds[1]);
   }
+});
+
+test("requested community, gaming, promotion, event, and randomized starters use only supported primitives", () => {
+  const triggers = {
+    "stream-rules": { type: "keyword", phrase: "rules", match: "word" },
+    "faq-answers": { type: "keyword", phrase: "faq", match: "word" },
+    "stream-schedule": { type: "keyword", phrase: "schedule", match: "word" },
+    "welcome-chat": { type: "keyword", phrase: "welcome", match: "word" },
+    "lurk-note": { type: "keyword", phrase: "lurk", match: "word" },
+    "spoiler-reminder": { type: "keyword", phrase: "spoiler", match: "contains" },
+    "game-goals": { type: "keyword", phrase: "goal", match: "word" },
+    "build-notes": { type: "keyword", phrase: "build", match: "word" },
+    "loadout-notes": { type: "keyword", phrase: "loadout", match: "word" },
+    "modding-notes": { type: "keyword", phrase: "mods", match: "word" },
+    "product-drop": { type: "keyword", phrase: "drop", match: "word" },
+    "featured-item": { type: "keyword", phrase: "featured", match: "word" },
+    "resub-thanks": { type: "twitch", event: "resubscribe" },
+    "gift-thanks": { type: "twitch", event: "gift" },
+    "hype-progress": { type: "twitch", event: "hype_progress" },
+    "hype-finish": { type: "twitch", event: "hype_end" },
+    "random-party": { type: "keyword", phrase: "party", match: "word" },
+    "random-cheer": { type: "keyword", phrase: "cheer", match: "word" },
+    "stream-checkin": { type: "interval", everySeconds: 1800 },
+    "stretch-break": { type: "interval", everySeconds: 3600 },
+  };
+  for (const [key, trigger] of Object.entries(triggers)) {
+    const { design } = addExperiencePreset(empty(), key);
+    assert.deepEqual(design.rules[0].trigger, trigger, key);
+    assert.deepEqual(validateAutomations(design), design, key);
+  }
+  assert.equal(addExperiencePreset(empty(), "random-party").design.rules[0].effect.type, "choose");
+  assert.equal(addExperiencePreset(empty(), "random-cheer").design.rules[0].effect.type, "choose");
 });
 
 test("an empty design receives only the requested preset page", () => {
@@ -50,6 +97,10 @@ test("adding a preset preserves existing content and derives legacy pages", () =
   assert.deepEqual(design.rules[0], before.rules[0]);
   assert.equal(design.pages[0].ruleIds[0], "old-rule");
   assert.equal(design.pages.length, 2);
+  const withSecondPreset = addExperiencePreset(design, "random-party").design;
+  assert.equal(withSecondPreset.rules.length, 3);
+  assert.equal(withSecondPreset.carousels.length, 1);
+  assert.deepEqual(withSecondPreset.rules.slice(0, 2), design.rules);
 });
 
 test("generated identifiers avoid collisions, including repeated additions", () => {
@@ -108,4 +159,18 @@ test("removing an experience preserves shared references and unrelated content w
 
 test("removing a missing experience fails clearly", () => {
   assert.throws(() => removeExperience(empty(), "missing"), /exists/);
+});
+import { addExperiencePresets } from '../src/experience-presets.mjs';
+
+test('layout selection adds deduplicated moments and rejects overflow without changing the draft', () => {
+  const original = { version: 1, carousels: [], rules: [] };
+  const snapshot = structuredClone(original);
+  const result = addExperiencePresets(original, ['subscriber-thanks', 'hype-train', 'subscriber-thanks']);
+  assert.equal(result.design.pages.length, 2);
+  assert.equal(result.pageIds.length, 2);
+  assert.deepEqual(original, snapshot);
+  assert.throws(() => addExperiencePresets(result.design, ['no-such-preset']), /supported/);
+  assert.equal(result.design.pages.length, 2);
+  assert.throws(() => addExperiencePresets(original, ['merch-carousel', 'discord-invite', 'subscriber-thanks', 'hype-train', 'chat-celebration', 'custom-popup', 'stream-rules', 'faq-answers', 'stream-schedule', 'welcome-chat', 'lurk-note', 'community-guide', 'game-goals']), /up to/);
+  assert.deepEqual(original, snapshot);
 });
