@@ -120,6 +120,7 @@ test("signed webhook verifies challenge, maps only enum and ID, deduplicates rec
 });
 
 test("signed Twitch notifications run saved subscribe and Hype Train rules through real PubSub once",async t=>{
+ t.mock.method(Date,"now",()=>now);
  const s=fixture(t);await s.consent("activity");await ensureActivitySubscriptions(s.env,"123",{fetcher:s.fetcher,now});
  const design={version:1,carousels:[{id:"welcome",title:"Welcome",displaySeconds:10,slides:[{id:"slide",title:"Welcome!",caption:"",image:"",url:""}]}],rules:[
   {id:"new-sub",name:"New subscriber popup",enabled:true,trigger:{type:"twitch",event:"subscribe"},effect:{type:"carousel",carouselId:"welcome"},cooldownSeconds:0},
@@ -134,10 +135,10 @@ test("signed Twitch notifications run saved subscribe and Hype Train rules throu
   const request=await s.signed(event,"webhook_callback_verification");
   assert.equal((await s.handle(request,{event})).status,200);
  }
- for(const [event,at] of [["subscribe",now], ["hype_begin",now+20000]]) {
+ for(const [event,at] of [["subscribe",now+1000], ["hype_begin",now+20000]]) {
   const notification=await s.signed(event,"notification",{broadcaster_user_id:"123"},at),duplicate=notification.clone();
-  assert.equal((await s.handle(notification,{event,now:at,processInput:processAutomationInput})).status,204);
-  assert.equal((await s.handle(duplicate,{event,now:at,processInput:processAutomationInput})).status,204);
+  assert.equal((await s.handle(notification,{event,now:at,clock:()=>at,processInput:processAutomationInput})).status,204);
+  assert.equal((await s.handle(duplicate,{event,now:at,clock:()=>at,processInput:processAutomationInput})).status,204);
  }
  assert.equal(s.effects.length,2,"each distinct signed Twitch message produces one PubSub broadcast");
  assert.deepEqual(s.effects.map(message=>({type:message.type,channelId:message.channelId,effect:message.effect})),Array.from({length:2},()=>({type:"scene-studio-automation",channelId:"123",effect:{type:"carousel",carouselId:"welcome"}})));

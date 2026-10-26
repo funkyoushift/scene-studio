@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T04:54:01.551Z",
+  "createdUtc": "2026-10-26T04:56:40.172Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -411,8 +411,8 @@
     },
     {
       "path": "tests/twitch-events.test.mjs",
-      "bytes": 16406,
-      "sha256": "91d683feceeebb6e13b1b19383ebca21a093237cc05faec9ac07cc560186af4e"
+      "bytes": 16473,
+      "sha256": "8d2ede9ce367ce044237255a2e4fe505d96677bd66760fc9fbd24ad81067e331"
     },
     {
       "path": "tests/twitch.test.mjs",
