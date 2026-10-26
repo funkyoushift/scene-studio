@@ -848,3 +848,16 @@
 .director.experience-director .experience-save-note{margin:10px 4vw;color:#bbc9b9;font-size:13px}
 .director.experience-director[data-editor-theme="light"] .experience-save-note{color:#405a45}
 .director .preview-motion-note{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 14px;margin:0 0 10px;font-size:12px;background:var(--editor-surface,#172321);border:1px solid var(--editor-border,#3d4f47);border-radius:10px;color:var(--editor-text,#f1f6ee)}
+
+/* Builder chrome: neutral surfaces, readable text, distinct action and selection colors. */
+.director{--editor-surface:#1b202a;--editor-border:#596579;--editor-text:#f7f9ff;--editor-muted:#c0cada;--editor-input:#101218;--editor-link:#83c9ff;background:var(--editor-input);color:var(--editor-text)}
+.director[data-editor-theme="light"]{--editor-surface:#ffffff;--editor-border:#7b8799;--editor-text:#172033;--editor-muted:#46556c;--editor-input:#f2f4f8;--editor-link:#175da8}
+.director.experience-director .director-top{background:var(--editor-surface);border-color:var(--editor-border)}
+.director .director-top>a,.director .paste-design summary{color:var(--editor-link)}
+.director .director-top button,.director .director-top .import-control,.director .draft-badge{background:var(--editor-input);color:var(--editor-text);border-color:var(--editor-border)}
+.director .director-top .lime{background:#7139d5;color:#fff;border-color:#aa83f0}
+.director .experience-save-note,.director .flow-builder .flow-fields small{color:var(--editor-muted)}
+.director .flow-builder .flow-fields :is(input,select,textarea){background:var(--editor-input);color:var(--editor-text);border-color:var(--editor-border)}
+.director :is(.control-panel,.live-automation-panel,.paste-design,.rule,.carousel-editor){background:var(--editor-surface);color:var(--editor-text);border-color:var(--editor-border)}
+.director :is(.control-panel,.paste-design) :is(input,select,textarea){background:var(--editor-input);color:var(--editor-text);border-color:var(--editor-border)}
+.director .live-automation-panel [role="status"],.director .paste-design [role="status"]{color:var(--editor-link)}
