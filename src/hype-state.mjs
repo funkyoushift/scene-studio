@@ -1,5 +1,6 @@
 // Public, nonpersonal Hype Train visual snapshot. Used at both the server
 // boundary and the client boundary; it grants no authentication authority.
+import { validateCelebrationSound } from "./sound-contract.mjs";
 export const HYPE_ACTIVE_MAX_MS = 20 * 60 * 1000;
 export const HYPE_END_MS = 12 * 1000;
 
@@ -26,10 +27,8 @@ export function safeHypeState(input) {
       appearance.hypeLifecycle !== true) return null;
   const cleanAppearance = { style: "hype-train", color: appearance.color, durationSeconds: appearance.durationSeconds, hypeLifecycle: true };
   if (appearance.sound !== undefined) {
-    const sound = appearance.sound;
-    if (!sound || typeof sound !== "object" || Array.isArray(sound) ||
-        !["chime", "arcade", "fanfare", "bell", "space", "train"].includes(sound.preset) || !integer(sound.volume, 0, 100)) return null;
-    cleanAppearance.sound = { preset: sound.preset, volume: sound.volume };
+    try { cleanAppearance.sound = validateCelebrationSound(appearance.sound, { allowInline: false, channel: input.channelId }); }
+    catch { return null; }
   }
   return {
     type: "scene-studio-hype", eventId: input.eventId, channelId: input.channelId,

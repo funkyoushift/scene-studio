@@ -64,3 +64,24 @@
 .flow-builder .flow-message-suggestions code{color:var(--flow-accent);font-size:10px}
 @container(max-width:620px){.flow-builder .flow-celebration-styles{grid-template-columns:repeat(2,minmax(0,1fr))}.flow-builder .flow-celebration-tuning,.flow-builder .flow-celebration-sound{grid-template-columns:1fr}}
 @container(max-width:430px){.flow-builder .flow-celebration-styles{grid-template-columns:1fr}}
+/* Guided setup: one editing decision at a time, sized for Twitch's iframe. */
+.flow-builder [hidden]{display:none!important}
+.flow-builder .flow-guided-grid{grid-template-columns:minmax(0,1fr)}
+.flow-setup-steps{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 12px}
+.flow-setup-steps button{display:flex;align-items:center;gap:8px;flex:1;min-width:145px;padding:12px;border:1px solid var(--flow-line);border-radius:10px;background:var(--flow-panel);color:var(--flow-muted);font-size:14px;font-weight:600;text-align:left}
+.flow-setup-steps button span{display:grid;place-items:center;width:25px;height:25px;border-radius:50%;background:var(--flow-soft);flex:none}
+.flow-setup-steps button[aria-current="step"]{background:var(--flow-soft);color:var(--flow-text);border-color:var(--flow-accent)}
+.flow-event-picker{margin-top:18px;padding:16px;border:1px solid var(--flow-line);border-radius:10px;background:var(--flow-panel)}
+.flow-event-picker p{font-size:13px;color:var(--flow-muted);margin:5px 0 12px}
+.flow-event-picker>div{display:flex;flex-wrap:wrap;gap:8px}
+.flow-event-picker button{display:flex;gap:12px;align-items:center;background:var(--flow-card);border:1px solid var(--flow-line);color:var(--flow-text);border-radius:8px;padding:10px;font-size:13px}
+.flow-event-picker button[aria-pressed="true"]{border-color:var(--flow-accent);background:var(--flow-soft)}
+.flow-event-picker small{color:var(--flow-accent)}
+.flow-step-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:18px 0}
+.flow-step-actions>span{font-size:13px;color:var(--flow-muted)}
+.flow-upload-sound{grid-column:1/-1;border:1px dashed var(--flow-line);padding:16px;border-radius:10px;overflow-wrap:anywhere}
+.flow-upload-sound p{font-size:13px;color:var(--flow-muted);margin:7px 0 12px}
+.flow-upload-sound input{max-width:100%;font-size:14px}
+.flow-builder .flow-test-panel{flex-wrap:wrap;gap:12px}
+
+.flow-builder .flow-sidebar{max-height:75vh;overflow:auto}

@@ -8,6 +8,8 @@ const TONES = Object.freeze({
 });
 const MAX_GAIN = 0.12;
 const MAX_PLAY_MS = 3000;
+import { hostedSound } from "./sound-address.mjs";
+import { localSoundBytes } from "./sounds.mjs";
 
 function clampVolume(value) {
   const numeric = Number(value);
@@ -15,11 +17,14 @@ function clampVolume(value) {
 }
 
 /** A short local oscillator player. AudioContext construction and resume occur only in unlock(). */
-export function createCelebrationPlayer(AudioContextCtor) {
+export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.fetch) {
   let context = null;
   let activeNodes = [];
   let cleanupTimer = null;
   let disposed = false;
+  let generation = 0;
+  let pending = false;
+  let fetchController = null;
 
   async function unlock() {
     if (disposed) throw new Error("Celebration audio has been stopped.");
@@ -45,7 +50,7 @@ export function createCelebrationPlayer(AudioContextCtor) {
   }
 
   function play(preset, volume = 100) {
-    if (disposed || !context || context.state !== "running") return false;
+    if (disposed || !context || context.state !== "running" || pending) return false;
     const tone = TONES[preset];
     const level = clampVolume(volume);
     if (!tone || level <= 0 || activeNodes.length) return false;
@@ -128,13 +133,78 @@ export function createCelebrationPlayer(AudioContextCtor) {
   }
 
   function stop() {
+    generation++;
+    pending = false;
+    fetchController?.abort();
+    fetchController = null;
     releaseNodes();
+  }
+
+  async function playSound(sound, viewerVolume = 100) {
+    if (disposed || !context || context.state !== "running" || pending || activeNodes.length || !sound || typeof sound !== "object") return false;
+    const volume = clampVolume(viewerVolume) * clampVolume(sound.volume ?? 100) / 100;
+    if (sound.preset !== "upload") return play(sound.preset, volume);
+    if (volume <= 0) return false;
+    let bytes;
+    const hosted = hostedSound(sound.url);
+    if (!hosted) {
+      try { bytes = localSoundBytes(sound.url); } catch { return false; }
+    }
+    const mine = ++generation;
+    pending = true;
+    try {
+      if (hosted) {
+        const controller = new AbortController();
+        fetchController = controller;
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        try {
+          const response = await fetcher(sound.url, { credentials: "omit", redirect: "error", signal: controller.signal });
+          if (!response.ok || mine !== generation || disposed) return false;
+          const size = Number(response.headers?.get?.("content-length"));
+          if (Number.isFinite(size) && size > 500_000) return false;
+          if (response.body?.getReader) {
+            const reader = response.body.getReader();
+            const chunks = [];
+            let total = 0;
+            try {
+              while (true) {
+                const next = await reader.read();
+                if (next.done) break;
+                if (mine !== generation || disposed) return false;
+                total += next.value.byteLength;
+                if (total > 500_000) return false;
+                chunks.push(next.value);
+              }
+            } finally { try { await reader.cancel(); } catch { /* Already closed. */ } }
+            bytes = new Uint8Array(total);
+            let offset = 0;
+            for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+          } else {
+            bytes = new Uint8Array(await response.arrayBuffer());
+            if (bytes.length > 500_000) return false;
+          }
+        } finally { clearTimeout(timeout); if (fetchController === controller) fetchController = null; }
+      }
+      if (mine !== generation || disposed || !bytes?.length) return false;
+      const buffer = await context.decodeAudioData(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+      if (mine !== generation || disposed || context.state !== "running" || !Number.isFinite(buffer.duration) || buffer.duration <= 0 || buffer.duration > 15.05) return false;
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      gain.gain.setValueAtTime(MAX_GAIN * volume / 100, context.currentTime || 0);
+      source.connect(gain); gain.connect(context.destination);
+      activeNodes.push(source, gain);
+      source.start(0, 0, Math.min(15, buffer.duration));
+      cleanupTimer = setTimeout(releaseNodes, Math.ceil(Math.min(15, buffer.duration) * 1000) + 80);
+      return true;
+    } catch { if (mine === generation) releaseNodes(); return false; }
+    finally { if (mine === generation) pending = false; }
   }
 
   async function dispose() {
     if (disposed) return;
     disposed = true;
-    releaseNodes();
+    stop();
     const ownedContext = context;
     context = null;
     if (ownedContext && ownedContext.state !== "closed" && typeof ownedContext.close === "function") {
@@ -142,7 +212,7 @@ export function createCelebrationPlayer(AudioContextCtor) {
     }
   }
 
-  return Object.freeze({ unlock, play, stop, dispose });
+  return Object.freeze({ unlock, play, playSound, stop, dispose });
 }
 
 export const CELEBRATION_SOUND_PRESETS = Object.freeze(Object.keys(TONES));

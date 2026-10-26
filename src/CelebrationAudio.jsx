@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createCelebrationPlayer, CELEBRATION_SOUND_PRESETS } from "./celebration-audio.mjs";
+import { hostedSound } from "./sound-address.mjs";
 
 function expiryTime(value) {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -13,7 +14,13 @@ function expiryTime(value) {
 }
 
 export default function CelebrationAudio({ eventId, sound, expires, preview = false }) {
-  const configured = Boolean(sound && CELEBRATION_SOUND_PRESETS.includes(sound.preset));
+  const configured = Boolean(sound && (
+    CELEBRATION_SOUND_PRESETS.includes(sound.preset) ||
+    (sound.preset === "upload" && (
+      hostedSound(sound.url) ||
+      (typeof sound.url === "string" && sound.url.startsWith("data:audio/wav;base64,"))
+    ))
+  ));
   const [enabled, setEnabled] = useState(false);
   const [volume, setVolume] = useState(70);
   const [status, setStatus] = useState("");
@@ -48,13 +55,13 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
     }
     if (activeEventRef.current !== key) playerRef.current.stop();
     activeEventRef.current = key;
-    if (playedEventRef.current === key) return;
-    playedEventRef.current = key;
-    const currentSound = soundRef.current;
-    if (currentSound?.preset && playerRef.current.play(currentSound.preset, volumeRef.current * (currentSound.volume ?? 100) / 100)) {
-      const timeout = setTimeout(() => playerRef.current?.stop(), Math.max(0, expiration - Date.now()));
-      return () => clearTimeout(timeout);
+    if (playedEventRef.current !== key) {
+      playedEventRef.current = key;
+      const currentSound = soundRef.current;
+      if (currentSound?.preset) void playerRef.current.playSound(currentSound, volumeRef.current);
     }
+    const timeout = setTimeout(() => playerRef.current?.stop(), Math.max(0, expiration - Date.now()));
+    return () => clearTimeout(timeout);
   }, [enabled, configured, eventId, expires]);
 
   async function enableSound() {
@@ -79,7 +86,7 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
     if (!enabled) return;
     playerRef.current?.stop();
     const currentSound = soundRef.current;
-    if (currentSound?.preset) playerRef.current?.play(currentSound.preset, volume * (currentSound.volume ?? 100) / 100);
+    if (currentSound?.preset) void playerRef.current?.playSound(currentSound, volume);
   }
 
   if (!configured && !enabled) return null;

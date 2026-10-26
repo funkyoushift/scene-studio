@@ -1,6 +1,7 @@
 // Local-preview data and evaluation only. No chat subscription, timers, storage,
 // network requests, publishing, or effect rendering happen in this module.
 import { MAX_IMPORT_BYTES, bytes, validateScene } from "./scene.mjs";
+import { validateCelebrationSound } from "./sound-contract.mjs";
 
 export const AUTOMATION_LIMITS = Object.freeze({
   carousels: 32, slides: 6, rules: 64, pages: 48, chooseOptions: 6, messageCharacters: 2000,
@@ -40,11 +41,7 @@ function celebrationEffect(value, label = "Celebration") {
     if (typeof appearance.color !== "string" || !/^#[0-9A-Fa-f]{6}$/.test(appearance.color)) throw new Error("Celebration color must be a six-digit #RRGGBB color.");
     const cleanAppearance = { style: appearance.style, color: appearance.color, durationSeconds: duration(appearance.durationSeconds, [4, 20], "Celebration duration") };
     if (Object.hasOwn(appearance, "sound")) {
-      const sound = record(appearance.sound, `${label} sound`);
-      if (Object.keys(sound).length !== 2 || !Object.hasOwn(sound, "preset") || !Object.hasOwn(sound, "volume") ||
-          !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100)
-        throw new Error("Celebration sound must use a supported preset and an integer volume from 0 to 100.");
-      cleanAppearance.sound = { preset: sound.preset, volume: sound.volume };
+      cleanAppearance.sound = validateCelebrationSound(appearance.sound);
     }
     if (Object.hasOwn(appearance, "hypeLifecycle")) {
       if (appearance.hypeLifecycle !== true || appearance.style !== "hype-train") throw new Error("Hype lifecycle requires a Hype Train celebration.");

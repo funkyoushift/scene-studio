@@ -6,6 +6,7 @@ import { startConnect, startTriggerConnect, startActivityConnect, completeConnec
 import { publicPage } from "./public-pages.mjs";
 import { developerRequest } from "./developer-service.mjs";
 import { automationRequest, tickAutomations, processAutomationInput, hasMatchingKeywordRule } from "./automation-service.mjs";
+import { soundRequest } from "./sound-service.mjs";
 import { getTriggerConnection, ensureTriggerSubscription, disconnectTriggerSubscription, handleChatWebhook, cleanupChatTriggerReceipts } from "./chat-triggers.mjs";
 import { getActivityConnection, ensureActivitySubscriptions, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "./twitch-events.mjs";
 const MAX_IMAGE = 200_000;
@@ -272,6 +273,15 @@ export default {
           return new Response(null,{status:204,headers});
         }
         return partyRequest(request,env,party[1],json);
+      }
+      const sound = url.pathname.match(/^\/sounds\/([1-9][0-9]{0,19})(?:\/([a-f0-9]{64})\.wav)?$/);
+      if (sound) {
+        const [, channel, hash] = sound;
+        // The service accepts only claims produced by this signature verifier.
+        const claims = request.method === "POST" && !hash && origin === env.EXTENSION_ORIGIN
+          ? await broadcaster(request, env.EXTENSION_SECRET, channel)
+          : undefined;
+        return soundRequest(request, env, channel, { hash, claims });
       }
       const match = url.pathname.match(
         /^\/images\/([1-9][0-9]{0,19})(?:\/([a-f0-9]{64})\.png)?$/,

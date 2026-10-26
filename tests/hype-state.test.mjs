@@ -34,3 +34,13 @@ test("safe hype state rejects malformed, unbounded, and wrong-type snapshots", (
     value => { value.effect.appearance.style = "confetti"; },
   ]) { const candidate = event(); change(candidate); assert.equal(safeHypeState(candidate), null); }
 });
+
+test("hype snapshots admit only own-channel hosted upload sounds", () => {
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, name: "Cheer", volume: 55 };
+  const valid = event(); valid.effect.appearance.sound = sound;
+  assert.deepEqual(safeHypeState(valid)?.effect.appearance.sound, sound);
+  for (const url of [sound.url.replace("/123/", "/999/"), "data:audio/wav;base64,AQID", "https://example.invalid/clip.wav"]) {
+    const invalid = event(); invalid.effect.appearance.sound = { ...sound, url };
+    assert.equal(safeHypeState(invalid), null);
+  }
+});

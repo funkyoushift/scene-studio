@@ -12,7 +12,7 @@ const viewerNotes = {
 };
 
 const layoutBundles = [
-  { key: "celebration-essentials", title: "Celebration essentials", description: "Thank subscribers and celebrate each Hype Train moment.", flowKeys: ["subscriber-thanks", "hype-train", "hype-progress", "hype-finish"], widgetKeys: [], icon: "✦" },
+  { key: "celebration-essentials", title: "Celebration essentials", description: "Thank subscribers and celebrate each Hype Train moment.", flowKeys: ["subscriber-thanks", "hype-train"], widgetKeys: [], icon: "✦" },
   { key: "community-corner", title: "Community corner", description: "Help viewers find your community, rules, and schedule.", flowKeys: ["discord-invite", "stream-rules", "stream-schedule"], widgetKeys: [], icon: "◎" },
   { key: "game-night", title: "Game night", description: "Add viewer trivia and a tap challenge, plus a game goals flow.", flowKeys: ["game-goals"], widgetKeys: ["trivia", "tap-challenge"], icon: "⌘" },
   { key: "creator-showcase", title: "Creator showcase", description: "Feature a product carousel and a single highlighted item.", flowKeys: ["merch-carousel", "featured-item"], widgetKeys: [], icon: "▣" },

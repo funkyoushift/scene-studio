@@ -1,7 +1,10 @@
-import { AUTOMATION_DESIGN_BYTES, CELEBRATION_SOUNDS, CELEBRATION_STYLES, validateAutomations } from "./automations.mjs";
+import { AUTOMATION_DESIGN_BYTES, CELEBRATION_STYLES, validateAutomations } from "./automations.mjs";
 import { IMAGE_ORIGIN, hostedImage } from "./image-address.mjs";
 import { prepareImage } from "./images.mjs";
 import { safeHypeState } from "./hype-state.mjs";
+import { validateCelebrationSound } from "./sound-contract.mjs";
+import { publishSound } from "./sounds.mjs";
+import { SOUND_ORIGIN } from "./sound-address.mjs";
 
 export const AUTOMATION_CONFIG_BYTES = AUTOMATION_DESIGN_BYTES;
 const bytes = value => new TextEncoder().encode(value).length;
@@ -18,7 +21,7 @@ function channel(auth) {
   if (!auth?.token || !/^[1-9][0-9]{0,19}$/.test(auth.channelId)) throw Error("Open this editor inside your channel's Twitch extension configuration.");
   return auth.channelId;
 }
-function matchesSavedCelebration(effect, option) {
+function matchesSavedCelebration(effect, option, channelId) {
   if (option.type !== "celebrate" || option.message !== effect.message) return false;
   if (!Object.hasOwn(effect, "appearance")) return !Object.hasOwn(option, "appearance");
   const appearance = effect.appearance;
@@ -33,15 +36,23 @@ function matchesSavedCelebration(effect, option) {
   if (Object.keys(appearance).length !== 3 + Number(hasSound) + Number(hasLifecycle)) return false;
   let sound;
   if (hasSound) {
-    sound = appearance.sound;
-    if (!sound || typeof sound !== "object" || Array.isArray(sound) || Object.keys(sound).length !== 2 ||
-        !Object.hasOwn(sound, "preset") || !Object.hasOwn(sound, "volume") ||
-        !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100) return false;
+    try { sound = validateCelebrationSound(appearance.sound, { allowInline: false, channel: channelId }); }
+    catch { return false; }
   }
   if (hasSound !== Object.hasOwn(option.appearance ?? {}, "sound")) return false;
   return option.appearance?.style === appearance.style && option.appearance?.color === appearance.color &&
     option.appearance?.durationSeconds === appearance.durationSeconds &&
-    (!hasSound || (option.appearance.sound.preset === sound.preset && option.appearance.sound.volume === sound.volume));
+    (!hasSound || (option.appearance.sound.preset === sound.preset && option.appearance.sound.volume === sound.volume &&
+      (sound.preset !== "upload" || (option.appearance.sound.url === sound.url && option.appearance.sound.name === sound.name))));
+}
+function celebrationEffects(design) {
+  return design.rules.flatMap(rule => rule.effect.type === "choose" ? rule.effect.options : [rule.effect]).filter(effect => effect.type === "celebrate");
+}
+function checkSoundChannels(design, channelId, allowInline) {
+  for (const effect of celebrationEffects(design)) if (effect.appearance?.sound) {
+    try { validateCelebrationSound(effect.appearance.sound, { allowInline, channel: channelId }); }
+    catch { throw Error("Replace celebration sounds that belong to another channel or have not been uploaded."); }
+  }
 }
 export function currentAutomationPublisher(expectedAuth, currentAuth, viewer) {
   if (!currentAuth?.token || currentAuth.channelId !== expectedAuth?.channelId || viewer?.role !== "broadcaster" || viewer?.isLinked !== true)
@@ -66,6 +77,7 @@ export function readAutomationConfig(value, channelId) {
   if (value?.channelId !== channelId || !Number.isSafeInteger(value.revision) || value.revision < 0 || typeof value.ownedMerch !== "boolean") throw Error("Channel automation settings could not be verified.");
   const design = validateAutomations(value.design);
   if (bytes(JSON.stringify(design)) > AUTOMATION_CONFIG_BYTES || design.carousels.some(c => c.slides.some(s => s.image && !hostedImage(s.image, channelId)))) throw Error("Saved channel automation contains invalid images or is too large.");
+  checkSoundChannels(design, channelId, false);
   return { ...value, design };
 }
 export async function getAutomationConfig(auth, fetcher = fetch) {
@@ -76,9 +88,17 @@ export function automationPreflight(input, channelId, ownedMerch) {
   if (design.rules.some(rule => rule.trigger.type === "interval" && rule.trigger.everySeconds < 60)) throw Error("Live timer rules, including disabled rules, need at least 60 seconds between appearances.");
   if (design.carousels.some(c => c.slides.some(s => s.url)) && ownedMerch !== true) throw Error("Confirm that all linked carousels are your own branded merchandise before saving.");
   if (design.carousels.some(c => c.slides.some(s => s.image && !s.image.startsWith("data:") && !hostedImage(s.image, channelId)))) throw Error("Replace images that belong to another channel before saving.");
+  checkSoundChannels(design, channelId, true);
   const estimate = { ...design, carousels: design.carousels.map(c => ({ ...c, slides: c.slides.map(s => ({ ...s, image: s.image ? `${IMAGE_ORIGIN}/images/${channelId}/${"0".repeat(64)}.png` : "" })) })) };
+  estimate.rules = design.rules.map(rule => ({ ...rule, effect: rule.effect.type === "choose"
+    ? { ...rule.effect, options: rule.effect.options.map(option => estimateSound(option, channelId)) }
+    : estimateSound(rule.effect, channelId) }));
   if (bytes(JSON.stringify(estimate)) > AUTOMATION_CONFIG_BYTES) throw Error("Keep the saved automation design within 64 KiB. Shorten text or remove slides.");
   return design;
+}
+function estimateSound(effect, channelId) {
+  if (effect.type !== "celebrate" || effect.appearance?.sound?.preset !== "upload" || !effect.appearance.sound.url.startsWith("data:")) return effect;
+  return { ...effect, appearance: { ...effect.appearance, sound: { ...effect.appearance.sound, url: `${SOUND_ORIGIN}/sounds/${channelId}/${"0".repeat(64)}.wav` } } };
 }
 export async function publishAutomationImages(input, auth, ownedMerch, fetcher = fetch, prepare = prepareImage) {
   const id = channel(auth), design = automationPreflight(input, id, ownedMerch), uploaded = new Map();
@@ -99,12 +119,20 @@ export async function publishAutomationImages(input, auth, ownedMerch, fetcher =
     }
     slide.image = uploaded.get(original);
   }
+  const sounds = new Map();
+  for (const effect of celebrationEffects(design)) {
+    const sound = effect.appearance?.sound;
+    if (sound?.preset !== "upload" || !sound.url.startsWith("data:")) continue;
+    if (!sounds.has(sound.url)) sounds.set(sound.url, await publishSound(sound, auth, fetcher));
+    effect.appearance.sound = { ...sounds.get(sound.url), name: sound.name, volume: sound.volume };
+  }
   return design;
 }
 export async function saveAutomationConfig(auth, design, expectedRevision, ownedMerch, fetcher = fetch) {
   if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) throw Error("Load the channel's saved revision before saving.");
   const clean = automationPreflight(design, channel(auth), ownedMerch);
   if (clean.carousels.some(c => c.slides.some(s => s.image.startsWith("data:")))) throw Error("Upload prepared images before saving.");
+  checkSoundChannels(clean, channel(auth), false);
   return readAutomationConfig(await request(auth, "config", "PUT", { design: clean, expectedRevision, ownedMerch: ownedMerch === true }, fetcher), channel(auth));
 }
 export async function fireAutomation(auth, effect, fetcher = fetch) {
@@ -125,7 +153,7 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
     if (!config || event.revision > config.revision) await refresh(event.revision);
     if (!active || config?.revision !== event.revision || event.expires <= clock()) return;
     if (!config.design.rules.some(rule => rule.enabled && rule.trigger.type === "twitch" && rule.trigger.event.startsWith("hype_") &&
-      (rule.effect.type === "choose" ? rule.effect.options : [rule.effect]).some(option => matchesSavedCelebration(event.effect, option)))) return;
+      (rule.effect.type === "choose" ? rule.effect.options : [rule.effect]).some(option => matchesSavedCelebration(event.effect, option, id)))) return;
     if (latestHype && (event.created < latestHype.created || event.eventId === latestHype.eventId ||
       (event.hype.id === latestHype.hype.id && (event.hype.updatedAt < latestHype.hype.updatedAt || (latestHype.hype.phase === "ended" && event.hype.phase !== "ended"))))) return;
     latestHype = event; hypeReceivedAt = clock(); hypePresent = true;
@@ -189,7 +217,7 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
     if (effect?.type === "carousel") {
       if (!config.design.carousels.some(c => c.id === effect.carouselId)) return;
     } else if (effect?.type === "celebrate") {
-      if (!config.design.rules.some(r => r.enabled && (r.effect.type === "choose" ? r.effect.options : [r.effect]).some(option => matchesSavedCelebration(effect, option)))) return;
+      if (!config.design.rules.some(r => r.enabled && (r.effect.type === "choose" ? r.effect.options : [r.effect]).some(option => matchesSavedCelebration(effect, option, id)))) return;
     } else return;
     if (event.created < latestCreated) return;
     latestCreated = event.created;

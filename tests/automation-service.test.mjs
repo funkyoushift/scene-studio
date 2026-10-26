@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { automationRequest, processAutomationInput, hasMatchingKeywordRule, tickAutomations, HOSTED_AUTOMATION_LIMITS } from "../server/automation-service.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
+import { SOUND_ORIGIN } from "../src/sound-address.mjs";
 import { addExperiencePresets } from "../src/experience-presets.mjs";
 import { AUTOMATION_DESIGN_BYTES, validateAutomations } from "../src/automations.mjs";
 
@@ -210,6 +211,40 @@ test("active catch-up preserves only valid saved celebration appearance metadata
   assert.deepEqual((await s.call("active", { at: now + 1000 })).body.event.effect, fired.event.effect);
 });
 
+test("hosted celebration publication keeps own uploaded sound and rejects unsaved sound substitutions", async t => {
+  const s = fixture(t), candidate = design();
+  const sound = { preset: "upload", url: `${SOUND_ORIGIN}/sounds/123/${"a".repeat(64)}.wav`, name: "Subscriber welcome", volume: 72 };
+  const appearance = { style: "spotlight", color: "#abcdef", durationSeconds: 14, sound };
+  candidate.rules[0].effect.appearance = appearance;
+  for (const url of [
+    `${SOUND_ORIGIN}/sounds/456/${"a".repeat(64)}.wav`,
+    "https://other.example/sounds/123/" + "a".repeat(64) + ".wav",
+  ]) {
+    const wrong = structuredClone(candidate); wrong.rules[0].effect.appearance.sound.url = url;
+    assert.equal((await s.save(wrong)).status, 400);
+  }
+  const inline = structuredClone(candidate);
+  const data = new Uint8Array(46), view = new DataView(data.buffer);
+  for (const [offset, tag] of [[0, "RIFF"], [8, "WAVE"], [12, "fmt "], [36, "data"]])
+    for (let i = 0; i < 4; i++) data[offset + i] = tag.charCodeAt(i);
+  view.setUint32(4, 38, true); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true); view.setUint32(24, 16000, true); view.setUint32(28, 32000, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); view.setUint32(40, 2, true);
+  inline.rules[0].effect.appearance.sound.url = `data:audio/wav;base64,${Buffer.from(data).toString("base64")}`;
+  assert.equal((await s.save(inline)).status, 400);
+  const saved = await s.save(candidate);
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.design.rules[0].effect.appearance.sound, sound);
+  const fired = await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "celebrate", message: "The party is here", appearance } });
+  assert.equal(fired.status, 200);
+  assert.deepEqual(fired.body.event.effect.appearance.sound, sound);
+  assert.deepEqual((await s.call("active", { at: now + 1000 })).body.event.effect.appearance.sound, sound);
+  for (const altered of [{ ...sound, name: "Different clip" }, { ...sound, url: `${SOUND_ORIGIN}/sounds/123/${"b".repeat(64)}.wav` }]) {
+    const request = { eventId: crypto.randomUUID(), type: "celebrate", message: "The party is here", appearance: { ...appearance, sound: altered } };
+    assert.equal((await s.call("fire", { method: "POST", input: request, at: now + 9000 })).status, 409);
+  }
+});
+
 test("active catch-up authorizes before storage and supports GET only", async t => {
   const s = fixture(t);
   for (const options of [{ auth: null }, { auth: claims("456") }, { auth: { ...claims(), exp: now / 1000 } }, { from: "null" }, { from: "https://other.example" }])
@@ -256,10 +291,12 @@ test("hosted config reader admits the 15-rule plus four-layout selection within 
     effect: { type: "celebrate", message: "M".repeat(160) }, cooldownSeconds: 0,
   }));
   base.pages = base.rules.map((rule, index) => ({ id: `existing-page-${index}`, name: `Existing page ${index}`, ruleIds: [rule.id], carouselIds: [] }));
-  const keys = ["subscriber-thanks", "hype-train", "hype-progress", "hype-finish", "discord-invite", "stream-rules", "stream-schedule", "game-goals", "merch-carousel", "featured-item"];
+  const keys = ["subscriber-thanks", "hype-train", "discord-invite", "stream-rules", "stream-schedule", "game-goals", "merch-carousel", "featured-item"];
   const expanded = addExperiencePresets(base, keys).design;
   assert.equal(expanded.rules.length, 25);
-  assert.equal(expanded.pages.length, 25);
+  assert.equal(expanded.pages.length, 23);
+  const hypePage = expanded.pages.find(page => page.name === "Hype Train");
+  assert.deepEqual(hypePage.ruleIds.map(id => expanded.rules.find(rule => rule.id === id).trigger.event), ["hype_begin", "hype_progress", "hype_end"]);
   assert.equal(expanded.carousels.length, 32);
   const requestBytes = new TextEncoder().encode(JSON.stringify({ design: expanded, expectedRevision: 0 })).length;
   assert.ok(requestBytes > 20_000 && requestBytes < HOSTED_AUTOMATION_LIMITS.designBytes + 1024);

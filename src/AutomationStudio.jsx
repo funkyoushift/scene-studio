@@ -483,6 +483,9 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
           </nav>
           {tab === "builder" ? (
             <FlowBuilder
+              onSave={save}
+              liveEditor={liveEditor}
+              saveDisabled={busy || (liveEditor && (!savedConfig || !linked))}
               onPreviewHype={setHypePreview}
               design={design}
               requestedPageId={requestedPageId}

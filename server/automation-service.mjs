@@ -1,5 +1,6 @@
-import { AUTOMATION_DESIGN_BYTES, validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES, CELEBRATION_SOUNDS } from "../src/automations.mjs";
+import { AUTOMATION_DESIGN_BYTES, validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
+import { validateCelebrationSound } from "../src/sound-contract.mjs";
 import { signPartyToken } from "./party-service.mjs";
 import { safeLiveContext, ruleEffects } from "../src/live-context.mjs";
 import { safeHypeState, HYPE_ACTIVE_MAX_MS, HYPE_END_MS } from "../src/hype-state.mjs";
@@ -13,7 +14,7 @@ export class AutomationError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
 const fail = (status, code, message) => { throw new AutomationError(status, code, message); };
-function cleanCelebrationAppearance(value) {
+function cleanCelebrationAppearance(value, channel) {
   if (value === undefined) return undefined;
   if (!value || typeof value !== "object" || Array.isArray(value) ||
       !CELEBRATION_STYLES.includes(value.style) ||
@@ -21,11 +22,8 @@ function cleanCelebrationAppearance(value) {
       !Number.isInteger(value.durationSeconds) || value.durationSeconds < 4 || value.durationSeconds > 20) return null;
   const appearance = { style: value.style, color: value.color, durationSeconds: value.durationSeconds };
   if (Object.hasOwn(value, "sound")) {
-    const sound = value.sound;
-    if (!sound || typeof sound !== "object" || Array.isArray(sound) || Object.keys(sound).length !== 2 ||
-        !Object.hasOwn(sound, "preset") || !Object.hasOwn(sound, "volume") ||
-        !CELEBRATION_SOUNDS.includes(sound.preset) || !Number.isInteger(sound.volume) || sound.volume < 0 || sound.volume > 100) return null;
-    appearance.sound = { preset: sound.preset, volume: sound.volume };
+    try { appearance.sound = validateCelebrationSound(value.sound, { allowInline: false, channel }); }
+    catch { return null; }
   }
   if (Object.hasOwn(value, "hypeLifecycle")) {
     if (value.hypeLifecycle !== true || value.style !== "hype-train") return null;
@@ -87,6 +85,12 @@ function allowedChannelLink(env, channel, value) {
 }
 function hostedDesign(env, channel, raw, ownedMerch) {
   let design; try { design = validateAutomations(raw); } catch (error) { fail(400, "invalid_design", error.message); }
+  for (const rule of design.rules) for (const effect of ruleEffects(rule)) {
+    if (effect.type === "celebrate" && effect.appearance?.sound) {
+      try { validateCelebrationSound(effect.appearance.sound, { allowInline: false, channel }); }
+      catch { fail(400, "sound_not_owned", "Upload every custom sound to this channel before saving automations."); }
+    }
+  }
   for (const carousel of design.carousels) for (const slide of carousel.slides) {
     if (slide.image && !hostedImage(slide.image, channel)) fail(400, "image_not_owned", "Upload every image to this channel before saving automations.");
     if (slide.url && (ownedMerch !== true || (!allowedStore(env, channel, slide.url) && !allowedChannelLink(env,channel,slide.url))))
@@ -143,7 +147,7 @@ async function activeMoment(env, channel, currentTime) {
   if (event.effect?.type === "carousel" && typeof event.effect.carouselId === "string" && event.effect.carouselId.length > 0 && event.effect.carouselId.length <= 64)
     effect = { type: "carousel", carouselId: event.effect.carouselId };
   else if (event.effect?.type === "celebrate" && typeof event.effect.message === "string" && event.effect.message.length > 0 && event.effect.message.length <= 160) {
-    const appearance = cleanCelebrationAppearance(event.effect.appearance);
+    const appearance = cleanCelebrationAppearance(event.effect.appearance, channel);
     if (appearance === null) return result;
     effect = { type: "celebrate", message: event.effect.message, ...(appearance ? { appearance } : {}) };
   }
@@ -167,12 +171,12 @@ function beginEffect(design) {
   return rule ? structuredClone(rule.effect) : null;
 }
 function sameLifecycleEffect(left, right) {
+  const leftSound = left?.appearance?.sound, rightSound = right?.appearance?.sound;
   return left?.type === "celebrate" && right?.type === "celebrate" && left.message === right.message &&
     left.appearance?.style === right.appearance?.style && left.appearance?.color === right.appearance?.color &&
     left.appearance?.durationSeconds === right.appearance?.durationSeconds &&
     left.appearance?.hypeLifecycle === right.appearance?.hypeLifecycle &&
-    (left.appearance?.sound?.preset ?? null) === (right.appearance?.sound?.preset ?? null) &&
-    (left.appearance?.sound?.volume ?? null) === (right.appearance?.sound?.volume ?? null);
+    (["preset", "volume", "url", "name"].every(key => (leftSound?.[key] ?? null) === (rightSound?.[key] ?? null)));
 }
 async function hypeMoment(env, channel, currentTime) {
   const result = { channelId: channel, revision: 0, event: null };
@@ -398,7 +402,7 @@ export async function automationRequest(request, env, channel, { claims, now = D
     let effect;
     if (input.type === "carousel" && design.carousels.some(item => item.id === input.carouselId)) effect = { type: "carousel", carouselId: input.carouselId };
     else if (input.type === "celebrate" && typeof input.message === "string") {
-      const requestedAppearance = cleanCelebrationAppearance(input.appearance);
+      const requestedAppearance = cleanCelebrationAppearance(input.appearance, channel);
       if (requestedAppearance === null) fail(409, "effect_not_saved", "Choose a saved celebration appearance.");
       const matches = design.rules.filter(rule => rule.enabled).flatMap(ruleEffects)
         .filter(option => option.type === "celebrate" && option.message === input.message &&

@@ -95,3 +95,57 @@ test("unsupported or failed resume is reported by unlock", async () => {
   await assert.rejects(failed.unlock(), /blocked/);
   await failed.dispose();
 });
+
+test("uploaded sound only decodes after unlock and clamps playback gain and duration", async () => {
+  const { Context, made } = mockContext("running");
+  let decoded = 0;
+  Context.prototype.decodeAudioData = async () => { decoded++; return { duration: 14 }; };
+  Context.prototype.createBufferSource = () => {
+    const source = { connect() {}, disconnect() {}, start(...args) { this.started = args; }, stop() {} };
+    made.source = source;
+    return source;
+  };
+  const player = createCelebrationPlayer(Context);
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, name: "sample", volume: 100 };
+  assert.equal(await player.playSound(sound, 100), false);
+  assert.equal(decoded, 0);
+  await player.unlock();
+  const fetcher = async () => ({ ok: true, headers: { get: () => "4" }, async arrayBuffer() { return new Uint8Array([1, 2, 3, 4]).buffer; } });
+  // Recreate with an injected fetcher to ensure no network is touched.
+  await player.dispose();
+  const played = createCelebrationPlayer(Context, fetcher);
+  await played.unlock();
+  assert.equal(await played.playSound(sound, 200), true);
+  assert.equal(decoded, 1);
+  assert.deepEqual(made.source.started, [0, 0, 14]);
+  assert.equal(made.gains.at(-1).gain.values[0], 0.12);
+  played.stop();
+  await played.dispose();
+});
+
+test("stop during pending decode prevents late uploaded playback", async () => {
+  const { Context, made } = mockContext("running");
+  let resolveDecode;
+  Context.prototype.decodeAudioData = () => new Promise(resolve => { resolveDecode = resolve; });
+  Context.prototype.createBufferSource = () => { throw Error("stale decode created a source"); };
+  const player = createCelebrationPlayer(Context, async () => ({ ok: true, headers: { get: () => "4" }, async arrayBuffer() { return new Uint8Array([1, 2, 3, 4]).buffer; } }));
+  await player.unlock();
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, volume: 80 };
+  const pending = player.playSound(sound, 70);
+  for (let i = 0; i < 10 && !resolveDecode; i++) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(typeof resolveDecode, "function");
+  player.stop();
+  resolveDecode({ duration: 2 });
+  assert.equal(await pending, false);
+  assert.equal(made.gains.length, 0);
+  await player.dispose();
+});
+
+test("oversized hosted sound is refused before decoding", async () => {
+  const { Context } = mockContext("running");
+  Context.prototype.decodeAudioData = () => { throw Error("must not decode"); };
+  const player = createCelebrationPlayer(Context, async () => ({ ok: true, headers: { get: () => "500001" } }));
+  await player.unlock();
+  assert.equal(await player.playSound({ preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, volume: 100 }), false);
+  await player.dispose();
+});

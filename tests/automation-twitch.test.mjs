@@ -14,6 +14,14 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 function helper() { return { listen(topic, receive) { this.receive = receive; }, unlisten(topic, receive) { assert.equal(receive, this.receive); this.stopped = true; } }; }
 const event = (patch = {}) => ({ type: "scene-studio-automation", eventId: "event-1", channelId: "123", revision: 1, created: 1000, expires: 21000, effect: { type: "carousel", carouselId: "merch" }, ...patch });
 const send = (h, data) => h.receive("broadcast", "application/json", JSON.stringify(data));
+function uploadSound() {
+  const bytes = new Uint8Array(46), view = new DataView(bytes.buffer);
+  const tag = (at, word) => { for (let i = 0; i < word.length; i++) bytes[at + i] = word.charCodeAt(i); };
+  tag(0, "RIFF"); view.setUint32(4, 38, true); tag(8, "WAVE"); tag(12, "fmt "); view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); view.setUint16(22, 1, true); view.setUint32(24, 16000, true); view.setUint32(28, 32000, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true); tag(36, "data"); view.setUint32(40, 2, true);
+  return { bytes, url: `data:audio/wav;base64,${Buffer.from(bytes).toString("base64")}` };
+}
 
 function maximumCountDesign() {
   const source = design();
@@ -135,6 +143,39 @@ test("automation image publication uses bounded PNG upload once per unique image
   assert.equal(published.carousels[0].slides[0].url, source.carousels[0].slides[0].url);
   assert.equal(source.carousels[0].slides[0].image, image, "original draft remains unchanged");
   await assert.rejects(publishAutomationImages(source, auth, true, async () => reply({ path: `/images/999/${"b".repeat(64)}.png` }), async () => image), /confirmed/);
+});
+
+test("uploaded sounds are deduplicated across direct and chosen celebrations and kept out of the draft", async () => {
+  const source = design(), { bytes, url } = uploadSound();
+  const sound = { preset: "upload", url, name: "Cheer", volume: 60 };
+  source.rules[0].effect.appearance = { style: "confetti", color: "#123456", durationSeconds: 8, sound };
+  source.rules.push({ ...structuredClone(source.rules[0]), id: "chosen", effect: { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Hooray", appearance: { style: "hearts", color: "#123456", durationSeconds: 8, sound: { ...sound, volume: 30 } } }] } });
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), byte => byte.toString(16).padStart(2, "0")).join("");
+  const calls = [];
+  const output = await publishAutomationImages(source, auth, false, async (endpoint, options) => { calls.push({ endpoint, options }); return reply({ path: `/sounds/123/${hash}.wav` }); });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].endpoint, `${IMAGE_ORIGIN}/sounds/123`);
+  assert.equal(calls[0].options.headers["Content-Type"], "audio/wav");
+  assert.deepEqual(calls[0].options.body, bytes);
+  assert.equal(output.rules[0].effect.appearance.sound.url, `${IMAGE_ORIGIN}/sounds/123/${hash}.wav`);
+  assert.equal(output.rules[1].effect.options[0].appearance.sound.volume, 30);
+  assert.equal(source.rules[0].effect.appearance.sound.url, url);
+  assert.throws(() => automationPreflight({ ...source, rules: [{ ...source.rules[0], effect: { ...source.rules[0].effect, appearance: { ...source.rules[0].effect.appearance, sound: { ...sound, url: `${IMAGE_ORIGIN}/sounds/999/${hash}.wav` } } } }] }, "123", false), /another channel/);
+  await assert.rejects(saveAutomationConfig(auth, source, 1, false, async () => { throw Error("must not save"); }), /not been uploaded/);
+});
+
+test("viewer requires the saved uploaded sound URL and name", async () => {
+  const hash = "a".repeat(64), sound = { preset: "upload", url: `${IMAGE_ORIGIN}/sounds/123/${hash}.wav`, name: "Cheers", volume: 70 };
+  const saved = config(); saved.design.rules[0].effect.appearance = { style: "confetti", color: "#123456", durationSeconds: 8, sound };
+  const shown = [], h = helper();
+  const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async () => reply(saved), () => 2000);
+  await flush();
+  const appearance = saved.design.rules[0].effect.appearance;
+  await send(h, event({ eventId: "valid-upload", effect: { type: "celebrate", message: "Hooray", appearance } }));
+  await send(h, event({ eventId: "changed-url", effect: { type: "celebrate", message: "Hooray", appearance: { ...appearance, sound: { ...sound, url: `${IMAGE_ORIGIN}/sounds/123/${"b".repeat(64)}.wav` } } } }));
+  await send(h, event({ eventId: "changed-name", effect: { type: "celebrate", message: "Hooray", appearance: { ...appearance, sound: { ...sound, name: "Other" } } } }));
+  assert.deepEqual(shown.map(value => value.eventId), ["valid-upload"]);
+  stop();
 });
 
 test("fire uses a fresh event ID and preserves uncertain outcomes without automatic retry", async () => {

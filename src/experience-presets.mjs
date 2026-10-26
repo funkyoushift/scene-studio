@@ -39,7 +39,7 @@ const definitions = {
   ] }, trigger: { type: "keyword", phrase: "merch", match: "word" }, name: "Show featured products", cooldownSeconds: 30 },
   "discord-invite": { carousel: { title: "Community", slides: [["Join the community", "Add your community details."]] }, trigger: { type: "keyword", phrase: "discord", match: "word" }, name: "Share community invite", cooldownSeconds: 30 },
   "subscriber-thanks": { trigger: { type: "twitch", event: "subscribe" }, name: "Thank a subscriber", message: "Thanks, {subscriber}!", appearance: { style: "spotlight", color: "#a855f7", durationSeconds: 8 }, cooldownSeconds: 20 },
-  "hype-train": { trigger: { type: "twitch", event: "hype_begin" }, name: "Celebrate the Hype Train", message: "Level {hypeLevel} Hype Train! Join the celebration!", appearance: { style: "hype-train", color: "#f97316", durationSeconds: 12, hypeLifecycle: true, sound: { preset: "train", volume: 70 } }, cooldownSeconds: 30 },
+  "hype-train": { trigger: { type: "twitch", event: "hype_begin" }, name: "Celebrate the Hype Train", message: "Level {hypeLevel} Hype Train! Join the celebration!", appearance: { style: "hype-train", color: "#f97316", durationSeconds: 12, hypeLifecycle: true }, cooldownSeconds: 30 },
   "chat-celebration": { trigger: { type: "keyword", phrase: "party", match: "word" }, name: "Celebrate with chat", message: "Chat celebration!", appearance: { style: "confetti", color: "#a3e635", durationSeconds: 8 }, cooldownSeconds: 20 },
   "custom-popup": { carousel: { title: "Custom popup", slides: [["Your popup title", "Add your popup text."]] }, trigger: { type: "keyword", phrase: "hello", match: "word" }, name: "Show a custom popup", cooldownSeconds: 20 },
   "stream-rules": { carousel: { title: "Stream rules", displaySeconds: 16, slides: [["Be kind", "Add the tone you want chat to set."], ["Keep it safe", "Add your safety and conduct rules."], ["Respect spoilers", "Add your spoiler policy or replace this card."]] }, trigger: { type: "keyword", phrase: "rules", match: "word" }, name: "Share stream rules", cooldownSeconds: 30 },
@@ -58,8 +58,8 @@ const definitions = {
   "featured-item": { carousel: { title: "Featured item", displaySeconds: 14, slides: [["Featured today", "Add the item you want to highlight."], ["A closer look", "Add the details viewers often ask about."], ["More information", "Add an approved destination if one is available."]] }, trigger: { type: "keyword", phrase: "featured", match: "word" }, name: "Highlight a featured item", cooldownSeconds: 45 },
   "resub-thanks": { trigger: { type: "twitch", event: "resubscribe" }, name: "Thank a returning subscriber", message: "Welcome back, {subscriber}! Thank you for supporting our community again.", appearance: { style: "orbit", color: "#c084fc", durationSeconds: 8 }, cooldownSeconds: 20 },
   "gift-thanks": { trigger: { type: "twitch", event: "gift" }, name: "Thank a gift subscriber", message: "Thanks, {subscriber}, for sharing gift subscriptions with the community!", appearance: { style: "hearts", color: "#fb7185", durationSeconds: 9 }, cooldownSeconds: 20 },
-  "hype-progress": { trigger: { type: "twitch", event: "hype_progress" }, name: "Celebrate Hype Train progress", message: "Hype Train level {hypeLevel}! Keep the good energy rolling, chat!", appearance: { style: "hype-train", color: "#f97316", durationSeconds: 10, hypeLifecycle: true, sound: { preset: "train", volume: 60 } }, cooldownSeconds: 20 },
-  "hype-finish": { trigger: { type: "twitch", event: "hype_end" }, name: "Thank chat for the Hype Train", message: "Thanks for riding the Hype Train together, chat!", appearance: { style: "hype-train", color: "#38bdf8", durationSeconds: 9, hypeLifecycle: true, sound: { preset: "train", volume: 55 } }, cooldownSeconds: 20 },
+  "hype-progress": { trigger: { type: "twitch", event: "hype_progress" }, name: "Celebrate Hype Train progress", message: "Hype Train level {hypeLevel}! Keep the good energy rolling, chat!", appearance: { style: "hype-train", color: "#f97316", durationSeconds: 10, hypeLifecycle: true }, cooldownSeconds: 20 },
+  "hype-finish": { trigger: { type: "twitch", event: "hype_end" }, name: "Thank chat for the Hype Train", message: "Thanks for riding the Hype Train together, chat!", appearance: { style: "hype-train", color: "#38bdf8", durationSeconds: 9, hypeLifecycle: true }, cooldownSeconds: 20 },
   "random-party": { trigger: { type: "keyword", phrase: "surprise", match: "word" }, name: "Choose a random party moment", choice: [
     { type: "celebrate", message: "The party is officially underway!", appearance: { style: "confetti", color: "#a3e635", durationSeconds: 8 } },
     { type: "celebrate", message: "Chat brought the sparkle. Let the good times roll!", appearance: { style: "spotlight", color: "#c084fc", durationSeconds: 9 } },
@@ -98,7 +98,8 @@ export function addExperiencePreset(input, key) {
   const pages = clean.pages ?? deriveLegacyAutomationPages(clean);
   if (pages.length >= AUTOMATION_LIMITS.pages) throw new Error(`A design can contain up to ${AUTOMATION_LIMITS.pages} pages.`);
   if (definition.carousel && clean.carousels.length >= AUTOMATION_LIMITS.carousels) throw new Error(`A design can contain up to ${AUTOMATION_LIMITS.carousels} carousels.`);
-  if (clean.rules.length >= AUTOMATION_LIMITS.rules) throw new Error(`A design can contain up to ${AUTOMATION_LIMITS.rules} rules.`);
+  const ruleKeys = key === "hype-train" ? ["hype-train", "hype-progress", "hype-finish"] : [key];
+  if (clean.rules.length + ruleKeys.length > AUTOMATION_LIMITS.rules) throw new Error(`A design can contain up to ${AUTOMATION_LIMITS.rules} rules.`);
 
   const used = new Set([...clean.carousels.map(x => x.id), ...clean.carousels.flatMap(x => x.slides.map(s => s.id)), ...clean.rules.map(x => x.id), ...pages.map(x => x.id)]);
   const design = { ...clean, pages: structuredClone(pages), carousels: [...clean.carousels], rules: [...clean.rules] };
@@ -109,15 +110,19 @@ export function addExperiencePreset(input, key) {
       id: nextId(`${key}-slide-${index + 1}`, used), title, caption, image: "", url: "",
     })) });
   }
-  const ruleId = nextId(`${key}-rule`, used), pageId = nextId(`${key}-page`, used);
-  const effect = definition.carousel
-    ? { type: "carousel", carouselId }
-    : definition.choice
-      ? { type: "choose", mode: "random", options: structuredClone(definition.choice) }
-      : { type: "celebrate", message: definition.message, ...(definition.appearance ? { appearance: { ...definition.appearance } } : {}) };
-  const rule = { id: ruleId, name: definition.name, enabled: true, trigger: structuredClone(definition.trigger), effect, cooldownSeconds: definition.cooldownSeconds };
-  design.rules.push(rule);
-  design.pages.push({ id: pageId, name: EXPERIENCE_PRESETS.find(preset => preset.key === key).title, ruleIds: [ruleId], carouselIds: carouselId ? [carouselId] : [] });
+  const pageId = nextId(`${key}-page`, used), ruleIds = [];
+  for (const ruleKey of ruleKeys) {
+    const ruleDefinition = definitions[ruleKey];
+    const ruleId = nextId(`${ruleKey}-rule`, used);
+    const effect = ruleDefinition.carousel
+      ? { type: "carousel", carouselId }
+      : ruleDefinition.choice
+        ? { type: "choose", mode: "random", options: structuredClone(ruleDefinition.choice) }
+        : { type: "celebrate", message: ruleDefinition.message, ...(ruleDefinition.appearance ? { appearance: structuredClone(ruleDefinition.appearance) } : {}) };
+    design.rules.push({ id: ruleId, name: ruleDefinition.name, enabled: true, trigger: structuredClone(ruleDefinition.trigger), effect, cooldownSeconds: ruleDefinition.cooldownSeconds });
+    ruleIds.push(ruleId);
+  }
+  design.pages.push({ id: pageId, name: EXPERIENCE_PRESETS.find(preset => preset.key === key).title, ruleIds, carouselIds: carouselId ? [carouselId] : [] });
   return { design: validateAutomations(design), pageId };
 }
 

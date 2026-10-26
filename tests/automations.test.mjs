@@ -126,6 +126,17 @@ test("celebration appearance validates on direct and chosen effects and stays ba
   }
 });
 
+test("uploaded sound keeps its bounded metadata through direct and chosen celebration validation", () => {
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, name: "Cheer", volume: 40 };
+  const appearance = { style: "confetti", color: "#123456", durationSeconds: 8, sound };
+  const direct = fixture(); direct.rules[0].effect.appearance = appearance;
+  assert.deepEqual(validateAutomations(direct).rules[0].effect.appearance.sound, sound);
+  const chosen = fixture(); chosen.rules[0].effect = { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Cheer", appearance }] };
+  assert.deepEqual(validateAutomations(chosen).rules[0].effect.options[0].appearance.sound, sound);
+  direct.rules[0].effect.appearance.sound = { ...sound, name: "A".repeat(81) };
+  assert.throws(() => validateAutomations(direct), /valid uploaded/);
+});
+
 function maximumAutomationCounts() {
   const base = fixture();
   return {
