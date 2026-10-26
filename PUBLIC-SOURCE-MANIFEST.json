@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T07:08:17.856Z",
+  "createdUtc": "2026-10-26T07:15:11.003Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -336,8 +336,8 @@
     },
     {
       "path": "src/ThemeToggle.jsx",
-      "bytes": 884,
-      "sha256": "fc381da44e0e124fd7470b9c36ae74d23baabad93ae4ef53c4f5126e7d45b3b9"
+      "bytes": 1501,
+      "sha256": "3e0190e52304caa74045b949064c9584aad55fff5d3a1f5c9462a1a41df34528"
     },
     {
       "path": "src/twitch.mjs",
