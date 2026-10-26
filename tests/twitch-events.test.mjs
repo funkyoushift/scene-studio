@@ -105,7 +105,7 @@ test("signed webhook verifies challenge, maps only enum and ID, deduplicates rec
  const body={broadcaster_user_id:"123",user_name:"must-not-be-retained",message:{text:"private resub note"}};
  const notification=await s.signed("subscribe","notification",body),duplicate=notification.clone();
  assert.equal((await s.handle(notification)).status,204);assert.equal(s.effects.length,1);
- assert.deepEqual(s.effects[0][2],{type:"twitch",event:"subscribe",id:new Headers(notification.headers).get("twitch-eventsub-message-id")});
+ assert.deepEqual(s.effects[0][2],{type:"twitch",event:"subscribe",id:new Headers(notification.headers).get("twitch-eventsub-message-id"),context:{subscriber:"must-not-be-retained"}});
  assert.equal((await s.handle(duplicate)).status,204);assert.equal(s.effects.length,1);
  const receipt=JSON.stringify(s.db.prepare("SELECT * FROM twitch_activity_receipts").all());assert.ok(!receipt.includes("must-not-be-retained"));assert.ok(!receipt.includes("private resub note"));
  const giftCopy=await s.signed("subscribe","notification",{broadcaster_user_id:"123",is_gift:true});

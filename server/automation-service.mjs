@@ -1,6 +1,7 @@
 import { validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
 import { signPartyToken } from "./party-service.mjs";
+import { safeLiveContext, ruleEffects } from "../src/live-context.mjs";
 
 export const HOSTED_AUTOMATION_LIMITS = Object.freeze({ designBytes: 16384, channels: 100, receipts: 10000, channelReceipts: 1000, retentionMs: 86400000, channelCooldownMs: 8000, tickBatch: 2 });
 const utf8 = new TextEncoder();
@@ -127,7 +128,7 @@ async function activeMoment(env, channel, currentTime) {
   result.event = { type: event.type, eventId: event.eventId, channelId: channel, revision: row.revision, created: event.created, expires: event.expires, effect };
   return result;
 }
-async function admittedEffect(env, channel, row, inputId, inputHash, effect, nextState, { now, fetcher }) {
+async function admittedEffect(env, channel, row, inputId, inputHash, effect, nextState, { now, fetcher, context }) {
   await stmt(env, "DELETE FROM automation_receipts WHERE expires<=?1", now).run();
   const existing = () => stmt(env, "SELECT input_hash,status,event FROM automation_receipts WHERE channel=?1 AND input_id=?2", channel, inputId).first();
   const old = await existing();
@@ -153,7 +154,11 @@ async function admittedEffect(env, channel, row, inputId, inputHash, effect, nex
   }
   // Once admitted, an uncertain outbound response is never sent again.
   let status = "uncertain";
-  try { await broadcast(env, channel, event, fetcher, now); status = "sent"; } catch {}
+  // Names exist only in the live broadcast. Durable receipts/catch-up contain
+  // the unchanged template, never subscriber names or subscription text.
+  const displayContext = safeLiveContext(context);
+  const outgoing = Object.keys(displayContext).length ? { ...event, context: displayContext } : event;
+  try { await broadcast(env, channel, outgoing, fetcher, now); status = "sent"; } catch {}
   try { await stmt(env, "UPDATE automation_receipts SET status=?3 WHERE channel=?1 AND input_id=?2", channel, inputId, status).run(); }
   catch { status = "uncertain"; }
   return { status, event, replayed: false };
@@ -182,7 +187,8 @@ export async function processAutomationInput(env, channel, event, { now = Date.n
   const selected = result.events[0];
   if (!selected) return { status: "no_match" };
   const nextState = { startedAt: previous.startedAt, lastFired: { ...previous.lastFired, [selected.ruleId]: now } };
-  return admittedEffect(env, channel, row, inputId, inputHash, selected.effect, nextState, { now, fetcher });
+  if (previous.choiceIndexes || result.state.choiceIndexes) nextState.choiceIndexes = { ...previous.choiceIndexes, ...(result.state.choiceIndexes?.[selected.ruleId] !== undefined ? { [selected.ruleId]: result.state.choiceIndexes[selected.ruleId] } : {}) };
+  return admittedEffect(env, channel, row, inputId, inputHash, selected.effect, nextState, { now, fetcher, context: event.type === "twitch" ? event.context : undefined });
 }
 
 export async function hasMatchingKeywordRule(env, channel, text) {
@@ -258,7 +264,7 @@ export async function automationRequest(request, env, channel, { claims, now = D
     const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
     let effect;
     if (input.type === "carousel" && design.carousels.some(item => item.id === input.carouselId)) effect = { type: "carousel", carouselId: input.carouselId };
-    else if (input.type === "celebrate" && design.rules.some(rule => rule.enabled && rule.effect.type === "celebrate" && rule.effect.message === input.message)) effect = { type: "celebrate", message: input.message };
+    else if (input.type === "celebrate" && design.rules.some(rule => rule.enabled && ruleEffects(rule).some(option => option.type === "celebrate" && option.message === input.message))) effect = { type: "celebrate", message: input.message };
     else fail(409, "effect_not_saved", "Choose a carousel or enabled celebration from the saved design.");
     const inputHash = await hash(JSON.stringify(effect));
     const result = await admittedEffect(env, channel, row, `manual:${input.eventId}`, inputHash, effect, JSON.parse(row.engine_state), { now: currentTime(), fetcher });

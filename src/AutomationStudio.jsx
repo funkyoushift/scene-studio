@@ -15,6 +15,8 @@ import DeveloperPanel from "./DeveloperPanel.jsx";
 import { getAutomationConfig, saveAutomationConfig, publishAutomationImages, fireAutomation, currentAutomationPublisher, connectAutomationSession } from "./automation-twitch.mjs";
 import { channelProfile } from "./twitch.mjs";
 import { IMAGE_ORIGIN } from "./image-address.mjs";
+import { liveText, safeLiveContext } from "./live-context.mjs";
+import FlowBuilder from "./FlowBuilder.jsx";
 
 const KEY = "scene-studio-automation-preview-v1";
 const uid = () => crypto.randomUUID();
@@ -77,7 +79,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
   const managed = session !== undefined;
   const liveEditor = managed || twitchEditor();
   const [design, setDesign] = useState(() => liveEditor ? emptyDesign() : initialDesign()),
-    [tab, setTab] = useState("rules"),
+    [tab, setTab] = useState("builder"),
     [carouselId, setCarouselId] = useState(() => design.carousels[0]?.id),
     [slideIndex, setSlideIndex] = useState(0);
   const [message, setMessage] = useState("merch"),
@@ -101,6 +103,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
     [savedConfig, setSavedConfig] = useState(null), [liveStatus, setLiveStatus] = useState("Waiting for Twitch channel authorization…"),
     [busy, setBusy] = useState(false), [chatStatus, setChatStatus] = useState(null), [authorizeUrl, setAuthorizeUrl] = useState("");
   const [activityStatus, setActivityStatus] = useState(null), [activityAuthorize, setActivityAuthorize] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
   const authRef = useRef(null), loadGeneration = useRef(0), viewerRef = useRef(null);
   viewerRef.current = managed ? session?.viewer : window.Twitch?.ext?.viewer;
   const dirty = liveEditor && savedConfig && JSON.stringify(design) !== JSON.stringify(savedConfig.design);
@@ -226,7 +229,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
       const clean = validateAutomations(designRef.current);
       const result = evaluateAutomations(clean, engine.current, event, time);
       engine.current = result.state;
-      enqueue(result.events, clean);
+      enqueue(result.events.map(item => ({ ...item, context: safeLiveContext(event.context) })), clean);
       if (event.type !== "tick")
         setNotice(
           result.events.length
@@ -288,6 +291,10 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
         c.id === carousel.id ? { ...c, ...patch } : c,
       ),
     }));
+  }
+  function updateCarouselById(id, patch) {
+    setMerchDeclarations(old => ({ ...old, [id]: false }));
+    setDesign(d => ({ ...d, carousels: d.carousels.map(c => c.id === id ? { ...c, ...patch } : c) }));
   }
   function updateSlide(patch) {
     updateCarousel({
@@ -407,7 +414,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
           </button>
         </div>
       </header>
-      <section className="director-intro">
+      <section className={`director-intro${tab === "builder" ? " flow-intro" : ""}`}>
         <p className="eyebrow">YOUR STREAM, ON CUE</p>
         <h1>Make the moment happen.</h1>
         <p>
@@ -440,9 +447,15 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
         {activityStatus && <p role="status">Twitch events: {activityStatus.connected ? "connected" : "not connected"}. {Array.isArray(activityStatus.events) ? `${activityStatus.events.filter(e => e.connected).length} of 6 listeners ready.` : ""} {activityStatus.reconnectRequired ? "Authorization required." : ""} {typeof activityStatus.status === "string" ? activityStatus.status : ""}</p>}
         {savedConfig?.revision > 0 && <><h3>Fire a saved action on Twitch</h3><p>These buttons use saved revision {savedConfig.revision}, not unsaved edits. They send a real viewer effect; they do not post a chat message.</p><div className="live-automation-actions">{savedConfig.design.carousels.map(c => <button disabled={busy || !linked} key={c.id} onClick={() => fireLive({ type: "carousel", carouselId: c.id })}>Fire on Twitch · {c.title}</button>)}{savedConfig.design.rules.filter(r => r.enabled && r.effect.type === "celebrate").map(r => <button disabled={busy || !linked} key={r.id} onClick={() => fireLive({ type: "celebrate", message: r.effect.message })}>Fire on Twitch · {r.name}</button>)}</div></>}
       </section>}
-      <main className="director-grid" inert={busy ? true : undefined}>
+      <main className={`director-grid${tab === "builder" ? " flow-director-grid" : ""}`} inert={busy ? true : undefined}>
         <section className="control-panel">
           <nav aria-label="Edit automation">
+            <button
+              aria-pressed={tab === "builder"}
+              onClick={() => setTab("builder")}
+            >
+              ✦ · Flow builder
+            </button>
             <button
               aria-pressed={tab === "rules"}
               onClick={() => setTab("rules")}
@@ -456,7 +469,15 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               02 · Your carousels
             </button>
           </nav>
-          {tab === "rules" ? (
+          {tab === "builder" ? (
+            <FlowBuilder
+              design={design}
+              setDesign={setDesign}
+              onUpdateCarousel={updateCarouselById}
+              evaluate={evaluate}
+              onOpenDetails={(nextTab, targetId) => { if (targetId) setCarouselId(targetId); setTab(nextTab); }}
+            />
+          ) : tab === "rules" ? (
             <div className="rule-list">
               <div className="section-heading">
                 <h2>If this, then that.</h2>
@@ -949,10 +970,10 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
             </div>
           )}
         </section>
-        <section className="preview-panel">
+        <section className={`preview-panel${previewExpanded ? " expanded-preview" : ""}`} role={previewExpanded ? "dialog" : undefined} aria-modal={previewExpanded ? true : undefined} aria-label={previewExpanded ? "Large interactive preview" : undefined}>
           <div className="preview-heading">
             <span>INTERACTIVE PREVIEW</span>
-            <span>SIMULATED CHAT · NO LIVE POSTING</span>
+            <button onClick={() => setPreviewExpanded(value => !value)}>{previewExpanded ? "Close large preview" : "Expand preview"}</button>
           </div>
           <div className="director-stage">
             <div className="stage-scenery">
@@ -968,7 +989,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
             </div>
             {active?.effect.type === "celebrate" && (
               <div className="director-burst" role="status">
-                <strong>{active.effect.message}</strong>
+                <strong>{liveText(active.effect.message, active.context)}</strong>
                 {Array.from({ length: 20 }, (_, i) => (
                   <i key={i} style={{ "--i": i }}>
                     ✦
@@ -977,9 +998,9 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               </div>
             )}
             {shown && currentSlide && (
-              <aside className="popup-carousel" aria-label="Carousel preview">
+              <aside className="popup-carousel" aria-label="Carousel preview" style={shown.layout ? { left: `${shown.layout.x}%`, top: `${shown.layout.y}%`, right: "auto", bottom: "auto", width: `${shown.layout.width}%`, maxHeight: `${shown.layout.height}%`, zIndex: shown.layout.layer } : undefined}>
                 <div className="popup-top">
-                  <span>{shown.title}</span>
+                  <span>{liveText(shown.title, active?.context)}</span>
                   <button
                     aria-label="Dismiss carousel"
                     onClick={() => setActive(null)}
@@ -991,8 +1012,8 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
                   <img src={currentSlide.image} alt={currentSlide.title} />
                 )}
                 <div className="popup-copy">
-                  <strong>{currentSlide.title}</strong>
-                  <p>{currentSlide.caption}</p>
+                  <strong>{liveText(currentSlide.title, active?.context)}</strong>
+                  <p>{liveText(currentSlide.caption, active?.context)}</p>
                   {currentSlide.url ? (
                     <a
                       href={currentSlide.url}
@@ -1005,7 +1026,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
                     <small>Image showcase</small>
                   )}
                 </div>
-                <div className="popup-controls">
+                {shown.slides.length > 1 && <div className="popup-controls">
                   <button
                     aria-label="Previous slide"
                     onClick={() =>
@@ -1040,7 +1061,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
                   >
                     →
                   </button>
-                </div>
+                </div>}
                 <div
                   className="popup-progress"
                   style={{

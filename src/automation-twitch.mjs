@@ -133,7 +133,7 @@ export function watchAutomationEvents(helper, auth, onConfig, onEvent, onError =
     if (effect?.type === "carousel") {
       if (!config.design.carousels.some(c => c.id === effect.carouselId)) return;
     } else if (effect?.type === "celebrate") {
-      if (!config.design.rules.some(r => r.enabled && r.effect.type === "celebrate" && r.effect.message === effect.message)) return;
+      if (!config.design.rules.some(r => r.enabled && (r.effect.type === "choose" ? r.effect.options : [r.effect]).some(option => option.type === "celebrate" && option.message === effect.message))) return;
     } else return;
     if (event.created < latestCreated) return;
     latestCreated = event.created;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AUTOMATION_LIMITS, TWITCH_AUTOMATION_EVENTS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule } from "../src/automations.mjs";
+import { AUTOMATION_LIMITS, TWITCH_AUTOMATION_EVENTS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule, deriveLegacyAutomationPages, createAutomationPage, addRuleToAutomationPage, addCarouselToAutomationPage, removeAutomationPage } from "../src/automations.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
 
 function fixture() {
@@ -93,6 +93,96 @@ test("automation limits accept eight carousels and eighteen rules, then reject e
   accepted.carousels.pop();
   accepted.rules.push({ ...structuredClone(accepted.rules[0]), id: "r18" });
   assert.throws(() => validateAutomations(accepted), /Rules/);
+});
+
+test("carousel layout is optional, bounded, and normalized without CSS fields", () => {
+  const legacy = validateAutomations(fixture());
+  assert.equal(Object.hasOwn(legacy.carousels[0], "layout"), false);
+  const design = fixture();
+  Object.assign(design.carousels[0], { layout: { x: 20, y: 10, width: 80, height: 80, layer: 100, style: "position:fixed" } });
+  assert.deepEqual(validateAutomations(design).carousels[0].layout, { x: 20, y: 10, width: 80, height: 80, layer: 100 });
+  for (const [field, values] of [
+    ["x", [-1, 91, "10"]], ["y", [-1, 91, NaN]], ["width", [9, 81]], ["height", [9, 81]], ["layer", [-1, 101, 1.5, "2"]],
+  ]) for (const value of values) {
+    const candidate = fixture(); candidate.carousels[0].layout = { x: 0, y: 0, width: 10, height: 10, layer: 0, [field]: value };
+    assert.throws(() => validateAutomations(candidate), /Carousel/);
+  }
+  const overflow = fixture(); overflow.carousels[0].layout = { x: 90, y: 0, width: 20, height: 10, layer: 0 };
+  assert.throws(() => validateAutomations(overflow), /canvas/);
+});
+
+test("legacy page grouping is derived without changing omitted v1 metadata", () => {
+  const input = fixture(), before = JSON.stringify(input);
+  input.rules[1].effect = { type: "carousel", carouselId: "features" };
+  const pages = deriveLegacyAutomationPages(input);
+  assert.deepEqual(pages, [
+    { id: "page-features", name: "Featured moments", ruleIds: ["rotate"], carouselIds: ["features"] },
+    { id: "page-other", name: "Other", ruleIds: ["cheer"], carouselIds: [] },
+  ]);
+  assert.equal(JSON.stringify({ ...input, rules: fixture().rules }), before, "derivation does not mutate its input");
+  assert.equal(Object.hasOwn(validateAutomations(fixture()), "pages"), false, "legacy serialization keeps pages omitted");
+});
+
+test("page metadata validates references and helpers move rules while preserving content", () => {
+  const design = fixture();
+  const created = createAutomationPage(design, { id: "studio", name: "Studio" });
+  assert.deepEqual(created.pages.at(-1), { id: "studio", name: "Studio", ruleIds: [], carouselIds: [] });
+  let updated = addRuleToAutomationPage(created, "studio", "cheer");
+  assert.ok(updated.pages.find(page => page.id === "studio").ruleIds.includes("cheer"));
+  assert.ok(updated.pages.every(page => page.id === "studio" || !page.ruleIds.includes("cheer")));
+  updated = addCarouselToAutomationPage(updated, "studio", "features");
+  assert.deepEqual(updated.pages.find(page => page.id === "studio").carouselIds, ["features"]);
+  const removed = removeAutomationPage(updated, "studio");
+  assert.equal(removed.pages.some(page => page.id === "studio"), false);
+  assert.deepEqual(removed.rules, updated.rules);
+  assert.deepEqual(removed.carousels, updated.carousels);
+
+  const invalid = [
+    value => { value.pages = [{ id: "p", name: "Page", ruleIds: ["missing"], carouselIds: [] }]; },
+    value => { value.pages = [{ id: "p", name: "Page", ruleIds: ["cheer"], carouselIds: [] }, { id: "q", name: "Other", ruleIds: ["cheer"], carouselIds: [] }]; },
+    value => { value.pages = [{ id: "p", name: "Page", ruleIds: [], carouselIds: ["missing"] }]; },
+    value => { value.pages = Array.from({ length: AUTOMATION_LIMITS.pages + 1 }, (_, i) => ({ id: `p${i}`, name: "Page", ruleIds: [], carouselIds: [] })); },
+  ];
+  for (const mutate of invalid) { const candidate = fixture(); mutate(candidate); assert.throws(() => validateAutomations(candidate), /Page|page|exist|belongs|contain/i); }
+  assert.throws(() => createAutomationPage({ ...design, pages: Array.from({ length: AUTOMATION_LIMITS.pages }, (_, i) => ({ id: `p${i}`, name: "Page", ruleIds: [], carouselIds: [] })) }, { id: "extra", name: "Extra" }), /up to 12 pages/);
+});
+
+test("choose effects resolve to concrete effects with per-rule rotation and injectable randomness", () => {
+  const design = fixture();
+  design.rules[0].trigger = { type: "keyword", phrase: "hello", match: "word" };
+  design.rules[0].cooldownSeconds = 0;
+  design.rules[0].effect = { type: "choose", mode: "rotate", options: [
+    { type: "carousel", carouselId: "features" }, { type: "celebrate", message: "A surprise!" },
+  ] };
+  let state = createAutomationState(0);
+  const unmatched = evaluateAutomations(design, state, { type: "message", text: "something else" }, 0);
+  assert.deepEqual(unmatched.state, state, "unmatched events do not advance rotation state");
+  let result = evaluateAutomations(design, state, { type: "message", text: "hello" }, 0);
+  assert.deepEqual(result.events[0].effect, { type: "carousel", carouselId: "features" });
+  assert.equal(result.state.choiceIndexes.cheer, 1);
+  state = result.state;
+  result = evaluateAutomations(design, state, { type: "message", text: "hello" }, 1);
+  assert.deepEqual(result.events[0].effect, { type: "celebrate", message: "A surprise!" });
+  assert.equal(result.state.choiceIndexes.cheer, 0);
+  design.rules[0].effect.mode = "random";
+  result = evaluateAutomations(design, createAutomationState(0), { type: "message", text: "hello" }, 0, { random: () => 0.99 });
+  assert.deepEqual(result.events[0].effect, { type: "celebrate", message: "A surprise!" });
+  assert.equal(Object.hasOwn(result.state, "choiceIndexes"), false, "random selection does not advance rotation state");
+});
+
+test("choice effects reject unsupported modes, empty or oversized options, and invalid references", () => {
+  const bad = [
+    effect => { effect.mode = "shuffle"; },
+    effect => { effect.options = []; },
+    effect => { effect.options = Array.from({ length: AUTOMATION_LIMITS.chooseOptions + 1 }, () => ({ type: "celebrate", message: "A" })); },
+    effect => { effect.options[0] = { type: "carousel", carouselId: "missing" }; },
+    effect => { effect.options[0] = { type: "script", code: "alert(1)" }; },
+  ];
+  for (const mutate of bad) {
+    const design = fixture(); design.rules[0].effect = { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Hello" }] };
+    mutate(design.rules[0].effect);
+    assert.throws(() => validateAutomations(design));
+  }
 });
 
 test("keyword matching is case-insensitive and literal with Unicode-aware word boundaries", () => {
@@ -257,4 +347,9 @@ test("loading an existing draft does not silently add the new external starter",
   const loaded = parseAutomations(JSON.stringify(original));
   assert.deepEqual(loaded.rules, original.rules);
   assert.equal(evaluateAutomations(loaded, createAutomationState(), { type: "external", name: "boss_defeated" }, 0).events.length, 0);
+});
+
+test('legacy long carousel titles derive bounded page names without changing content',()=>{
+ const original={version:1,carousels:[{id:'long',title:'A'.repeat(80),displaySeconds:10,slides:[{id:'one',title:'One',caption:'',image:'',url:''}]}],rules:[]};
+ const pages=deriveLegacyAutomationPages(original);assert.equal(pages[0].name.length,60);assert.equal(validateAutomations({...original,pages}).carousels[0].title.length,80);
 });

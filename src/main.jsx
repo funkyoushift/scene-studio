@@ -28,6 +28,7 @@ import "./style.css";
 import { PARTY_PRESETS } from "./party.mjs";
 import AutomationViewer from "./AutomationViewer.jsx";
 import AutomationStudio from "./AutomationStudio.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import DeveloperPanel from "./DeveloperPanel.jsx";
 import { TEMPLATE_OPTIONS, createTemplate } from "./templates.mjs";
 import {
@@ -840,6 +841,7 @@ function Editor() {
           <sup>EARLY BUILD</sup>
         </a>
         <div className="top-actions">
+          <ThemeToggle />
           <span className="save-status">● {saveStatus}</span>
           {profile && (
             <span
@@ -858,7 +860,7 @@ function Editor() {
           <button disabled={busy || (isConfig && !authorized)} onClick={() => {
             if (isConfig) { setAutomationVisited(true); setAutomationOpen(true); }
             else window.location.href = './automations.html';
-          }}>Carousels & chat triggers →</button>
+          }}>Live action builder →</button>
           <button onClick={() => setModal("present")}>Open viewer preview ↗</button>
           <button
             className="primary"

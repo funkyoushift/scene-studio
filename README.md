@@ -58,9 +58,18 @@ No chat-write scope is added. Moderation checks gate shared effects; raw chat te
 is not stored, and trigger receipt IDs/timestamps/status expire after 24 hours.
 Hosted timers use minute scheduling and require intervals of at least 60 seconds.
 The rule editor supports file import and a JSON-paste alternative. These hosted
-paths do not require the creator's PC to stay on. The current source
-suite has 139 passing tests and one optional browser test skipped; build passes.
-Automated coverage does not establish live delivery.
+paths do not require the creator's PC to stay on. GitHub Actions runs the current
+test suite and production build; inspect the latest successful run for its exact
+counts. Automated coverage is distinct from observed player delivery.
+
+The newer authoring workspace adds dark/light themes and named flow pages with
+When, Do, Look and Try steps. Pages can be renamed or created for any channel
+purpose. Rules can rotate or randomly select supported carousel/celebration
+responses. Optional carousel layout stores percentage placement and layer order.
+Subscriber and Hype Train text can use {subscriber} and {hypeLevel}; authenticated
+event context is broadcast transiently and is never retained in delivery receipts.
+The Game HUD page is an authoring entry point, not a connected Borderlands adapter.
+Music playback and arbitrary local/network integrations are not enabled features.
 
 Version 0.4 source adds none, float, pulse and sway object motion presets. Browser
 checks confirmed preview motion, dragging without changing object size, and the
@@ -146,6 +155,29 @@ Review the public notice text for your own operator and data practices before
 enabling PUBLIC_PAGES, PUBLIC_IMAGES or PUBLIC_CHAT. Qualify your hosted flows
 before enabling wider access. GitHub Pages hosts only the frontend; authenticated
 uploads, token handling and chat checks belong in the backend.
+
+For your own Workers account, these are the concrete setup commands after npm ci.
+Start with the sanitized flags disabled and fill in your own account/database IDs
+and Twitch application values before deploying. Never use another operator's IDs
+or credentials. Create the D1 database once, then copy its returned ID into config:
+
+    node scripts/cloudflare.mjs login
+    node scripts/cloudflare.mjs d1 create scene-studio-images
+    node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/schema.sql
+    node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/automation-schema.sql
+    node scripts/cloudflare.mjs d1 execute scene-studio-images --remote --file server/chat-triggers-schema.sql
+    node scripts/cloudflare.mjs deploy
+    node scripts/cloudflare.mjs secret put EXTENSION_SECRET
+    node scripts/cloudflare.mjs secret put TWITCH_CHAT_CLIENT_SECRET
+
+EXTENSION_SECRET is your own base64 Twitch Extension secret. The optional chat
+secret belongs to your own confidential Twitch OAuth app. Then enable only the
+features you configured and redeploy with node scripts/cloudflare.mjs deploy.
+Connect the broadcaster through the editor's separate chat/event authorization
+buttons. Hype Train events use version 2; resubscriptions are shared resub messages.
+Use Twitch Local Test/Hosted Test for your own development channel; approval of
+Scene Studio's listed extension is still required for its general installation.
+Command reference: https://developers.cloudflare.com/d1/wrangler-commands/ .
 
 For a separate Twitch package, choose a new unsubmitted version and set
 VITE_EXTENSION_VERSION before building. Pass that same value to the mandatory

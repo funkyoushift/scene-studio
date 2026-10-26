@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { liveText } from "./live-context.mjs";
 import { watchAutomationEvents } from "./automation-twitch.mjs";
 
 // This component deliberately imports no editor CSS: html/body and the video
@@ -35,8 +36,11 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
   const effect = active.event.effect;
   const carousel = effect.type === "carousel" ? active.config.design.carousels.find(c => c.id === effect.carouselId) : null;
   const slide = carousel?.slides[((slideIndex % carousel.slides.length) + carousel.slides.length) % carousel.slides.length];
+  const text = value => liveText(value, active.event.context);
+  const layout = viewMode !== "mobile" && carousel?.layout;
+  const placement = layout ? { left: `${layout.x}%`, top: `${layout.y}%`, right: "auto", bottom: "auto", width: `${layout.width}%`, maxHeight: `${layout.height}%`, zIndex: layout.layer } : undefined;
   const brand = <div className="ss-live-brand">{brandImage && <img src={brandImage} alt="" />}<span>@{creator.login}</span></div>;
-  return <div ref={container} className={`ss-live-automation${viewMode === "mobile" ? " ss-live-mobile" : ""}`}>
+  return <div ref={container} className={`ss-live-automation${viewMode === "mobile" ? " ss-live-mobile" : ""}`} style={layout ? {zIndex:layout.layer} : undefined}>
     <style>{`
       .ss-live-automation{position:fixed;inset:0;z-index:1000;pointer-events:none;font:14px system-ui,sans-serif;color:#f5f8ff}
       .ss-live-card{position:absolute;bottom:9%;right:3%;width:min(300px,38vw);max-height:78%;overflow:auto;border:1px solid #52cfde66;border-radius:16px;background:#0c1527f7;box-shadow:0 10px 40px #0008,0 0 22px #39c9de18;pointer-events:auto;animation:ss-live-enter .28s ease-out both}
@@ -66,16 +70,16 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
       .ss-live-mobile .ss-live-celebration{position:relative;inset:auto;width:100%;max-width:100%;box-sizing:border-box;margin:0 0 16px;padding:0 0 18px;font-size:22px}
       @media(prefers-reduced-motion:reduce){.ss-live-automation *{animation:none!important;transition:none!important}}
     `}</style>
-    {carousel && slide && <aside key={active.event.eventId} className="ss-live-card" aria-label={carousel.title}>
+    {carousel && slide && <aside key={active.event.eventId} className="ss-live-card" aria-label={text(carousel.title)} style={placement}>
       <header>{brand}<button aria-label="Dismiss carousel" onClick={() => setActive(null)}>×</button></header>
-      {carousel.title !== slide.title && <p className="ss-live-collection">{carousel.title}</p>}
+      {carousel.title !== slide.title && <p className="ss-live-collection">{text(carousel.title)}</p>}
       {slide.image && <img className="ss-live-product-image" src={slide.image} alt={slide.title} />}
-      <div className="ss-live-copy"><strong>{slide.title}</strong><p>{slide.caption}</p>
+      <div className="ss-live-copy"><strong>{text(slide.title)}</strong><p>{text(slide.caption)}</p>
         {active.config.ownedMerch && slide.url && <a href={slide.url} target="_blank" rel="noopener noreferrer">Open link ↗</a>}
       </div>
       {carousel.slides.length > 1 && <div className="ss-live-nav"><button aria-label="Previous slide" onClick={() => setSlideIndex(index => index - 1)}>←</button><span>{((slideIndex % carousel.slides.length) + carousel.slides.length) % carousel.slides.length + 1} / {carousel.slides.length}</span><button aria-label="Next slide" onClick={() => setSlideIndex(index => index + 1)}>→</button></div>}
       <small className="ss-live-credit">Created by @{creator.login} with Scene Studio</small>
     </aside>}
-    {effect.type === "celebrate" && <div key={active.event.eventId} className="ss-live-celebration" role="status"><header>{brand}<button aria-label="Dismiss celebration" onClick={() => setActive(null)}>×</button></header><div className="ss-live-stars" aria-hidden="true">✦ ✨ ✦</div><strong>{effect.message}</strong><div className="ss-live-stars" aria-hidden="true">✦ ✨ ✦</div><small className="ss-live-credit">Created by @{creator.login} with Scene Studio</small></div>}
+    {effect.type === "celebrate" && <div key={active.event.eventId} className="ss-live-celebration" role="status"><header>{brand}<button aria-label="Dismiss celebration" onClick={() => setActive(null)}>×</button></header><div className="ss-live-stars" aria-hidden="true">✦ ✨ ✦</div><strong>{text(effect.message)}</strong><div className="ss-live-stars" aria-hidden="true">✦ ✨ ✦</div><small className="ss-live-credit">Created by @{creator.login} with Scene Studio</small></div>}
   </div>;
 }

@@ -1603,6 +1603,80 @@ body.viewer #root {
   tab-size:2;
 }
 .scene-object.has-image.image-fit-contain img { object-fit:contain; }
+
+/* Editor theme: unset and dark both resolve to dark to avoid a white first paint. */
+.app-shell:not([data-editor-theme="light"]) { color-scheme:dark; color:#e8e4ef; background:#111017; }
+.app-shell:not([data-editor-theme="light"]) .topbar,
+.app-shell:not([data-editor-theme="light"]) .editor-toolbar,
+.app-shell:not([data-editor-theme="light"]) .workspace,
+.app-shell:not([data-editor-theme="light"]) .library,
+.app-shell:not([data-editor-theme="light"]) .inspector { background:#191720; border-color:#393542; }
+.app-shell:not([data-editor-theme="light"]) .topbar { background:#17151d; }
+.app-shell:not([data-editor-theme="light"]) .brand,
+.app-shell:not([data-editor-theme="light"]) .intro h1,
+.app-shell:not([data-editor-theme="light"]) .panel-heading h2,
+.app-shell:not([data-editor-theme="light"]) .layer-heading h2,
+.app-shell:not([data-editor-theme="light"]) .layers strong,
+.app-shell:not([data-editor-theme="light"]) .scene-name { color:#f1edf7; }
+.app-shell:not([data-editor-theme="light"]) .brand sup,
+.app-shell:not([data-editor-theme="light"]) .save-status,
+.app-shell:not([data-editor-theme="light"]) .channel-identity,
+.app-shell:not([data-editor-theme="light"]) .intro p,
+.app-shell:not([data-editor-theme="light"]) .panel-heading > span,
+.app-shell:not([data-editor-theme="light"]) .hint,
+.app-shell:not([data-editor-theme="light"]) .library-card small,
+.app-shell:not([data-editor-theme="light"]) .library-bottom p,
+.app-shell:not([data-editor-theme="light"]) .canvas-footer,
+.app-shell:not([data-editor-theme="light"]) .layers small,
+.app-shell:not([data-editor-theme="light"]) .layer-heading h2 span,
+.app-shell:not([data-editor-theme="light"]) .tip p,
+.app-shell:not([data-editor-theme="light"]) .tip strong,
+.app-shell:not([data-editor-theme="light"]) .app-footer,
+.app-shell:not([data-editor-theme="light"]) .editor-toolbar p { color:#b7b0c2; }
+.app-shell:not([data-editor-theme="light"]) .editor-toolbar,
+.app-shell:not([data-editor-theme="light"]) .canvas-panel { background:#191720; border-color:#393542; }
+.app-shell:not([data-editor-theme="light"]) .canvas-panel { background:#15131a; }
+.app-shell:not([data-editor-theme="light"]) .editor-mode-tabs,
+.app-shell:not([data-editor-theme="light"]) .segmented,
+.app-shell:not([data-editor-theme="light"]) .preview-viewport-controls,
+.app-shell:not([data-editor-theme="light"]) .preview-viewport-space { background:#24212b; border-color:#403b49; color:#ddd7e7; }
+.app-shell:not([data-editor-theme="light"]) .preview-viewport-controls label,
+.app-shell:not([data-editor-theme="light"]) .preview-viewport-note,
+.app-shell:not([data-editor-theme="light"]) .preview-size-readout,
+.app-shell:not([data-editor-theme="light"]) .preview-width-control output { color:#c0b9ca; }
+.app-shell:not([data-editor-theme="light"]) .library-card,
+.app-shell:not([data-editor-theme="light"]) .layers button,
+.app-shell:not([data-editor-theme="light"]) .inspector-section { border-color:#393542; }
+.app-shell:not([data-editor-theme="light"]) .library-card strong,
+.app-shell:not([data-editor-theme="light"]) .inspector label,
+.app-shell:not([data-editor-theme="light"]) .inspector-section > :is(h3,legend,summary) { color:#e5dfed; }
+.app-shell:not([data-editor-theme="light"]) .inspector label small { color:#b9b1c5; }
+.app-shell:not([data-editor-theme="light"]) .inspector :is(input:not([type="file"]),select,textarea),
+.app-shell:not([data-editor-theme="light"]) .preview-viewport-controls select { color:#f0ebf6; background:#23202a; border-color:#504959; color-scheme:dark; }
+.app-shell:not([data-editor-theme="light"]) .editor-toolbar button,
+.app-shell:not([data-editor-theme="light"]) .canvas-toolbar button,
+.app-shell:not([data-editor-theme="light"]) .layers button,
+.app-shell:not([data-editor-theme="light"]) .inspector button,
+.app-shell:not([data-editor-theme="light"]) .topbar button,
+.app-shell:not([data-editor-theme="light"]) .publish-bar button { color:#e8e2ef; background:#292530; border-color:#504959; }
+.app-shell:not([data-editor-theme="light"]) :is(.topbar,.editor-toolbar,.publish-bar) button.primary { color:#fff; background:#772ce8; border-color:#9146ff; }
+.app-shell:not([data-editor-theme="light"]) .editor-mode-tabs button:is(.active,[aria-selected="true"],[aria-pressed="true"]),
+.app-shell:not([data-editor-theme="light"]) .segmented button.active,
+.app-shell:not([data-editor-theme="light"]) .layers .chosen,
+.app-shell:not([data-editor-theme="light"]) .inspector .icon-picker .chosen,
+.app-shell:not([data-editor-theme="light"]) .style-presets button:is(.active,.chosen,[aria-pressed="true"]) { color:#e9d8ff; background:#39264e; border-color:#9b6bd0; }
+.app-shell:not([data-editor-theme="light"]) .publish-bar { background:#191720f5; border-top-color:#9146ff; }
+.app-shell:not([data-editor-theme="light"]) .publish-summary strong { color:#f1e9fa; }
+.app-shell:not([data-editor-theme="light"]) .publish-summary p { color:#c1b9ca; }
+.app-shell:not([data-editor-theme="light"]) .publish-blocked { background:#282117f5; border-top-color:#d89b47; }
+.app-shell:not([data-editor-theme="light"]) .publish-blocked .publish-summary strong { color:#ffdaa3; }
+.app-shell:not([data-editor-theme="light"]) > dialog:not(.presentation) { color-scheme:dark; color:#eee8f4; background:#1b1821; border-color:#4a4253; }
+.app-shell:not([data-editor-theme="light"]) > dialog:not(.presentation) :is(p,label,small,.fine-print,.template-options :is(strong,span)) { color:#c8c0d1; }
+.app-shell:not([data-editor-theme="light"]) > dialog:not(.presentation) :is(input,select,textarea) { color:#f0ebf6; background:#25212c; border-color:#504959; }
+.app-shell:not([data-editor-theme="light"]) > dialog:not(.presentation) button { color:#e8e2ef; background:#292530; border-color:#504959; }
+.app-shell:not([data-editor-theme="light"]) > dialog:not(.presentation) button.primary { color:#fff; background:#772ce8; border-color:#9146ff; }
+.app-shell .theme-toggle { min-width:74px; font-weight:700; }
+.app-shell:not([data-editor-theme="light"]) .theme-toggle { color:#f1e9fa; background:#30283a; border-color:#71538e; }
 .scene-object.has-image.image-fit-icon { gap:5%; }
 .scene-object.has-image.image-fit-icon img { position:relative;inset:auto;flex:0 0 24%;width:24%;height:auto;max-height:90%;object-fit:contain;opacity:1;border-radius:12%; }
 .scene-object.has-image.image-fit-icon .object-icon { display:none; }

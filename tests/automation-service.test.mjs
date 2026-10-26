@@ -302,3 +302,22 @@ test('authenticated Twitch event inputs select saved effects and deduplicate acr
   await assert.rejects(processAutomationInput(s.env,'123',{...input,event:'hype_begin'},{now:now+40000,fetcher:s.fetcher}),e=>e.status===409);
   await assert.rejects(processAutomationInput(s.env,'123',{...input,event:'invented'},{now,fetcher:s.fetcher}),e=>e.status===400);
 });
+
+test('Twitch subscriber context is broadcast transiently and never retained in receipts',async t=>{
+ const s=fixture(t),value=design();value.rules=[{id:'welcome',name:'Welcome',enabled:true,trigger:{type:'twitch',event:'subscribe'},effect:{type:'celebrate',message:'Thanks, {subscriber}!'},cooldownSeconds:0}];
+ assert.equal((await s.save(value)).status,200);s.sent.length=0;
+ const result=await processAutomationInput(s.env,'123',{type:'twitch',event:'subscribe',id:'sub-context',context:{subscriber:'PrivacyTestSubscriber',other:'private'}},{now,fetcher:s.fetcher});
+ assert.equal(result.status,'sent');assert.deepEqual(s.sent[0].event.context,{subscriber:'PrivacyTestSubscriber'});
+ assert.equal(result.event.context,undefined);
+ const receipt=JSON.stringify(s.db.prepare('SELECT * FROM automation_receipts').all());assert.ok(!receipt.includes('PrivacyTestSubscriber'));assert.ok(!receipt.includes('private'));
+});
+
+test('choice effects advance only the admitted rule and persist across different source events',async t=>{
+ const s=fixture(t),value=design();value.rules=[{id:'rotating',name:'Rotating',enabled:true,trigger:{type:'keyword',phrase:'merch',match:'word'},effect:{type:'choose',mode:'rotate',options:[{type:'celebrate',message:'One'},{type:'carousel',carouselId:'merch'}]},cooldownSeconds:0}];
+ assert.equal((await s.save(value)).status,200);
+ const first=await processAutomationInput(s.env,'123',{type:'message',text:'merch',id:'rotation1'},{now,fetcher:s.fetcher});assert.equal(first.event.effect.message,'One');
+ const denied=await processAutomationInput(s.env,'123',{type:'message',text:'merch',id:'rotation2'},{now:now+1000,fetcher:s.fetcher});assert.equal(denied.status,'cooldown');
+ assert.equal(JSON.parse(s.db.prepare('SELECT engine_state FROM automation_configs').get().engine_state).choiceIndexes.rotating,1);
+ const second=await processAutomationInput(s.env,'123',{type:'message',text:'merch',id:'rotation3'},{now:now+10000,fetcher:s.fetcher});assert.equal(second.event.effect.carouselId,'merch');
+ assert.equal(JSON.parse(s.db.prepare('SELECT engine_state FROM automation_configs').get().engine_state).choiceIndexes.rotating,0);
+});

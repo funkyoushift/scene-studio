@@ -754,3 +754,82 @@
   margin-bottom: 10px;
   font-size: 11px;
 }
+.director .theme-toggle {
+  min-width: 74px;
+  font-weight: 700;
+  color: #f1e9fa;
+  background: #30283a;
+  border-color: #71538e;
+}
+.director[data-editor-theme="light"] {
+  color-scheme: light;
+  color: #292332;
+  background: #f5f4f7;
+}
+.director[data-editor-theme="light"] .director-top,
+.director[data-editor-theme="light"] .director-intro,
+.director[data-editor-theme="light"] .control-panel,
+.director[data-editor-theme="light"] .preview-panel,
+.director[data-editor-theme="light"] .live-automation-panel,
+.director[data-editor-theme="light"] .paste-design,
+.director[data-editor-theme="light"] .rule,
+.director[data-editor-theme="light"] .carousel-editor,
+.director[data-editor-theme="light"] .developer-panel {
+  color: #302a38;
+  background: #fff;
+  border-color: #d9d4df;
+}
+.director[data-editor-theme="light"] .live-director-top { background: #fff; }
+.director[data-editor-theme="light"] .director-top > a,
+.director[data-editor-theme="light"] h1,
+.director[data-editor-theme="light"] h2,
+.director[data-editor-theme="light"] h3,
+.director[data-editor-theme="light"] .rule-head > span,
+.director[data-editor-theme="light"] label,
+.director[data-editor-theme="light"] .preview-heading,
+.director[data-editor-theme="light"] .director-intro > p,
+.director[data-editor-theme="light"] .rule-bottom,
+.director[data-editor-theme="light"] .carousel-editor p,
+.director[data-editor-theme="light"] .paste-design p { color: #383141; }
+.director[data-editor-theme="light"] .eyebrow,
+.director[data-editor-theme="light"] .director-intro .prototype-note,
+.director[data-editor-theme="light"] .rule-bottom .quiet,
+.director[data-editor-theme="light"] .section-heading > p,
+.director[data-editor-theme="light"] .section-heading span { color: #62596c; }
+.director[data-editor-theme="light"] .draft-badge { color: #554963; background: #eeeaf3; }
+.director[data-editor-theme="light"] button,
+.director[data-editor-theme="light"] .import-control {
+  color: #342b40;
+  background: #f5f2f8;
+  border-color: #cfc8d8;
+}
+.director[data-editor-theme="light"] button:hover { background: #ebe5f1; }
+.director[data-editor-theme="light"] button.lime {
+  color: #fff;
+  background: #6726ba;
+  border-color: #6726ba;
+}
+.director[data-editor-theme="light"] a { color: #59239b; }
+.director[data-editor-theme="light"] input:not([type="checkbox"]):not([type="file"]),
+.director[data-editor-theme="light"] select,
+.director[data-editor-theme="light"] textarea,
+.director[data-editor-theme="light"] .paste-design textarea {
+  color: #302a38;
+  background: #fff;
+  border-color: #bdb4c8;
+  color-scheme: light;
+}
+.director[data-editor-theme="light"] .control-panel nav button[aria-pressed="true"],
+.director[data-editor-theme="light"] .slide-tabs button[aria-pressed="true"] {
+  color: #55209a;
+  background: #eee5fa;
+  border-color: #b89bd6;
+}
+.director[data-editor-theme="light"] .live-automation-panel [role="status"],
+.director[data-editor-theme="light"] .paste-design [role="status"] { color: #365d1d; }
+.director[data-editor-theme="light"] .director-stage { border-color: #d5d0dc; }
+.director[data-editor-theme="light"] .theme-toggle {
+  color: #382b49;
+  background: #eee7f5;
+  border-color: #c8b4da;
+}
