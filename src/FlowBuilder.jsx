@@ -9,7 +9,7 @@ const PAGES = [
   { id: "modding", name: "Modding / Borderlands", icon: "⌁", description: "Game moments and mods" },
   { id: "subscribers", name: "Subscribers", icon: "♡", description: "Celebrate your supporters" },
   { id: "hypetrain", name: "Hype Train", icon: "↗", description: "Ride the shared excitement" },
-  { id: "gamehud", name: "Persistent Game HUD", icon: "▣", description: "A persistent in-game layout" },
+  { id: "gamehud", name: "Persistent Game HUD", icon: "▣", description: "A persistent in-game layout", advanced: true },
 ];
 const eventLabels = { subscribe: "New subscription", resubscribe: "Resubscription", gift: "Gift subscriptions", hype_begin: "Hype Train starts", hype_progress: "Hype Train progresses", hype_end: "Hype Train ends" };
 const triggerTitle = (rule) => rule.trigger.type === "keyword" ? `Chat says “${rule.trigger.phrase}”` : rule.trigger.type === "interval" ? `Every ${rule.trigger.everySeconds} seconds` : rule.trigger.type === "twitch" ? eventLabels[rule.trigger.event] || "Twitch event" : `Event: ${rule.trigger.event}`;
@@ -35,7 +35,7 @@ function withFlowPages(design) {
     const legacy = deriveLegacyAutomationPages(design);
     next = { ...design, pages: [] };
     if (!design.rules.length && !design.carousels.length) {
-      for (const page of PAGES) next = createAutomationPage(next, { id: page.id, name: page.name });
+      for (const page of PAGES.filter(page => !page.advanced)) next = createAutomationPage(next, { id: page.id, name: page.name });
       return next;
     }
     const assignedRules = new Set();
@@ -83,6 +83,7 @@ function CarouselLook({ carousel, onUpdateCarousel, onOpenDetails }) {
 
 export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evaluate, onOpenDetails }) {
   const [selected, setSelected] = useState("merch");
+  const [showAdvancedPages, setShowAdvancedPages] = useState(false);
   const [step, setStep] = useState(0);
   const [newPageName, setNewPageName] = useState("");
   const [pageNotice, setPageNotice] = useState("");
@@ -149,9 +150,9 @@ export default function FlowBuilder({ design, setDesign, onUpdateCarousel, evalu
   return <div className="flow-builder">
     <header className="flow-head"><div><span className="flow-kicker">AUTOMATION STUDIO</span><h1>Live action builder</h1><p>Shape a stream moment, one simple flow at a time.</p></div><div className="flow-head-actions"><span className="flow-live-pill"><i /> Your draft</span><ThemeToggle /></div></header>
     <div className="flow-layout">
-      <aside className="flow-sidebar"><div className="flow-sidebar-title"><span>YOUR FLOWS</span><span>{pagesDesign.pages?.length || 0}</span></div>{allPages.map(p => <button key={p.id} className={`flow-page ${selected === p.id ? "selected" : ""}`} onClick={() => { setSelected(p.id); setStep(0); setPageNotice(""); }}><span className="flow-page-icon">{p.icon}</span><span className="flow-page-label"><b>{pageMeta?.id === p.id ? pageMeta.name : p.name}</b><small>{groups[p.id]?.length || 0} flows{pageMeta?.id === p.id && !PAGES.some(starter => starter.id === p.id) ? " · custom" : ""}</small></span><span className="flow-chevron">›</span></button>)}
+      <aside className="flow-sidebar"><div className="flow-sidebar-title"><span>YOUR FLOWS</span><span>{pagesDesign.pages?.length || 0}</span></div>{allPages.filter(p => !p.advanced || showAdvancedPages || selected === p.id || (groups[p.id]?.length || 0) > 0).map(p => <button key={p.id} className={`flow-page ${selected === p.id ? "selected" : ""}`} onClick={() => { setSelected(p.id); setStep(0); setPageNotice(""); }}><span className="flow-page-icon">{p.icon}</span><span className="flow-page-label"><b>{pageMeta?.id === p.id ? pageMeta.name : p.name}</b><small>{groups[p.id]?.length || 0} flows{pageMeta?.id === p.id && !PAGES.some(starter => starter.id === p.id) ? " · custom" : ""}</small></span><span className="flow-chevron">›</span></button>)}
         <form className="flow-add-page" onSubmit={e => { e.preventDefault(); addCustomPage(); }}><label htmlFor="flow-new-page">ADD A CUSTOM PAGE</label><div><input id="flow-new-page" value={newPageName} maxLength={60} disabled={(pagesDesign.pages?.length || 0) >= AUTOMATION_LIMITS.pages} onChange={e => setNewPageName(e.target.value)} placeholder="Page name"/><button type="submit" disabled={(pagesDesign.pages?.length || 0) >= AUTOMATION_LIMITS.pages} aria-label="Add custom page">＋</button></div>{pageNotice && <p role="status">{pageNotice}</p>}{(pagesDesign.pages?.length || 0) >= AUTOMATION_LIMITS.pages && <p role="status">This design has reached its 12-page limit.</p>}</form>
-        <div className="flow-sidebar-note"><b>Persistent Game HUD</b><p>Connector not connected. Layout references and data feed setup are available in advanced settings.</p></div></aside>
+        <div className="flow-sidebar-note"><button className="flow-secondary" onClick={() => setShowAdvancedPages(value => !value)}>{showAdvancedPages ? "Hide advanced integrations" : "Advanced integrations"}</button>{showAdvancedPages && <p>Game HUD setup requires a supported data feed. No game connector is connected.</p>}</div></aside>
       <section className="flow-workspace"><div className="flow-title-row"><div><div className="flow-breadcrumb">MY FLOWS <span>/</span> {(pageMeta?.name || page.name).toUpperCase()}</div><label className="flow-page-name-label">PAGE NAME<input className="flow-page-name" aria-label="Selected page name" maxLength={60} value={pageMeta?.name || page.name} disabled={!pageMeta && !pageAvailable} onChange={e => { try { renamePage(e.target.value); setPageNotice(""); } catch (error) { setPageNotice(error.message); } }}/></label><p>{page.description}. Build the trigger, choose what happens, then preview.</p></div><button className="flow-secondary" onClick={() => onOpenDetails?.("carousels")}>Open popup images &amp; links ↗</button></div>
         <nav className="flow-steps" aria-label="Flow builder steps">{["When", "Do", "Look", "Try"].map((label, i) => <button key={label} className={step === i ? "active" : ""} onClick={() => setStep(i)}><span>{String(i + 1).padStart(2, "0")}</span>{label}</button>)}</nav>
         {selected === "gamehud" && <div className="flow-callout"><span>▣</span><div><b>Game HUD connector not connected</b><p>This flow does not read game memory or load data from a local or internet source. Connect a supported feed in advanced setup before enabling a live HUD.</p></div><button onClick={() => onOpenDetails?.("rules")}>Advanced setup</button></div>}

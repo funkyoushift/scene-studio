@@ -38,6 +38,47 @@ export const TEMPLATE_OPTIONS = Object.freeze([
   }),
 ]);
 
+// Additive object starters for the beginner editor. These return objects only;
+// callers append them to the current scene instead of replacing its draft.
+export const INTERACTIVE_PRESET_OPTIONS = Object.freeze([
+  Object.freeze({ key: "trivia", title: "Multiple-choice trivia", description: "Let viewers pick an answer", icon: "❔", objectCount: 1 }),
+  Object.freeze({ key: "tap-challenge", title: "Personal tap challenge", description: "Each viewer works toward their own goal", icon: "♡", objectCount: 1 }),
+  Object.freeze({ key: "celebration", title: "Personal celebration", description: "Give each viewer a little moment", icon: "✦", objectCount: 1 }),
+  Object.freeze({ key: "clickable-link", title: "Clickable link", description: "Add your HTTPS destination when ready", icon: "↗", objectCount: 1 }),
+  Object.freeze({ key: "info-card", title: "Info card", description: "Share a schedule, tip, or channel detail", icon: "ⓘ", objectCount: 1 }),
+  Object.freeze({ key: "shared-party", title: "Shared party", description: "Three celebrations; optional chat connection required", icon: "🎉", objectCount: 3 }),
+]);
+
+export function createInteractivePreset(key) {
+  switch (key) {
+    case "trivia": {
+      const object = newObject("reveal");
+      return [{ ...object, title: "Which planet is known as the Red Planet?", caption: "Choose your answer", detail: "Mars gets its reddish appearance from iron oxide on its surface.", x: 4, y: 4, width: 42, height: 50, quiz: { choices: ["Earth", "Mars", "Venus"], correctIndex: 1 } }];
+    }
+    case "tap-challenge":
+      return [{ ...newObject("counter"), title: "Personal tap challenge", caption: "Your taps, your goal", detail: "Thanks for tapping! Every viewer has a personal count for this visit.", x: 60, y: 5, width: 34, height: 38, goal: 20 }];
+    case "celebration":
+      return [{ ...newObject("celebrate"), title: "A little celebration", caption: "Tap for your own moment", detail: "You made this moment!" }];
+    case "clickable-link":
+      return [{ ...newObject("link"), title: "Visit my link", caption: "Add a destination in Object settings", detail: "Set an HTTPS website address before publishing." }];
+    case "info-card":
+      return [{ ...newObject("reveal"), title: "A little about me", caption: "Click to find out more", detail: "Add your schedule, stream plans, or a detail you want viewers to know." }];
+    case "shared-party": {
+      const presets = [
+        { preset: "ducks", title: "Release the ducks", color: "#facc15" },
+        { preset: "disco", title: "Emergency disco", color: "#e879f9" },
+        { preset: "confetti", title: "Confetti cannon", color: "#38bdf8" },
+      ];
+      return presets.map((preset, index) => ({
+        ...newObject("party"), ...preset,
+        x: 5 + index * 31.5, y: 65, width: 27, height: 21,
+      }));
+    }
+    default:
+      throw new Error("Choose a supported interactive starter.");
+  }
+}
+
 export function createTemplate(key) {
   let name;
   let objects;

@@ -3,6 +3,7 @@ import { channelProfile, readTwitchScene, sendParty, watchTwitchScene } from "./
 import { PARTY_PRESETS, partyEvent } from "./party.mjs";
 import AutomationViewer from "./AutomationViewer.jsx";
 import { objectAppearance, safeLink } from "./scene.mjs";
+import { InteractiveWidget } from "./InteractiveWidgets.jsx";
 
 const symbols = { spark: "✦", heart: "♡", star: "☆", gift: "◇", info: "i", bolt: "ϟ", message: "☏", link: "↗" };
 
@@ -70,16 +71,21 @@ export function MobileObjectCards({ scene, counts = {}, onActivate }) {
     {scene.objects.filter(object=>!object.popupOnly).map(object => {
       const destination = object.action === 'link' ? safeLink(object.url) : '';
       const Control = destination ? 'a' : 'button';
+      const isWidget = Boolean(object.quiz || object.goal);
       return <article key={object.id} className="mobile-object" style={{ "--object-accent": object.color, ...objectAppearance(object) }}>
-      <Control className="mobile-object-action" {...(destination ? {href:destination,target:'_blank',rel:'noopener noreferrer'} : {onClick:()=>onActivate(object.id)})}>
-      {object.image && object.imageFit==='icon' ? <img className="mobile-custom-icon" src={object.image} alt="" /> : <span className="mobile-object-symbol" aria-hidden="true">{object.customIcon || (object.action === "party" ? PARTY_PRESETS[object.preset ?? "ducks"].symbol : symbols[object.icon] || "✦")}</span>}
-      <span className="mobile-object-copy"><strong>{object.title}</strong>
-        <span>{object.action === "party" ? "Celebrate together + post in chat" : object.caption}</span>
-        {object.action === "counter" && <span className="mobile-count" aria-live="polite">{counts[object.id] || 0} from you this visit{counts[object.id] ? ` · ${object.detail}` : ""}</span>}
-        {object.action === "celebrate" && <small>A celebration just for you</small>}
-        {destination && <small>Open website ↗</small>}
-      </span>
-      </Control>
+      {isWidget ? <div className="mobile-object-action mobile-widget-heading">
+        {object.image && object.imageFit==='icon' ? <img className="mobile-custom-icon" src={object.image} alt="" /> : <span className="mobile-object-symbol" aria-hidden="true">{object.customIcon || symbols[object.icon] || "✦"}</span>}
+        <div className="mobile-object-copy"><strong>{object.title}</strong><span>{object.caption}</span></div>
+        <InteractiveWidget object={object} count={counts[object.id] || 0} onCount={() => onActivate(object.id)} />
+      </div> : <Control className="mobile-object-action" {...(destination ? {href:destination,target:'_blank',rel:'noopener noreferrer'} : {onClick:()=>onActivate(object.id)})}>
+        {object.image && object.imageFit==='icon' ? <img className="mobile-custom-icon" src={object.image} alt="" /> : <span className="mobile-object-symbol" aria-hidden="true">{object.customIcon || (object.action === "party" ? PARTY_PRESETS[object.preset ?? "ducks"].symbol : symbols[object.icon] || "✦")}</span>}
+        <span className="mobile-object-copy"><strong>{object.title}</strong>
+          <span>{object.action === "party" ? "Celebrate together + post in chat" : object.caption}</span>
+          {object.action === "counter" && <span className="mobile-count" aria-live="polite">{counts[object.id] || 0} from you this visit{counts[object.id] ? ` · ${object.detail}` : ""}</span>}
+          {object.action === "celebrate" && <small>A celebration just for you</small>}
+          {destination && <small>Open website ↗</small>}
+        </span>
+      </Control>}
       {object.image && object.imageFit!=='icon' && <><button className="mobile-image-toggle" aria-expanded={Boolean(images[object.id])} aria-label={`${images[object.id] ? "Hide" : "Show"} image for ${object.title}`} onClick={() => setImages(old => ({ ...old, [object.id]: !old[object.id] }))}>{images[object.id] ? "Hide image" : "Show image"}</button>{images[object.id] && <img src={object.image} alt={object.title} />}</>}
     </article>})}
   </section>;

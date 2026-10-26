@@ -1,0 +1,79 @@
+.interactive-widget {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  color: inherit;
+  font: inherit;
+}
+.mobile-widget-heading { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: start; }
+.mobile-widget-heading > .interactive-widget { grid-column: 1 / -1; }
+.interactive-widget-preview {
+  margin: 0;
+  color: inherit;
+  font-size: .9em;
+}
+.widget-quiz {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.widget-quiz legend {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.interactive-widget :is(.widget-choice,.widget-retry,.widget-count-button) {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid currentColor;
+  border-radius: 9px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.interactive-widget :is(.widget-choice,.widget-retry,.widget-count-button):disabled {
+  cursor: default;
+  opacity: .75;
+}
+.interactive-widget :is(.widget-choice,.widget-retry,.widget-count-button):focus-visible {
+  outline: 3px solid #a879ef;
+  outline-offset: 2px;
+}
+.widget-feedback {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+.widget-feedback p { margin: 0; }
+.widget-retry { justify-self: start; }
+.widget-progress-label { margin: 0; font-weight: 600; }
+.widget-progress {
+  display: block;
+  width: 100%;
+  height: 12px;
+  accent-color: #9a67df;
+}
+.widget-goal-complete {
+  margin: 0;
+  font-weight: 700;
+}
+@media (prefers-reduced-motion: reduce) {
+  .interactive-widget * { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+}
+@media (max-width: 300px) {
+  .widget-quiz { grid-template-columns: minmax(0, 1fr); }
+  .widget-quiz legend { grid-column: 1; }
+}
+.scene-object.interactive-object { display:block;overflow:auto;text-align:left;padding:12px; }
+.scene-object.interactive-object .interactive-widget { margin-top:6px;gap:6px; }
+.scene-object.interactive-object .object-copy { position:relative;z-index:1; }
+.scene-object.interactive-object .interactive-widget { position:relative;z-index:1; }

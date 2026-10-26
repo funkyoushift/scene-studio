@@ -115,6 +115,33 @@ function objectMediaOptions(object) {
   }
   return values;
 }
+function quizMetadata(object) {
+  if (!Object.hasOwn(object, "quiz") || object.quiz === undefined) return {};
+  if (object.action !== "reveal") fail("Quiz questions must use the reveal action.");
+  const quiz = object.quiz;
+  if (!quiz || typeof quiz !== "object" || Array.isArray(quiz)) fail("Quiz must be an object.");
+  if (!Array.isArray(quiz.choices) || quiz.choices.length < 2 || quiz.choices.length > 4)
+    fail("A quiz must have 2 to 4 choices.");
+  const seen = new Set();
+  const choices = quiz.choices.map((raw) => {
+    if (typeof raw !== "string" || raw.length > 80 || !raw.trim() || /[\p{Cc}\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(raw))
+      fail("Quiz choices must be nonempty text of at most 80 characters without control or bidirectional formatting characters.");
+    const choice = raw.normalize("NFC").trim(), key = choice.toLowerCase();
+    if (seen.has(key)) fail("Quiz choices must be distinct.");
+    seen.add(key);
+    return choice;
+  });
+  if (!Number.isInteger(quiz.correctIndex) || quiz.correctIndex < 0 || quiz.correctIndex >= choices.length)
+    fail("Choose a correct quiz choice.");
+  return { quiz: { choices, correctIndex: quiz.correctIndex } };
+}
+function counterGoal(object) {
+  if (!Object.hasOwn(object, "goal") || object.goal === undefined) return {};
+  if (object.action !== "counter") fail("Goals must use the counter action.");
+  if (!Number.isInteger(object.goal) || object.goal < 2 || object.goal > 1000)
+    fail("Counter goal must be a whole number from 2 to 1000.");
+  return { goal: object.goal };
+}
 export function objectAppearance(object) {
   const values = appearanceValues(object), style = {};
   if (values.background !== undefined) style.backgroundColor = values.background;
@@ -178,6 +205,8 @@ export function validateScene(input) {
             ? { popupOnly: o.popupOnly }
             : fail("popupOnly must be true or false.")
           : {}),
+        ...quizMetadata(o),
+        ...counterGoal(o),
         ...(o.action === "party" ? {preset:o.preset ?? "ducks"} : {}),
         icon: o.icon,
         shape: o.shape,

@@ -29,6 +29,7 @@ const required = [
   "src/FlowBuilder.jsx", "src/flows.css", "src/live-flows.mjs", "src/live-context.mjs",
   "src/ThemeToggle.jsx", "src/editor-theme.mjs", "tests/editor-theme.test.mjs", "tests/live-context.test.mjs",
   "src/MobileViewer.jsx", "src/mobile-entry.jsx", "src/mobile.css",
+  "src/StarterLibrary.jsx", "src/starter-library.css", "src/InteractiveWidgets.jsx", "src/widgets.css",
   "server/chat-authorization.mjs", "server/image-worker.mjs",
   "server/party-service.mjs", "server/public-pages.mjs", "server/schema.sql",
   "server/developer-service.mjs", "server/developer-schema.sql",

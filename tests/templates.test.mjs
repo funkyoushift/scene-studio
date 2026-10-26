@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { TEMPLATE_OPTIONS, createTemplate } from "../src/templates.mjs";
+import { INTERACTIVE_PRESET_OPTIONS, TEMPLATE_OPTIONS, createInteractivePreset, createTemplate } from "../src/templates.mjs";
 import { bytes, parseScene, twitchContent, validateScene } from "../src/scene.mjs";
 
 test("every starter template is portable, bounded and ready for Twitch without external assets", () => {
@@ -48,4 +48,27 @@ test("information and mystery starters work entirely through local reveal intera
     assert.ok(scene.objects.length >= 3);
     assert.ok(scene.objects.every(object => object.action === "reveal" && object.detail.trim().length > 0));
   }
+});
+
+test("interactive presets return fresh additive objects with valid quiz, personal goal, and blank links", () => {
+  assert.equal(new Set(INTERACTIVE_PRESET_OPTIONS.map(option => option.key)).size, INTERACTIVE_PRESET_OPTIONS.length);
+  const seen = new Set();
+  for (const option of INTERACTIVE_PRESET_OPTIONS) {
+    const objects = createInteractivePreset(option.key);
+    assert.equal(objects.length, option.objectCount, option.key);
+    for (const object of objects) {
+      assert.ok(!seen.has(object.id), `${option.key} reused an object ID`);
+      seen.add(object.id);
+    }
+    assert.deepEqual(validateScene({ version: 1, name: "My scene", objects }), { version: 1, name: "My scene", objects });
+  }
+  const trivia = createInteractivePreset("trivia")[0];
+  assert.equal(trivia.action, "reveal");
+  assert.equal(trivia.quiz.choices.length, 3);
+  assert.ok(trivia.quiz.correctIndex >= 0 && trivia.quiz.correctIndex < trivia.quiz.choices.length);
+  const challenge = createInteractivePreset("tap-challenge")[0];
+  assert.equal(challenge.action, "counter");
+  assert.equal(challenge.goal, 20);
+  assert.equal(createInteractivePreset("clickable-link")[0].url, "");
+  assert.throws(() => createInteractivePreset("unknown"), /supported interactive starter/);
 });

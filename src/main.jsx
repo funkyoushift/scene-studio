@@ -29,8 +29,10 @@ import { PARTY_PRESETS } from "./party.mjs";
 import AutomationViewer from "./AutomationViewer.jsx";
 import AutomationStudio from "./AutomationStudio.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
+import { InteractiveWidget } from "./InteractiveWidgets.jsx";
 import DeveloperPanel from "./DeveloperPanel.jsx";
-import { TEMPLATE_OPTIONS, createTemplate } from "./templates.mjs";
+import { TEMPLATE_OPTIONS, createTemplate, createInteractivePreset } from "./templates.mjs";
+import StarterLibrary from "./StarterLibrary.jsx";
 import {
   prepareImage,
   publishImages,
@@ -226,6 +228,10 @@ function PreviewViewport({ value, onChange, children, fullscreen = false }) {
   </div>;
 }
 
+function SceneObjectControl({ widget, children, ...props }) {
+  return widget ? <div {...props} role="group">{children}</div> : <button {...props}>{children}</button>;
+}
+
 function Scene({
   scene,
   editing = false,
@@ -339,12 +345,12 @@ function Scene({
           }}
         >
         <div className={`scene-object-motion motion-${!editing && ["float", "pulse", "sway"].includes(o.motion) ? o.motion : "none"}`}>
-        <button
+        <SceneObjectControl widget={!editing && Boolean(o.quiz || o.goal)}
           style={objectAppearance(o)}
           aria-label={editing ? `Edit ${o.title}` : o.title}
           title={[o.title, o.caption].filter(Boolean).join(" — ")}
-          className={`scene-object ${o.shape} image-fit-${o.imageFit ?? 'cover'} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""}`}
-          onClick={() => activate(o)}
+          className={`scene-object ${o.shape} image-fit-${o.imageFit ?? 'cover'} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""} ${o.quiz || o.goal ? "interactive-object" : ""}`}
+          onClick={() => { if (editing || (!o.quiz && !o.goal)) activate(o); }}
           onPointerDown={(e) => {
             if (!editing || e.button !== 0) return;
             onSelect(o.id);
@@ -412,6 +418,7 @@ function Scene({
             );
           }}
         >
+          {(o.quiz || o.goal) ? <>{o.image && <img src={o.image} alt="" draggable="false" />}{(editing || o.goal) && <span className="object-copy"><strong>{o.title}</strong><span>{o.caption}</span></span>}<InteractiveWidget object={o} count={counts[o.id] || 0} onCount={() => activate(o)} editing={editing} onComplete={() => setBurst({id:id(),text:o.quiz ? "Correct!" : "Challenge complete!",color:o.color})} /></> : <>
           {o.image && <img src={o.image} alt="" draggable="false" />}
           <span className="object-icon">{o.customIcon || (o.action === "party" ? PARTY_PRESETS[o.preset??"ducks"].symbol : symbols[o.icon])}</span>
           <span className="object-copy">
@@ -430,7 +437,8 @@ function Scene({
               {o.action === "link" ? "↗" : "+"}
             </span>
           )}
-        </button>
+          </>}
+        </SceneObjectControl>
         </div>
         </div>
       ))}
@@ -694,6 +702,42 @@ function Editor() {
     const next = { ...object, ...patch };
     change(moveObject(next, next.x, next.y));
   }
+  function changeAction(action) {
+    if (!object) return;
+    const next = { ...object, action };
+    if (action !== "reveal") delete next.quiz;
+    if (action !== "counter") delete next.goal;
+    change(moveObject(next, next.x, next.y));
+  }
+  function addInteractivePreset(key) {
+    try {
+      const objects = createInteractivePreset(key);
+      if (scene.objects.length + objects.length > MAX_OBJECTS) {
+        setNotice(`This starter needs ${objects.length} open object slot${objects.length === 1 ? "" : "s"}. Your scene can contain up to ${MAX_OBJECTS} objects.`);
+        return;
+      }
+      const gridX = [5, 36, 67], gridY = [5, 36, 65];
+      const placed = [...scene.objects];
+      const added = objects.map(item => {
+        const candidates = gridY.flatMap(y => gridX.map(x => ({ x: Math.min(x, 100 - item.width), y: Math.min(y, 100 - item.height) })));
+        const position = candidates.map((candidate, order) => ({
+          ...candidate, order,
+          overlap: placed.reduce((sum, other) => sum + Math.max(0, Math.min(candidate.x + item.width, other.x + other.width) - Math.max(candidate.x, other.x)) * Math.max(0, Math.min(candidate.y + item.height, other.y + other.height) - Math.max(candidate.y, other.y)), 0),
+        })).sort((a, b) => a.overlap - b.overlap || a.order - b.order)[0];
+        const next = { ...item, x: position.x, y: position.y };
+        placed.push(next);
+        return next;
+      });
+      const next = validateScene({ ...scene, objects: [...scene.objects, ...added] });
+      commit(next);
+      focusNewTitle.current = true;
+      setSelected(added[0]?.id);
+      setPreview(false);
+      setNotice(key === "shared-party" ? "Party starters added. Chat messages require the channel’s optional chat connection; viewer preview never posts to chat." : "Added to your current draft. Customize it, then try it in the viewer preview.");
+    } catch (error) {
+      setNotice(error.message);
+    }
+  }
   function add(action) {
     if (scene.objects.length >= MAX_OBJECTS) {
       setNotice("You can have up to 12 objects in a scene.");
@@ -875,10 +919,8 @@ function Editor() {
       <main>
         <div className="editor-toolbar">
           <div><h1>Build your overlay</h1><p>Add an object, drag it into place, then publish.</p></div>
-          <nav className="editor-mode-tabs" aria-label="Editor tools">
-            <button onClick={()=>setModal('templates')}>Starting layouts</button>
-            <button onClick={()=>{setJson('');setModal('ai');}}>Create with AI</button>
-            <button onClick={()=>{setJson(JSON.stringify(scene,null,2));setNotice('');setModal('expert');}}>Expert mode & API</button>
+          <nav className="editor-mode-tabs" aria-label="More editor tools">
+            <button onClick={()=>setModal('advanced')}>Layouts &amp; advanced tools…</button>
           </nav>
         </div>
         <div className="intro">
@@ -893,26 +935,18 @@ function Editor() {
             </p>
             {(import.meta.env.DEV || import.meta.env.VITE_PUBLIC_BUILDER) && !isConfig && <p><a href="./automations.html" target="_blank" rel="noopener noreferrer" style={{color:"#c2ec78"}}>Try carousels, triggers & developer mode ↗</a> <small>Separate prototype</small></p>}
           </div>
-          <button
-            className="ai-button"
-            onClick={() => {
-              setJson("");
-              setModal("ai");
-            }}
-          >
-            ✦ Create with your AI <span>↗</span>
-          </button>
         </div>
         <nav className="builder-steps" aria-label="Build your overlay">
-          <button onClick={()=>{setNotice("");setModal("templates");}}><b>1</b><span>Choose a starting layout<small>Or build your own below</small></span><span>→</span></button>
+          <button onClick={()=>document.querySelector('.starter-library')?.scrollIntoView({behavior:'smooth',block:'center'})}><b>1</b><span>Choose something interactive<small>Add a starter to this draft</small></span><span>→</span></button>
           <button disabled={!object} onClick={()=>{setPreview(false);titleInput.current?.focus();}}><b>2</b><span>Make it yours<small>Your words, images, and placement</small></span><span>→</span></button>
-          <button onClick={()=>setModal("present")}><b>3</b><span>Try the viewer experience<small>Click everything before you save</small></span><span>↗</span></button>
+          <button onClick={()=>setModal("present")}><b>3</b><span>Try the viewer experience<small>Click everything before you publish</small></span><span>↗</span></button>
+          <button onClick={()=>setModal("publish")}><b>4</b><span>Publish when ready<small>Review draft and channel status</small></span><span>↗</span></button>
         </nav>
+        <StarterLibrary objectCount={scene.objects.length} maxObjects={MAX_OBJECTS} onAdd={addInteractivePreset} onOpenAutomation={() => { if (isConfig) { setAutomationVisited(true); setAutomationOpen(true); } else window.location.href = "./automations.html"; }}/>
         <div className="workspace">
           <aside className="library">
-            <details className="object-library" open={isConfig ? undefined : true}>
-            <summary>Add an object or starting layout ＋</summary>
-            <button onClick={()=>setModal('templates')}>Choose a starting layout</button>
+            <details className="object-library">
+            <summary>Other ways to start</summary>
             <div className="panel-heading">
               <h2>Add an object</h2>
               <span>01</span>
@@ -1083,7 +1117,7 @@ function Editor() {
                   On click
                   <select
                     value={object.action}
-                    onChange={(e) => update({ action: e.target.value })}
+                    onChange={(e) => changeAction(e.target.value)}
                   >
                     {ACTIONS.map((a) => (
                       <option value={a} key={a}>
@@ -1092,6 +1126,20 @@ function Editor() {
                     ))}
                   </select>
                 </label>
+                {object.action === "reveal" && object.quiz && <section className="inspector-section quiz-controls" aria-label="Quiz answers">
+                  <h3>Quiz answers</h3>
+                  <p>Viewers choose one answer. Mark the correct choice for the reveal.</p>
+                  {object.quiz.choices.map((choice, index) => <div className="quiz-choice-row" key={index}>
+                    <label>Choice {index + 1}<input aria-label={`Quiz choice ${index + 1}`} maxLength={80} value={choice} onChange={e => update({ quiz: { ...object.quiz, choices: object.quiz.choices.map((value, i) => i === index ? e.target.value : value) } })}/></label>
+                    <button type="button" aria-label={`Remove choice ${index + 1}`} disabled={object.quiz.choices.length <= 2} onClick={() => { const choices = object.quiz.choices.filter((_, i) => i !== index); const correctIndex = object.quiz.correctIndex === index ? 0 : object.quiz.correctIndex > index ? object.quiz.correctIndex - 1 : object.quiz.correctIndex; update({ quiz: { choices, correctIndex } }); }}>−</button>
+                  </div>)}
+                  <label>Correct answer<select value={object.quiz.correctIndex} onChange={e => update({ quiz: { ...object.quiz, correctIndex: Number(e.target.value) } })}>{object.quiz.choices.map((choice, index) => <option key={index} value={index}>{choice || `Choice ${index + 1}`}</option>)}</select></label>
+                  <button type="button" disabled={object.quiz.choices.length >= 4} onClick={() => update({ quiz: { ...object.quiz, choices: [...object.quiz.choices, `Choice ${object.quiz.choices.length + 1}`] } })}>＋ Add answer choice</button>
+                </section>}
+                {object.action === "counter" && <label>Personal tap goal
+                  <input type="number" min="2" max="1000" step="1" value={object.goal ?? 20} onChange={e => { const value = Number(e.target.value); if (Number.isInteger(value) && value >= 2 && value <= 1000) update({ goal: value }); }}/>
+                  <small>Each viewer has their own count for this visit. This is a personal challenge, not a shared poll.</small>
+                </label>}
                 {object.action === "party" ? (
                   <label>Celebration
                     <select value={object.preset??"ducks"} onChange={e=>update({preset:e.target.value})}>
@@ -1340,6 +1388,14 @@ function Editor() {
           <button onClick={()=>{setModal(null);if(isConfig){setAutomationVisited(true);setAutomationOpen(true);}else window.location.href='./automations.html';}}>Open carousels, chat rules & event simulator →</button>
           <button onClick={()=>setModal('chat')}>Manage Twitch chat connection</button>
           <DeveloperPanel onEvent={()=>setNotice('Use the event simulator in Carousels & chat triggers to test your rules.')} />
+        </div>
+      </Modal>}
+      {modal === "advanced" && <Modal title="Layouts & advanced tools" onClose={()=>setModal(null)}>
+        <p>These options offer broader starting points and developer tools. Current drafts are preserved in the object starters above; layouts replace the draft and can be undone.</p>
+        <div className="advanced-tools-list">
+          <button onClick={()=>setModal("templates")}>Choose a starting layout <span>Replaces this draft · Undo available</span></button>
+          <button onClick={()=>{setJson("");setModal("ai");}}>Create with AI <span>Generate a design, then review it here</span></button>
+          <button onClick={()=>{setJson(JSON.stringify(scene,null,2));setNotice("");setModal("expert");}}>Expert mode &amp; API <span>Edit the complete design with advanced fields</span></button>
         </div>
       </Modal>}
       {modal === "templates" && <Modal title="Start with something that feels like you" onClose={()=>setModal(null)}>

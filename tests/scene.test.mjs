@@ -140,6 +140,53 @@ test("popupOnly is optional, boolean-only, and round-trips when enabled", () => 
   }
 });
 
+test("reveal quizzes round-trip as bounded plain choices and stay optional for legacy scenes", () => {
+  const scene = starterScene();
+  const legacy = validateScene(scene);
+  assert.equal(Object.hasOwn(legacy.objects[0], "quiz"), false);
+  Object.assign(scene.objects[0], { title: "What is my favorite color?", detail: "Thanks for playing!", quiz: { choices: [" Blue ", "Green", "Café"], correctIndex: 0 } });
+  const saved = parseScene(twitchContent(scene)).objects[0];
+  assert.deepEqual(saved.quiz, { choices: ["Blue", "Green", "Café"], correctIndex: 0 });
+  assert.equal(saved.title, "What is my favorite color?");
+  assert.equal(saved.detail, "Thanks for playing!");
+  const oversized = starterScene();
+  oversized.objects[0].quiz = { choices: ["A", "B"], correctIndex: 0 };
+  for (const object of oversized.objects) object.detail = "💚".repeat(600);
+  assert.throws(() => twitchContent(oversized), /5 KB/);
+});
+
+test("quiz choices reject invalid counts, duplicate normalized values, bad indexes and controls", () => {
+  const invalid = [
+    { choices: ["Only one"], correctIndex: 0 },
+    { choices: ["A", "B", "C", "D", "E"], correctIndex: 0 },
+    { choices: [" yes ", "Yes"], correctIndex: 0 },
+    { choices: ["Cafe\u0301", "Café"], correctIndex: 0 },
+    { choices: ["", "B"], correctIndex: 0 },
+    { choices: ["A\nB", "C"], correctIndex: 0 },
+    { choices: ["A", "B"], correctIndex: -1 },
+    { choices: ["A", "B"], correctIndex: 2 },
+    { choices: ["A", "B"], correctIndex: 0.5 },
+    { choices: ["A".repeat(81), "B"], correctIndex: 0 },
+  ];
+  for (const quiz of invalid) { const scene = starterScene(); scene.objects[0].quiz = quiz; assert.throws(() => validateScene(scene), /quiz|Quiz/); }
+  const wrongAction = starterScene(); wrongAction.objects[0].action = "counter"; wrongAction.objects[0].quiz = { choices: ["A", "B"], correctIndex: 0 };
+  assert.throws(() => validateScene(wrongAction), /reveal action/);
+});
+
+test("counter goals are optional bounded integers and only apply to counter objects", () => {
+  const scene = starterScene(); scene.objects[0].action = "counter";
+  for (const goal of [2, 1000]) {
+    scene.objects[0].goal = goal;
+    assert.equal(parseScene(twitchContent(scene)).objects[0].goal, goal);
+  }
+  for (const goal of [1, 1001, 2.5, "10", NaN, null]) {
+    scene.objects[0].goal = goal;
+    assert.throws(() => validateScene(scene), /goal/i);
+  }
+  const wrongAction = starterScene(); wrongAction.objects[0].goal = 10;
+  assert.throws(() => validateScene(wrongAction), /counter action/);
+});
+
 test("custom icons count Unicode codepoints and image fit survives Twitch saves", () => {
   for (const customIcon of ["", "🦆".repeat(8), "👩‍🚀", "<3"]) for (const imageFit of ["cover", "contain", "icon"]) {
     const scene = starterScene();
