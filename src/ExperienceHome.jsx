@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { INTERACTIVE_PRESET_OPTIONS } from "./templates.mjs";
 import { EXPERIENCE_PRESETS } from "./experience-presets.mjs";
 import ThemeToggle from "./ThemeToggle.jsx";
@@ -18,6 +18,16 @@ const layoutBundles = [
   { key: "creator-showcase", title: "Creator showcase", description: "Feature a product carousel and a single highlighted item.", flowKeys: ["merch-carousel", "featured-item"], widgetKeys: [], icon: "▣" },
 ];
 
+const guidedGoals = [
+  { id: "subscriber-thanks", label: "Thank subscribers", key: "subscriber-thanks", kind: "flow", what: "Show a thank-you moment when someone subscribes.", need: "A Twitch connection is needed for live subscriber events." },
+  { id: "hype-train", label: "Celebrate a Hype Train", key: "hype-train", kind: "flow", what: "Show live train progress and a celebration.", need: "A Twitch connection is needed for Hype Train events." },
+  { id: "discord-invite", label: "Share my Discord invite", key: "discord-invite", kind: "flow", what: "Give viewers a community invite card when they ask.", need: "Your Discord invite link. Live link availability depends on your channel’s Twitch configuration." },
+  { id: "merch-carousel", label: "Show my merch", key: "merch-carousel", kind: "flow", what: "Show a carousel of products when chat asks.", need: "Your product images, names and own-merch store links. Live destinations must be allowed for your channel." },
+  { id: "creator-shoutout", label: "Shout out a creator", key: "creator-shoutout", kind: "flow", what: "Welcome selected creators with a channel card.", need: "The creator’s Twitch name." },
+  { id: "trivia", label: "Ask chat trivia", key: "trivia", kind: "widget", what: "Add a multiple-choice question viewers can answer.", need: "A question and the answer choices." },
+  { id: "tap-challenge", label: "Add a tap game", key: "tap-challenge", kind: "widget", what: "Give each viewer a personal tapping goal.", need: "A goal number; you can change the starter later." },
+];
+
 export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onCheckBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, channelName, live = false, notice, onDismissNotice }) {
   const [activeGroup, setActiveGroup] = useState("Viewer interactions");
   const [liveSearch, setLiveSearch] = useState("");
@@ -26,6 +36,31 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [bundleError, setBundleError] = useState("");
   const [addingBundles, setAddingBundles] = useState(false);
+  const [guidedGoal, setGuidedGoal] = useState("");
+  const guidedActionRef = useRef(null);
+  const selectedGoal = guidedGoals.find(goal => goal.id === guidedGoal);
+  const matchingDraftExists = goal => {
+    const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const goalWords = normalize(goal.label);
+    const aliases = { "subscriber-thanks": ["subscriber thanks", "thank subscribers"], "hype-train": ["hype train"], "discord-invite": ["discord invite", "community invite"], "merch-carousel": ["merch carousel", "show my merch"], "creator-shoutout": ["creator shoutout"], trivia: ["trivia"], "tap-challenge": ["tap challenge", "tap game"] }[goal.id] || [goalWords];
+    const list = goal.kind === "flow" ? flows : objects;
+    return list.some(item => (goal.id === "trivia" && Boolean(item.quiz)) || (goal.id === "tap-challenge" && item.action === "counter") || aliases.some(alias => normalize(`${item.key || ""} ${item.preset || ""} ${item.presetKey || ""} ${item.name || ""} ${item.title || ""}`).includes(alias)));
+  };
+  const startGuidedSetup = () => {
+    if (!selectedGoal) return;
+    if (matchingDraftExists(selectedGoal)) {
+      const item = (selectedGoal.kind === "flow" ? flows : objects).find(entry => {
+        const normalize = value => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const aliases = { "subscriber-thanks": ["subscriber thanks", "thank subscribers"], "hype-train": ["hype train"], "discord-invite": ["discord invite", "community invite"], "merch-carousel": ["merch carousel", "show my merch"], "creator-shoutout": ["creator shoutout"], trivia: ["trivia"], "tap-challenge": ["tap challenge", "tap game"] }[selectedGoal.id];
+        return (selectedGoal.id === "trivia" && Boolean(entry.quiz)) || (selectedGoal.id === "tap-challenge" && entry.action === "counter") || aliases.some(alias => normalize(`${entry.key || ""} ${entry.preset || ""} ${entry.presetKey || ""} ${entry.name || ""} ${entry.title || ""}`).includes(alias));
+      });
+      if (selectedGoal.kind === "flow") onEditFlows?.(item?.id);
+      else onEditObject?.(item?.id);
+      return;
+    }
+    if (selectedGoal.kind === "flow") onChooseFlow?.(selectedGoal.key);
+    else onChooseWidget?.(selectedGoal.key);
+  };
   const groups = [
     { title: "Viewer interactions", description: "Things viewers can open, answer, or tap.", items: INTERACTIVE_PRESET_OPTIONS.map(item => ({ ...item, kind: "widget", category: item.category || "Viewer interaction", note: viewerNotes[item.key] })) },
     { title: "Live moments", description: "Show a response when something happens in chat or on stream.", items: EXPERIENCE_PRESETS.map(item => ({ ...item, kind: "flow", note: "Starter; connection may be required" })) },
@@ -91,6 +126,27 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
       </div>
     </section>
 
+    <section className="eh-guided" aria-labelledby="eh-guided-title">
+      <span className="eh-kicker">A SIMPLE PLACE TO START</span>
+      <h2 id="eh-guided-title">Let’s set up one thing</h2>
+      <p className="eh-guided-intro">Choose what you want viewers to do. We’ll open the matching starter so you can customize it.</p>
+      <fieldset className="eh-goal-list">
+        <legend className="eh-visually-hidden">What would you like to set up?</legend>
+        {guidedGoals.map(goal => <label key={goal.id} className={`eh-goal-option${guidedGoal === goal.id ? " selected" : ""}`}>
+          <input type="radio" name="guided-goal" value={goal.id} checked={guidedGoal === goal.id} onChange={() => { setGuidedGoal(goal.id); requestAnimationFrame(() => guidedActionRef.current?.focus()); }} />
+          <span><b>{goal.label}</b><small>{goal.what}</small></span>
+        </label>)}
+      </fieldset>
+      {selectedGoal && <div className="eh-guided-next" aria-live="polite">
+        <p><b>What happens:</b> {selectedGoal.what}</p><p><b>What you need:</b> {selectedGoal.need}</p>
+        <div><button ref={guidedActionRef} type="button" className="eh-guided-action" onClick={startGuidedSetup}>{matchingDraftExists(selectedGoal) ? `Set up ${selectedGoal.label.toLowerCase()}` : "Set this up"}</button><button type="button" className="eh-guided-cancel" onClick={() => setGuidedGoal("")}>Cancel</button></div>
+      </div>}
+      <p className="eh-draft-note">Setup changes stay in your draft until you publish. Your existing live setup stays in place while you edit.</p>
+    </section>
+
+    <details className="eh-browse-all">
+      <summary>Browse all starters and tools</summary>
+      <p>Explore the full library, curated layouts, canvas, and AI options.</p>
     <section className="eh-setup" aria-label="Choose how to start">
       <button type="button" className={`eh-setup-card eh-setup-layout${layoutPickerOpen ? " active" : ""}`} aria-expanded={layoutPickerOpen} onClick={() => setLayoutPickerOpen(open => !open)}>
         <span className="eh-setup-icon" aria-hidden="true">▦</span><span className="eh-setup-copy"><b>Start with a layout</b><span>Choose one or more curated starter bundles, then customize each piece.</span></span><span className="eh-setup-arrow" aria-hidden="true">{layoutPickerOpen ? "−" : "+"}</span>
@@ -124,14 +180,16 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
       <p className="eh-layout-library-hint">Want a single starter instead? Browse the individual starter library below.</p>
     </section>}
 
+    </details>
     <section className="eh-section eh-your-work">
       <div className="eh-section-heading"><div><span className="eh-kicker">PICK UP WHERE YOU LEFT OFF</span><h2>Your experiences</h2></div><button className="eh-text-button" type="button" onClick={() => onOpenAdvanced?.()}>Advanced tools <span>↗</span></button></div>
       {objects.length || flows.length ? <div className="eh-work-list">
-        {objects.map((object, i) => <article className="eh-work-item" key={object.id || `object-${i}`}><span className="eh-work-icon">{{heart:"♡",spark:"✦",star:"☆",gift:"◇",info:"i",bolt:"ϟ",message:"☏",link:"↗"}[object.icon] || "✦"}</span><div className="eh-work-copy"><b>{object.title || object.name || "Untitled experience"}</b><span>Viewer interaction</span></div><button type="button" onClick={() => onEditObject?.(object.id)}>Edit <span>↗</span></button></article>)}
-        {flows.map((flow, i) => <article className="eh-work-item" key={flow.id || `flow-${i}`}><span className="eh-work-icon eh-work-flow">✧</span><div className="eh-work-copy"><b>{flow.name || flow.title || "Live moment"}</b><span>Live moment{Array.isArray(flow.ruleIds) ? ` · ${flow.ruleIds.length} ${flow.ruleIds.length === 1 ? "rule" : "rules"}` : ""}</span></div><button type="button" onClick={() => onEditFlows?.(flow.id)}>Edit <span>↗</span></button></article>)}
-      </div> : <div className="eh-empty"><span className="eh-empty-icon">✧</span><div><b>Your experiences will show up here</b><p>Choose a starter below to make your first viewer interaction or live moment.</p></div><button type="button" onClick={() => onOpenCanvas?.()}>Open scene canvas <span>↗</span></button></div>}
+        {objects.map((object, i) => <article className="eh-work-item" key={object.id || `object-${i}`}><span className="eh-work-icon">{{heart:"♡",spark:"✦",star:"☆",gift:"◇",info:"i",bolt:"ϟ",message:"☏",link:"↗"}[object.icon] || "✦"}</span><div className="eh-work-copy"><b>{object.title || object.name || "Untitled experience"}</b><span>Saved draft · Viewer interaction</span></div><button type="button" onClick={() => onEditObject?.(object.id)}>Set up {object.title || object.name || "this draft"} <span>↗</span></button></article>)}
+        {flows.map((flow, i) => <article className="eh-work-item" key={flow.id || `flow-${i}`}><span className="eh-work-icon eh-work-flow">✧</span><div className="eh-work-copy"><b>{flow.name || flow.title || "Live moment"}</b><span>Saved draft · Live moment{Array.isArray(flow.ruleIds) ? ` · ${flow.ruleIds.length} ${flow.ruleIds.length === 1 ? "rule" : "rules"}` : ""}</span></div><button type="button" onClick={() => onEditFlows?.(flow.id)}>Set up {flow.name || flow.title || "this draft"} <span>↗</span></button></article>)}
+      </div> : <div className="eh-empty"><span className="eh-empty-icon">✧</span><div><b>Your experiences will show up here</b><p>Choose an idea above and press Set this up to begin.</p></div><button type="button" onClick={() => onOpenCanvas?.()}>Open scene canvas <span>↗</span></button></div>}
     </section>
-
+    <details className="eh-browse-library">
+      <summary>Browse all individual starters</summary>
     <section className="eh-section eh-gallery">
       <div className="eh-section-heading"><div><span className="eh-kicker">START WITH AN IDEA</span><h2>Choose something to add</h2></div><p>Every starter is editable. You can change the words and details later.</p></div>
       <div className="eh-tabs" role="tablist" aria-label="Starter categories">
@@ -158,6 +216,7 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
         </div>}
       </div>)}
     </section>
+    </details>
 
     <footer className="eh-footer"><span>Build at your own pace. You can preview changes before you publish.</span><button type="button" onClick={() => onOpenAdvanced?.()}>More tools <span>↗</span></button></footer>
   </main>;

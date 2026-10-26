@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T17:58:23.173Z",
+  "createdUtc": "2026-10-26T18:08:50.457Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -276,8 +276,8 @@
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 63614,
-      "sha256": "de441ed1aeb029ad1adcb4bef7efd9475ac994202b7302f5986f179fcd1f0c7e"
+      "bytes": 63653,
+      "sha256": "67d10d451ba36dbc9195ff0c3e60817e6dc6df337eec87431434248a45398d7c"
     },
     {
       "path": "src/AutomationViewer.jsx",
@@ -321,8 +321,8 @@
     },
     {
       "path": "src/experience-home.css",
-      "bytes": 22838,
-      "sha256": "a58bb6d45c0f30a30f7f2e51042c6ce30f5dc213a1ba96ac5063719a972190af"
+      "bytes": 25830,
+      "sha256": "a41f989cdb43afd4d37766ba5e9fe0ede85e4599a030618c187304021561951f"
     },
     {
       "path": "src/experience-presets.mjs",
@@ -336,18 +336,18 @@
     },
     {
       "path": "src/ExperienceHome.jsx",
-      "bytes": 15936,
-      "sha256": "4cf95e1aef18450818162a0795e3cb297e807e8cab34146f50651a648ac3797c"
+      "bytes": 21839,
+      "sha256": "c11933f88fed3c6c6193ef813210a5d41abf447a315eb55bcd9fae71a3246faa"
     },
     {
       "path": "src/FlowBuilder.jsx",
-      "bytes": 40265,
-      "sha256": "250e55422458b22ac706a12496cce07721fd189518f05c144f967edc4a489303"
+      "bytes": 45497,
+      "sha256": "2eb41971b1ffaef57ab11fe06403f23b629dd363b6841823cfa9b2f0396e7b5d"
     },
     {
       "path": "src/flows.css",
-      "bytes": 26070,
-      "sha256": "901aa186d76af58a023eaa0a4ab33ca518a17fd08427c2a17e6861192c88082f"
+      "bytes": 27771,
+      "sha256": "06f54bf80980f61156d508c8b88aae0ca6c43474c3217cd4e0aea9b395baae7d"
     },
     {
       "path": "src/hype-audio.mjs",
@@ -396,8 +396,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 81192,
-      "sha256": "57c2d351eea05942de0578df36c0d8e1b2d93609c5279b261567253431e8e370"
+      "bytes": 84892,
+      "sha256": "6c3fcfa50ada696c4016e0bd7332917f1ab85fa4addcc98dce5c11d13fcba609"
     },
     {
       "path": "src/mobile-entry.jsx",
@@ -481,8 +481,8 @@
     },
     {
       "path": "src/style.css",
-      "bytes": 51742,
-      "sha256": "c3dc81a11eba95eab16292cab16791117d9d82b1f887f0d8568c4a9d0150681d"
+      "bytes": 53487,
+      "sha256": "22877177879c8a738f9f30eeab412120cd869fac1b5c78925bb3c91700ae628f"
     },
     {
       "path": "src/templates.mjs",

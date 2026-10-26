@@ -1687,3 +1687,22 @@ body.viewer #root {
 .home-feedback{position:fixed;bottom:16px;left:20px;right:20px;background:#283724;color:#f3faea;padding:14px;border:1px solid #b9e76d;border-radius:10px;z-index:30}
 .experience-edit-heading{display:flex;justify-content:space-between;gap:16px;align-items:center;margin:12px 0 20px;color:var(--muted);font-size:14px}
 @media(max-width:700px){.experience-edit-heading{align-items:flex-start;flex-direction:column}}
+
+/* Guided object editing retains the same controls and saved draft as the full editor. */
+.app-shell .guide-panel { margin: 14px 0; padding: 18px; border: 1px solid #514562; border-radius: 12px; background: #201b29; color: #f4effa; }
+.app-shell .guide-top, .app-shell .guide-actions, .app-shell .guide-nav { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.app-shell .guide-top { justify-content: space-between; }
+.app-shell .guide-panel button { min-height: 40px; padding: 8px 13px; }
+.app-shell .guide-nav { margin: 16px 0; }
+.app-shell .guide-nav button[aria-current="step"] { border-color: #b992ff; background: #56348a; color: white; }
+.app-shell .guide-panel h2 { scroll-margin-top: 24px; font-size: 21px; margin: 14px 0 8px; }
+.app-shell .guide-panel p { color: #ddd3e8; line-height: 1.5; }
+.app-shell .guide-actions { margin-top: 14px; }
+.app-shell .guided-workspace { grid-template-columns: minmax(0, 1fr) 310px; }
+.app-shell .guided-workspace .library, .app-shell .guided-workspace .guide-advanced-fields { display: none; }
+.app-shell .guided-step-1 { grid-template-columns: minmax(0, 680px); }
+.app-shell .guided-step-1 .canvas-panel, .app-shell .guided-step-1 .guide-position-fields { display: none; }
+.app-shell .guided-step-1 .inspector { grid-column: 1; grid-row: auto; }
+.app-shell .guided-step-2 .guide-content-fields, .app-shell .guided-step-2 .layer-heading, .app-shell .guided-step-2 .layers, .app-shell .guided-step-2 .tip, .app-shell .guided-step-2 .canvas-toolbar { display: none; }
+.app-shell .guided-step-3 { display: none; }
+@media (max-width: 850px) { .app-shell .guided-workspace { grid-template-columns: minmax(0, 1fr); } .app-shell .guided-step-2 .inspector { grid-column: 1; grid-row: auto; } }

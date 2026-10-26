@@ -96,3 +96,15 @@
 .flow-page.selected,.flow-setup-steps button[aria-current="step"]{background:var(--flow-selection);color:var(--flow-selection-text);border-color:var(--flow-accent);box-shadow:inset 3px 0 var(--flow-accent)}
 .flow-builder :is(input,select,textarea):focus-visible,.flow-builder button:focus-visible{outline:3px solid var(--flow-accent);outline-offset:3px}
 .flow-builder .flow-fields :is(input,select,textarea){border-color:var(--flow-line)}
+
+/* Guided setup gives the next decision priority over the complete control surface. */
+.flow-simple .flow-sidebar{display:none}.flow-simple .flow-layout{grid-template-columns:minmax(0,1fr);max-width:900px}
+.flow-coach{padding:22px 24px;margin:16px 0;border:1px solid var(--flow-line);border-left:4px solid var(--flow-accent);border-radius:12px;background:var(--flow-panel)}
+.flow-coach>span{font-size:12px;font-weight:750;color:var(--flow-accent)}.flow-coach h2{font-size:25px;line-height:1.2;margin:10px 0;scroll-margin-top:100px}.flow-coach p{font-size:16px;line-height:1.6;margin:0 0 12px;max-width:720px}.flow-coach small{display:block;color:var(--flow-muted);font-size:13px;line-height:1.5}
+.flow-simple .flow-step-actions{position:sticky;bottom:0;background:var(--flow-panel);border:1px solid var(--flow-line);border-radius:10px;padding:14px;z-index:3;gap:16px}.flow-step-actions>span{font-size:13px;line-height:1.4;max-width:420px}
+.flow-simple .flow-title-row p{font-size:14px}.flow-simple .flow-head-actions{flex-wrap:wrap}
+.flow-simple .flow-fields:empty{display:none}
+@media(max-width:600px){.flow-coach{padding:16px}.flow-coach h2{font-size:22px}.flow-coach p{font-size:15px}.flow-simple .flow-step-actions{flex-wrap:wrap}.flow-step-actions>span{flex:1;min-width:160px}}
+
+.flow-transfer-guide{flex-basis:100%;width:100%;border-top:1px solid var(--flow-line);padding-top:12px;color:var(--flow-text)}.flow-transfer-guide h4{font-size:17px;margin:4px 0}.flow-transfer-guide li{margin:10px 0;line-height:1.5;font-size:14px}.flow-transfer-guide p{font-size:13px;color:var(--flow-muted)}
+.director.flow-first .automation-editor-tabs,.director.flow-first .paste-design{display:none}

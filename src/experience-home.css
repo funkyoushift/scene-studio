@@ -81,3 +81,18 @@
 .eh-card-note{color:var(--eh-muted)}.eh-notice{border-left:4px solid var(--eh-accent)}
 .eh-card-content{padding:14px}.eh-card-title{font-size:15px}.eh-card-description{font-size:13px;line-height:1.5}.eh-card-note{font-size:11px}
 .eh-kicker,.eh-brand-label{font-size:11px}.eh-steps span{font-size:13px}
+
+.eh-guided{margin:0 0 25px;padding:22px;border:1px solid var(--eh-line);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,#83c9ff 9%,var(--eh-panel)),var(--eh-panel) 58%,color-mix(in srgb,#9b7aee 8%,var(--eh-panel)))}
+.eh-guided h2{margin:4px 0;font-size:23px;letter-spacing:-.5px}.eh-guided-intro{margin:0 0 15px;color:var(--eh-muted);font-size:14px}
+.eh-goal-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:0;padding:0;margin:0}
+.eh-goal-option{display:flex;align-items:flex-start;gap:10px;padding:11px;border:1px solid var(--eh-line);border-radius:10px;background:var(--eh-card);cursor:pointer}
+.eh-goal-option.selected{border-color:var(--eh-accent);background:var(--eh-selection);color:var(--eh-selection-text);box-shadow:inset 0 0 0 1px var(--eh-accent)}
+.eh-goal-option input{accent-color:#83c9ff;margin:2px 0 0;flex:none;width:16px;height:16px}.eh-goal-option span{display:grid;gap:3px}.eh-goal-option b{font-size:13px}.eh-goal-option small{font-size:12px;line-height:1.35;color:var(--eh-muted)}
+.eh-guided-next{margin-top:13px;padding:12px;border-radius:10px;background:color-mix(in srgb,var(--eh-bg) 48%,var(--eh-panel));border:1px solid var(--eh-line)}.eh-guided-next p{margin:0 0 5px;color:var(--eh-muted);font-size:13px}.eh-guided-next p b{color:var(--eh-text)}.eh-guided-next>div{display:flex;align-items:center;gap:9px;margin-top:10px}
+.eh-guided-action,.eh-guided-cancel{min-height:40px;padding:9px 14px;border:1px solid var(--eh-accent);border-radius:8px;font:700 13px/1.2 "DM Sans",system-ui,sans-serif;cursor:pointer}.eh-guided-action{background:#7139d5;color:#fff}.eh-guided-cancel{background:var(--eh-panel);color:var(--eh-text);border-color:var(--eh-line)}
+.eh-guided-action:focus-visible,.eh-guided-cancel:focus-visible,.eh-goal-option:focus-within{outline:3px solid var(--eh-accent);outline-offset:2px}.eh-draft-note{margin:12px 0 0;color:var(--eh-muted);font-size:12px}
+.eh-browse-all,.eh-browse-library{margin:0 0 14px;padding:12px 15px;border:1px solid var(--eh-line);border-radius:11px;background:var(--eh-panel)}.eh-browse-all>summary,.eh-browse-library>summary{color:var(--eh-accent);font-size:14px;font-weight:750;cursor:pointer}.eh-browse-all>p{margin:5px 0 0;color:var(--eh-muted);font-size:12px}.eh-browse-all[open],.eh-browse-library[open]{padding-bottom:16px}.eh-browse-all .eh-setup{margin-top:13px}.eh-browse-all .eh-layout-picker{margin-top:8px}.eh-browse-library .eh-gallery{margin-top:13px}
+.eh-work-item button{max-width:45%;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:560px){.eh-guided{padding:16px}.eh-guided h2{font-size:20px}.eh-goal-list{grid-template-columns:1fr}.eh-goal-option{padding:10px}.eh-work-item button{max-width:42%;white-space:normal}}
+
+.eh-hero{min-height:140px;padding-top:18px;padding-bottom:18px;margin-bottom:18px}.eh-hero h1{font-size:clamp(23px,3vw,30px)}.eh-hero-art{transform:scale(.8);transform-origin:right center}.eh-steps{margin-top:12px}

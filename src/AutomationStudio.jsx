@@ -487,6 +487,7 @@ export default function AutomationStudio({ session, onBack, visible = true, expe
           </nav>
           {tab === "builder" ? (
             <FlowBuilder
+              onExport={exportDesign}
               onSave={save}
               liveEditor={liveEditor}
               saveDisabled={busy || (liveEditor && (!savedConfig || !linked))}

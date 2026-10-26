@@ -570,6 +570,8 @@ function Editor() {
   });
   const [selected, setSelected] = useState(scene.objects[0]?.id),
     [preview, setPreview] = useState(false),
+    [guided, setGuided] = useState(true),
+    [guideStep, setGuideStep] = useState(1),
     [viewport, setViewport] = useState({ shape: "desktop", width: 960 }),
     [notice, setNotice] = useState(""),
     [modal, setModal] = useState(null),
@@ -593,6 +595,7 @@ function Editor() {
     lastSentScene = useRef(null),
     lastLoadedScene = useRef(null),
     titleInput = useRef(null),
+    guideHeading = useRef(null),
     focusNewTitle = useRef(false),
     edited = useRef(false),
     history = useRef([]),
@@ -601,6 +604,12 @@ function Editor() {
     fileRef = useRef(null);
   sceneRef.current = scene;
   const object = scene.objects.find((o) => o.id === selected);
+  const goGuideStep = (step) => {
+    setGuideStep(step);
+    setPreview(false);
+    requestAnimationFrame(() => { guideHeading.current?.focus(); guideHeading.current?.scrollIntoView({ behavior: "smooth", block: "start" }); });
+  };
+  const viewerAction = object?.action === "reveal" ? (object.quiz ? "Viewers click the card, choose an answer, and see whether they were right." : "Viewers click the card to reveal your message.") : object?.action === "counter" ? "Viewers click to add to their own count for this visit and reach the goal." : object?.action === "party" ? "Viewers start a shared celebration and a preset chat message when the channel's chat connection is enabled." : object?.action === "celebrate" ? "Viewers click to start a celebration on their own screen." : object?.action === "link" ? "Viewers click to open your website." : "";
   const websiteLinks = scene.objects.filter(o => o.action === 'link');
   let publishProblem = '';
   try { preflightPublish(scene, isConfig ? authRef.current?.channelId : undefined); } catch(error) { publishProblem = error.message; }
@@ -762,8 +771,9 @@ function Editor() {
       const next = validateScene({ ...scene, objects: [...scene.objects, ...added] });
       commit(next);
       setHomeOpen(false);
-      focusNewTitle.current = true;
+      focusNewTitle.current = !guided;
       setSelected(added[0]?.id);
+      if (guided) goGuideStep(1);
       setPreview(false);
       setNotice(key === "shared-party" ? "Party starters added. Chat messages require the channel’s optional chat connection; viewer preview never posts to chat." : "Added to your current draft. Customize it, then try it in the viewer preview.");
     } catch (error) {
@@ -803,8 +813,9 @@ function Editor() {
     }
     const next = newObject(action);
     commit({ ...scene, objects: [...scene.objects, next] });
-    focusNewTitle.current=true;
+    focusNewTitle.current=!guided;
     setSelected(next.id);
+    if (guided) goGuideStep(1);
     setPreview(false);
   }
   function undo() {
@@ -945,7 +956,7 @@ function Editor() {
       onCheckBundle={checkLayoutBundle}
       onOpenAI={() => { setHomeOpen(false); setAutomationOpen(false); setJson(""); setModal("ai"); }}
       onChooseFlow={key => { setFlowRequest({ key, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
-      onEditObject={id => { setSelected(id); setPreview(false); setHomeOpen(false); setAutomationOpen(false); }}
+      onEditObject={id => { setSelected(id); setPreview(false); setHomeOpen(false); setAutomationOpen(false); if (guided) goGuideStep(1); }}
       onEditFlows={pageId => { setFlowRequest({ pageId, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
       onOpenCanvas={() => { setHomeOpen(false); setAutomationOpen(false); }}
       onOpenAdvanced={() => { setHomeOpen(false); setAutomationOpen(false); setModal('advanced'); }} />}
@@ -1014,8 +1025,17 @@ function Editor() {
           <button onClick={()=>setModal("present")}><b>3</b><span>Try the viewer experience<small>Click everything before you publish</small></span><span>↗</span></button>
           <button onClick={()=>setModal("publish")}><b>4</b><span>Publish when ready<small>Review draft and channel status</small></span><span>↗</span></button>
         </nav>
+        <section className="guide-panel" aria-label="Object editing guide">
+          <div className="guide-top"><strong>{guided ? "Guided editor" : "Full editor"}</strong><button onClick={() => { setGuided(!guided); if (!guided) goGuideStep(1); }}>{guided ? "Switch to full editor" : "Use guided editor"}</button></div>
+          {guided && object && <>
+            <nav className="guide-nav" aria-label="Editing steps">{["Content", "Position", "Try & publish"].map((label, i) => <button key={label} aria-current={guideStep === i + 1 ? "step" : undefined} onClick={() => goGuideStep(i + 1)}><b>{i + 1}</b> {label}</button>)}</nav>
+            <h2 ref={guideHeading} tabIndex={-1}>Step {guideStep}: { ["Content", "Position", "Try & publish"][guideStep - 1] }</h2>
+            <p>{guideStep === 1 ? `${object.quiz ? "Replace the sample question and choices below, then choose the correct answer. " : "Edit the words below to make this yours. "}${viewerAction}` : guideStep === 2 ? "Drag the selected object on the canvas. Use the width and height controls to resize it; arrow keys make fine adjustments." : "Open the viewer preview and click your object. When you are ready, use Publish to Twitch and follow the channel instructions."}</p>
+          </>}
+          {guided && !object && <p>Select an object on the canvas or add an experience to begin.</p>}
+        </section>
         <div className="experience-edit-heading"><span>Customize this interaction below. Drag it into place, then try it as a viewer.</span><button onClick={() => setHomeOpen(true)}>＋ Add another experience</button></div>
-        <div className="workspace">
+        <div className={`workspace${guided && object ? ` guided-workspace guided-step-${guideStep}` : ""}`}>
           <aside className="library">
             <details className="object-library">
             <summary>Other ways to start</summary>
@@ -1168,8 +1188,9 @@ function Editor() {
             </div>
             {object ? (
               <>
+                <div className="guide-content-fields">
                 <label>
-                  Title
+                  {guided ? (object.quiz ? "Your question" : "What should the card say?") : "Title"}
                   <input
                     ref={titleInput}
                     value={object.title}
@@ -1178,14 +1199,14 @@ function Editor() {
                   />
                 </label>
                 {object.action !== "party" && <label>
-                  Small print
+                  {guided ? "Short instruction for viewers" : "Small print"}
                   <input
                     value={object.caption}
                     maxLength={100}
                     onChange={(e) => update({ caption: e.target.value })}
                   />
                 </label>}
-                <label>
+                {!guided && <label>
                   On click
                   <select
                     value={object.action}
@@ -1197,7 +1218,7 @@ function Editor() {
                       </option>
                     ))}
                   </select>
-                </label>
+                </label>}
                 {object.action === "reveal" && object.quiz && <section className="inspector-section quiz-controls" aria-label="Quiz answers">
                   <h3>Quiz answers</h3>
                   <p>Viewers choose one answer. Mark the correct choice for the reveal.</p>
@@ -1235,7 +1256,7 @@ function Editor() {
                   </label>
                 ) : (
                   <label>
-                    {object.action === "counter" ? "Thank-you text" : "Message"}
+                    {object.action === "counter" ? "Thank-you text" : guided ? (object.quiz ? "Explain the answer" : "Message viewers see") : "Message"}
                     <textarea
                       rows={3}
                       value={object.detail}
@@ -1250,6 +1271,9 @@ function Editor() {
                   </label>
                 )}
                 {object.action === "party" && <button onClick={() => setModal("chat")}>Set up optional chat</button>}
+                </div>
+                <details className={guided && guideStep !== 1 ? "guide-advanced-fields" : ""} open={!guided || undefined}>
+                <summary>Customize colors and image</summary>
                 <div className="divider" />
                 <section className="inspector-section" aria-label="Object appearance">
                 <h3>Appearance</h3>
@@ -1349,6 +1373,8 @@ function Editor() {
                     Remove image
                   </button>
                 )}
+                </details>
+                <div className="guide-position-fields">
                 <label>
                   Width <span className="value">{object.width}%</span>
                   <input
@@ -1376,7 +1402,8 @@ function Editor() {
                   </div>
                   <div className="object-actions"><button onClick={()=>commit({...scene,objects:[...scene.objects.filter(o=>o.id!==object.id),object]})}>Bring to front</button><button onClick={()=>commit({...scene,objects:[object,...scene.objects.filter(o=>o.id!==object.id)]})}>Send to back</button></div>
                 </details>
-                <div className="object-actions">
+                </div>
+                <div className="guide-advanced-fields object-actions">
                   <button
                     onClick={() => {
                       if (scene.objects.length >= MAX_OBJECTS)
@@ -1415,6 +1442,7 @@ function Editor() {
             )}
           </aside>
         </div>
+        {guided && object && <div className="guide-panel"><div className="guide-actions">{guideStep > 1 && <button onClick={() => goGuideStep(guideStep - 1)}>← Previous step</button>}{guideStep < 3 ? <button className="primary" onClick={() => goGuideStep(guideStep + 1)}>Next: {guideStep === 1 ? "Position" : "Try & publish"} →</button> : <><button onClick={() => setModal("present")}>Open viewer preview</button><button onClick={isConfig ? saveTwitch : () => setModal("publish")} disabled={cannotPublish}>Publish to Twitch</button></>}</div></div>}
         <footer className="app-footer">
           <span>Built for creators. Open to possibility.</span>
           <span>
