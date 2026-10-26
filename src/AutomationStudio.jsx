@@ -9,7 +9,9 @@ import {
   TWITCH_AUTOMATION_EVENTS,
 } from "./automations.mjs";
 import { prepareImage } from "./images.mjs";
-import merch from "../designs/funkyoushift-merch-preview.json";
+import { addExperiencePreset } from "./experience-presets.mjs";
+import { previewExperienceRule } from "./experience-preview.mjs";
+import { deriveLegacyAutomationPages } from "./automations.mjs";
 import "./automations.css";
 import DeveloperPanel from "./DeveloperPanel.jsx";
 import { getAutomationConfig, saveAutomationConfig, publishAutomationImages, fireAutomation, currentAutomationPublisher, connectAutomationSession } from "./automation-twitch.mjs";
@@ -27,55 +29,12 @@ function initialDesign() {
     const saved = localStorage.getItem(KEY);
     if (saved) return parseAutomations(saved);
   } catch {}
-  return validateAutomations({
-    version: 1,
-    carousels: [
-      {
-        id: "merch",
-        title: "The FunkYouSHiFT collection",
-        displaySeconds: 20,
-        slides: merch.objects
-          .filter((o) => o.image)
-          .map((o) => ({
-            id: o.id,
-            title: o.title,
-            caption: o.caption.replace(" · View on Streamlabs ↗", ""),
-            image: o.image,
-            url: o.url,
-          })),
-      },
-    ],
-    rules: [
-      {
-        id: "timed-merch",
-        name: "An occasional merch moment",
-        enabled: true,
-        trigger: { type: "interval", everySeconds: 300 },
-        effect: { type: "carousel", carouselId: "merch" },
-        cooldownSeconds: 60,
-      },
-      {
-        id: "asked-merch",
-        name: "Show it when someone asks",
-        enabled: true,
-        trigger: { type: "keyword", phrase: "merch", match: "word" },
-        effect: { type: "carousel", carouselId: "merch" },
-        cooldownSeconds: 30,
-      },
-      {
-        id: "party-word",
-        name: "Chat starts the party",
-        enabled: true,
-        trigger: { type: "keyword", phrase: "party", match: "word" },
-        effect: { type: "celebrate", message: "CHAT HAS ENTERED PARTY MODE" },
-        cooldownSeconds: 10,
-      },
-      createExternalStarterRule(),
-    ],
-  });
+  return emptyDesign();
 }
 
-export default function AutomationStudio({ session, onBack, visible = true }) {
+export default function AutomationStudio({ session, onBack, visible = true, experienceRequest, onPagesChange, onRequestHandled }) {
+  const [requestedPageId, setRequestedPageId] = useState(null);
+  const consumedRequest = useRef(null);
   const managed = session !== undefined;
   const liveEditor = managed || twitchEditor();
   const [design, setDesign] = useState(() => liveEditor ? emptyDesign() : initialDesign()),
@@ -86,7 +45,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
     [previewTwitchEvent, setPreviewTwitchEvent] = useState("subscribe"),
     [externalName, setExternalName] = useState("boss_defeated"),
     [notice, setNotice] = useState(
-      "Try a message below. Nothing is sent to Twitch.",
+      "Customize an experience, then test it before publishing.",
     ),
     [running, setRunning] = useState(false),
     [now, setNow] = useState(Date.now());
@@ -114,6 +73,25 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  useEffect(() => {
+    try { onPagesChange?.(design.pages ?? deriveLegacyAutomationPages(design)); } catch {}
+    if (!liveEditor) {
+      try { localStorage.setItem(KEY, JSON.stringify(validateAutomations(design))); } catch {}
+    }
+  }, [design, liveEditor, onPagesChange]);
+  useEffect(() => {
+    if (!experienceRequest || consumedRequest.current === experienceRequest.requestId || busy || (liveEditor && !savedConfig)) return;
+    consumedRequest.current = experienceRequest.requestId;
+    onRequestHandled?.(null);
+    setTab("builder");
+    try {
+      if (experienceRequest.key) {
+        const result = addExperiencePreset(design, experienceRequest.key);
+        setDesign(result.design); setRequestedPageId(result.pageId);
+        setNotice("Experience added to your draft. Customize it and try the preview before publishing.");
+      } else setRequestedPageId(experienceRequest.pageId || null);
+    } catch (error) { setNotice(error.message); }
+  }, [experienceRequest, busy, liveEditor, savedConfig, design]);
   function installConfig(next) {
     setSavedConfig(next); setDesign(next.design); setCarouselId(next.design.carousels[0]?.id); setSlideIndex(0);
     setMerchDeclarations(Object.fromEntries(next.design.carousels.map(c => [c.id, next.ownedMerch])));
@@ -137,7 +115,13 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
     const disconnect = connectAutomationSession(helper, session, current => {
       if (!active) return;
       const next = current?.auth, viewer = current?.viewer;
-      if (!next) { authRef.current = null; setAuth(null); setLinked(false); setLiveStatus("Waiting for Twitch channel authorization…"); return; }
+      if (!next) {
+        loadGeneration.current++; authRef.current = null; setAuth(null); setLinked(false);
+        setSavedConfig(null); setDesign(emptyDesign()); setMerchDeclarations({}); setChannelName("");
+        setChatStatus(null); setActivityStatus(null); setAuthorizeUrl(""); setBusy(false);
+        setActive(null); setQueue([]); setRunning(false);
+        setLiveStatus("Waiting for Twitch channel authorization…"); return;
+      }
       if (viewer?.role !== "broadcaster") { authRef.current = null; setAuth(null); setLinked(false); setSavedConfig(null); setDesign(emptyDesign()); setLiveStatus("Only this channel's broadcaster can configure live automations."); return; }
       const changed = authRef.current?.channelId !== next.channelId;
       authRef.current = next; setAuth(next); setLinked(viewer?.isLinked === true);
@@ -271,7 +255,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
       localStorage.setItem(KEY, JSON.stringify(clean));
       setDesign(clean);
       setNotice(
-        "Saved in this browser. This prototype is separate from your Twitch overlay.",
+        "Draft saved in this browser. Publish from your Twitch channel configuration to reach viewers.",
       );
     } catch (e) {
       setNotice(e.message);
@@ -390,10 +374,10 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
         shown.slides.length
     ];
   return (
-    <div className={`director${liveEditor ? " live-flow-editor" : ""}${tab === "builder" ? " flow-first" : ""}`}>
+    <div className={`director experience-director${liveEditor ? " live-flow-editor" : ""}${tab === "builder" ? " flow-first" : ""}`}>
       <header className={`director-top${liveEditor ? " live-director-top" : ""}`}>
-        <a href={backUrl} onClick={event => { if (onBack) { event.preventDefault(); onBack(); } else if (dirty && !window.confirm("Leave without saving this channel's automation edits?")) event.preventDefault(); }}>← Scene Studio objects</a>
-        <span className="draft-badge">{liveEditor ? "TWITCH CHANNEL AUTOMATIONS" : "NEXT VERSION · INTERACTIVE PREVIEW"}</span>
+        <a href={backUrl} onClick={event => { if (onBack) { event.preventDefault(); onBack(); } else if (dirty && !window.confirm("Leave without saving this channel's automation edits?")) event.preventDefault(); }}>← Your experiences</a>
+        <span className="draft-badge">{liveEditor ? "TWITCH CHANNEL AUTOMATIONS" : "LOCAL DRAFT · NOT PUBLISHED"}</span>
         <div>
           <button onClick={exportDesign}>Export</button>
           <label className="import-control">
@@ -414,6 +398,8 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
           </button>
         </div>
       </header>
+      <p className="experience-save-note" role="status">{notice}</p>
+      <p className="experience-save-note">{liveEditor ? "Publishing updates this channel’s live moments. Website links require an allowed destination for this channel." : "Drafts are saved in this browser. Open Scene Studio in Twitch’s extension configuration to publish to your channel."}</p>
       <section className={`director-intro${tab === "builder" ? " flow-intro" : ""}`}>
         <p className="eyebrow">YOUR STREAM, ON CUE</p>
         <h1>Make the moment happen.</h1>
@@ -451,32 +437,46 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
       </details>}
       <main className={`director-grid${tab === "builder" ? " flow-director-grid" : ""}`} inert={busy ? true : undefined}>
         <section className="control-panel">
-          <nav aria-label="Edit automation">
+          <nav aria-label="Edit automation" className="automation-editor-tabs">
             <button
               aria-pressed={tab === "builder"}
               onClick={() => setTab("builder")}
             >
-              ✦ · Flow builder
+              Experiences
             </button>
             <button
               aria-pressed={tab === "rules"}
               onClick={() => setTab("rules")}
             >
-              01 · Chat & timing
+              Advanced rules
             </button>
             <button
               aria-pressed={tab === "carousels"}
               onClick={() => setTab("carousels")}
             >
-              02 · Your carousels
+              All popup content
             </button>
           </nav>
           {tab === "builder" ? (
             <FlowBuilder
               design={design}
+              requestedPageId={requestedPageId}
+              merchDeclarations={merchDeclarations}
+              onDeclareMerch={(id, value) => setMerchDeclarations(old => ({ ...old, [id]: value }))}
+              onBack={onBack}
               setDesign={setDesign}
               onUpdateCarousel={updateCarouselById}
-              evaluate={event => { setActive(null); setQueue([]); engine.current = createAutomationState(Date.now() + offset.current); setPreviewExpanded(true); evaluate(event); }}
+              evaluate={(event, ruleId) => {
+                try {
+                  const clean = validateAutomations(designRef.current);
+                  const result = previewExperienceRule(clean, ruleId, event, Date.now() + offset.current, engine.current.choiceIndexes);
+                  engine.current = result.state;
+                  setActive(null); setQueue([]); setRunning(false);
+                  enqueue(result.events.map(item => ({ ...item, context: safeLiveContext(event.context) })), clean);
+                  setNotice(result.events.length ? 'Previewing this experience only. Nothing was sent to Twitch.' : 'This experience is off or the sample did not match.');
+                  setPreviewExpanded(true);
+                } catch (error) { setNotice(error.message); }
+              }}
               onOpenDetails={(nextTab, targetId) => { if (targetId) setCarouselId(targetId); setTab(nextTab); }}
             />
           ) : tab === "rules" ? (

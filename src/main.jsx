@@ -32,7 +32,7 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import { InteractiveWidget } from "./InteractiveWidgets.jsx";
 import DeveloperPanel from "./DeveloperPanel.jsx";
 import { TEMPLATE_OPTIONS, createTemplate, createInteractivePreset } from "./templates.mjs";
-import StarterLibrary from "./StarterLibrary.jsx";
+import ExperienceHome from "./ExperienceHome.jsx";
 import {
   prepareImage,
   publishImages,
@@ -539,8 +539,10 @@ function Viewer() {
 }
 
 function Editor() {
+  const [homeOpen, setHomeOpen] = useState(true),
+    [flowRequest, setFlowRequest] = useState(null),
+    [flowPages, setFlowPages] = useState([]);
   const [automationOpen, setAutomationOpen] = useState(false),
-    [automationVisited, setAutomationVisited] = useState(false),
     [automationSession, setAutomationSession] = useState(null);
   const [scene, setScene] = useState(() => {
     if (isConfig) return starterScene();
@@ -730,6 +732,7 @@ function Editor() {
       });
       const next = validateScene({ ...scene, objects: [...scene.objects, ...added] });
       commit(next);
+      setHomeOpen(false);
       focusNewTitle.current = true;
       setSelected(added[0]?.id);
       setPreview(false);
@@ -877,7 +880,15 @@ function Editor() {
   }
   return (
     <>
-    <div hidden={automationOpen}>
+    {homeOpen && <ExperienceHome objects={scene.objects} flows={flowPages} channelName={profile?.login} live={isConfig}
+      onChooseWidget={addInteractivePreset}
+      onChooseFlow={key => { setFlowRequest({ key, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
+      onEditObject={id => { setSelected(id); setPreview(false); setHomeOpen(false); setAutomationOpen(false); }}
+      onEditFlows={pageId => { setFlowRequest({ pageId, requestId: crypto.randomUUID() }); setHomeOpen(false); setAutomationOpen(true); }}
+      onOpenCanvas={() => { setHomeOpen(false); setAutomationOpen(false); }}
+      onOpenAdvanced={() => { setHomeOpen(false); setAutomationOpen(false); setModal('advanced'); }} />}
+    {homeOpen && notice && <p className="home-feedback" role="status">{notice}</p>}
+    <div hidden={automationOpen || homeOpen}>
     <div className={`app-shell editor-refresh${isConfig ? ' is-twitch-config' : ''}`} style={publishBarHeight == null ? undefined : { "--publish-bar-height": `${publishBarHeight}px` }}>
       <header className="topbar">
         <a className="brand" href={isConfig ? "./config.html" : "./"}>
@@ -885,6 +896,7 @@ function Editor() {
           <sup>EARLY BUILD</sup>
         </a>
         <div className="top-actions">
+          <button onClick={() => setHomeOpen(true)}>← Your experiences</button>
           <ThemeToggle />
           <span className="save-status">● {saveStatus}</span>
           {profile && (
@@ -902,8 +914,7 @@ function Editor() {
           )}
           {isConfig && <button onClick={()=>{setJson(JSON.stringify(scene,null,2));setNotice('');setModal('expert');}}>Expert mode & API</button>}
           <button disabled={busy || (isConfig && !authorized)} onClick={() => {
-            if (isConfig) { setAutomationVisited(true); setAutomationOpen(true); }
-            else window.location.href = './automations.html';
+            setAutomationOpen(true);
           }}>Live action builder →</button>
           <button onClick={() => setModal("present")}>Open viewer preview ↗</button>
           <button
@@ -942,7 +953,7 @@ function Editor() {
           <button onClick={()=>setModal("present")}><b>3</b><span>Try the viewer experience<small>Click everything before you publish</small></span><span>↗</span></button>
           <button onClick={()=>setModal("publish")}><b>4</b><span>Publish when ready<small>Review draft and channel status</small></span><span>↗</span></button>
         </nav>
-        <StarterLibrary objectCount={scene.objects.length} maxObjects={MAX_OBJECTS} onAdd={addInteractivePreset} onOpenAutomation={() => { if (isConfig) { setAutomationVisited(true); setAutomationOpen(true); } else window.location.href = "./automations.html"; }}/>
+        <div className="experience-edit-heading"><span>Customize this interaction below. Drag it into place, then try it as a viewer.</span><button onClick={() => setHomeOpen(true)}>＋ Add another experience</button></div>
         <div className="workspace">
           <aside className="library">
             <details className="object-library">
@@ -1579,9 +1590,9 @@ function Editor() {
       )}
     </div>
     </div>
-    {automationVisited && <div hidden={!automationOpen}>
-      <AutomationStudio session={{ auth: automationSession?.auth, viewer: automationSession?.viewer, profile }} visible={automationOpen} onBack={() => setAutomationOpen(false)} />
-    </div>}
+    <div hidden={!automationOpen || homeOpen}>
+      <AutomationStudio session={isConfig ? { auth: automationSession?.auth, viewer: automationSession?.viewer, profile } : undefined} visible={automationOpen && !homeOpen} experienceRequest={flowRequest} onRequestHandled={setFlowRequest} onPagesChange={setFlowPages} onBack={() => { setAutomationOpen(false); setHomeOpen(true); }} />
+    </div>
     </>
   );
 }

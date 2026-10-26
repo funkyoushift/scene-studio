@@ -8,7 +8,7 @@ export default function ThemeToggle() {
   const buttonRef = useRef(null);
 
   useEffect(() => {
-    buttonRef.current?.closest(".app-shell, .director")?.setAttribute("data-editor-theme", theme);
+    buttonRef.current?.closest(".app-shell, .director, .experience-home")?.setAttribute("data-editor-theme", theme);
   }, [theme]);
 
   useEffect(() => {
@@ -27,7 +27,7 @@ export default function ThemeToggle() {
   function toggleTheme() {
     const next = theme === "dark" ? "light" : "dark";
     writeEditorTheme(next);
-    buttonRef.current?.closest(".app-shell, .director")?.setAttribute("data-editor-theme", next);
+    buttonRef.current?.closest(".app-shell, .director, .experience-home")?.setAttribute("data-editor-theme", next);
     setTheme(next);
     window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: next }));
   }

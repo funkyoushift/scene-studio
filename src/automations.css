@@ -833,3 +833,17 @@
   background: #eee7f5;
   border-color: #c8b4da;
 }
+
+/* One workspace per experience; the old low-level tools remain secondary. */
+.director.experience-director.flow-first .director-intro{display:none}
+.director.experience-director.flow-first .paste-design{margin:8px 0}
+.director.experience-director .director-top{position:sticky;top:0;z-index:12;background:var(--bg,#101610);padding:12px 16px;border-bottom:1px solid #44513e}
+.director.experience-director .director-top button{min-height:40px}
+.director.experience-director .automation-editor-tabs{display:flex;flex-wrap:wrap;gap:6px}
+.director.experience-director .automation-editor-tabs button{font-size:13px}
+.director.experience-director .director-grid.flow-director-grid{grid-template-columns:minmax(0,1fr)}
+.director.experience-director .flow-director-grid>.preview-panel:not(.expanded-preview){display:none}
+.director.experience-director .preview-panel.expanded-preview{z-index:100}
+
+.director.experience-director .experience-save-note{margin:10px 4vw;color:#bbc9b9;font-size:13px}
+.director.experience-director[data-editor-theme="light"] .experience-save-note{color:#405a45}

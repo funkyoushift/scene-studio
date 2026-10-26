@@ -1682,3 +1682,8 @@ body.viewer #root {
 .scene-object.has-image.image-fit-icon .object-icon { display:none; }
 .scene-object.showcase.has-image.image-fit-icon { display:flex; }
 .scene-object.showcase.has-image.image-fit-icon .object-copy { padding:0; }
+
+/* Shared navigation between the library and the retained canvas editor. */
+.home-feedback{position:fixed;bottom:16px;left:20px;right:20px;background:#283724;color:#f3faea;padding:14px;border:1px solid #b9e76d;border-radius:10px;z-index:30}
+.experience-edit-heading{display:flex;justify-content:space-between;gap:16px;align-items:center;margin:12px 0 20px;color:var(--muted);font-size:14px}
+@media(max-width:700px){.experience-edit-heading{align-items:flex-start;flex-direction:column}}
