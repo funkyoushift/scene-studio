@@ -201,7 +201,7 @@ test("active catch-up preserves only valid saved celebration appearance metadata
   for (const appearance of [
     { ...candidate.rules[0].effect.appearance, style: "unknown" },
     { ...candidate.rules[0].effect.appearance, durationSeconds: 21 },
-    { ...candidate.rules[0].effect.appearance, sound: { preset: "space", volume: 101 } },
+    { ...candidate.rules[0].effect.appearance, sound: { preset: "space", volume: 301 } },
     { ...candidate.rules[0].effect.appearance, sound: { preset: "space", volume: 37, extra: true } },
   ]) {
     s.db.prepare("UPDATE automation_receipts SET event=?").run(JSON.stringify({ ...fired.event, effect: { ...fired.event.effect, appearance } }));

@@ -92,8 +92,8 @@ function inlineSound(value) {
 export function validateCelebrationSound(value, { allowInline = true, channel } = {}) {
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw new Error("Celebration sound must be an object.");
-  if (!Number.isInteger(value.volume) || value.volume < 0 || value.volume > 100)
-    throw new Error("Celebration sound volume must be a whole number from 0 to 100.");
+  if (!Number.isInteger(value.volume) || value.volume < 0 || value.volume > 300)
+    throw new Error("Celebration sound volume must be a whole number from 0 to 300.");
   if (isUploadedSound(value)) {
     const hasPlayback = Object.hasOwn(value, "playback");
     if (Object.keys(value).length !== (hasPlayback ? 5 : 4) ||

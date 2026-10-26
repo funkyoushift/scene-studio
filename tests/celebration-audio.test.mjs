@@ -51,10 +51,51 @@ test("clamps output gain and volume, including out-of-range values", async () =>
   const player = createCelebrationPlayer(Context);
   await player.unlock();
   assert.equal(player.play("bell", 1000), true);
-  assert.ok(made.gains.flatMap(node => node.gain.values).every(value => value >= 0 && value <= 0.12));
+  assert.ok(made.gains.slice(1).flatMap(node => node.gain.values).every(value => value >= 0 && value <= 0.12));
+  assert.ok(made.gains[0].gain.values.every(value => value >= 0 && value <= 3));
   player.stop();
   assert.equal(player.play("bell", -10), false);
   assert.equal(player.play("bell", "not-a-number"), false);
+  await player.dispose();
+});
+
+test("event volume changes a playing tone through its gain bus", async () => {
+  const { Context, made } = mockContext("running");
+  const player = createCelebrationPlayer(Context);
+  await player.unlock();
+  assert.equal(await player.playSound({ preset: "chime", volume: 80 }, 50), true);
+  const bus = made.gains[0];
+  assert.equal(bus.gain.values[0], 0.4);
+  assert.equal(player.setEventVolume(0), true);
+  assert.equal(bus.gain.values.at(-1), 0);
+  assert.equal(player.setEventVolume(50), true);
+  assert.equal(bus.gain.values.at(-1), 0.25);
+  assert.equal(player.setEventVolume(300), true);
+  assert.equal(bus.gain.values.at(-1), 1.5, "event boost is capped at 300 percent and retains viewer attenuation");
+  assert.ok(made.oscillators.every(node => node.stopTime > node.startTime), "volume changes do not restart notes");
+  player.stop();
+  await player.dispose();
+});
+
+test("viewer volume changes a playing builtin tone without changing its event level", async () => {
+  const { Context, made } = mockContext("running");
+  const player = createCelebrationPlayer(Context);
+  await player.unlock();
+  assert.equal(await player.playSound({ preset: "chime", volume: 200 }, 50), true);
+  const bus = made.gains[0];
+  assert.equal(bus.gain.values[0], 1);
+  assert.equal(player.setVolume(0), true);
+  assert.equal(bus.gain.values.at(-1), 0);
+  assert.equal(player.setVolume(25), true);
+  assert.equal(bus.gain.values.at(-1), 0.5);
+  assert.equal(player.setEventVolume(300), true);
+  assert.equal(bus.gain.values.at(-1), 0.75);
+  assert.equal(player.setVolume(100), true);
+  assert.equal(bus.gain.values.at(-1), 3);
+  player.stop();
+  assert.equal(player.play("bell", 50), true);
+  assert.equal(made.gains[0].gain.values[0], 1, "direct play resets the previous event boost and preserves its requested amplitude");
+  player.stop();
   await player.dispose();
 });
 
@@ -68,9 +109,9 @@ test("train preset layers a swept whistle over bounded rhythmic chug for under t
   assert.ok(made.oscillators[0].frequency.values.some(value => value !== 660));
   assert.equal(made.oscillators[2].frequency.values[0], 92);
   assert.ok(made.oscillators.every(node => node.stopTime - node.startTime <= 3));
-  const peakByGain = made.gains.map(node => Math.max(...node.gain.values));
+  const peakByGain = made.gains.slice(1).map(node => Math.max(...node.gain.values));
   assert.ok(peakByGain.reduce((sum, peak) => sum + peak, 0) <= 0.12);
-  assert.ok(made.gains[2].gain.values.filter(value => value > 0).length >= 11);
+  assert.ok(made.gains.at(-1).gain.values.filter(value => value > 0).length >= 11);
   player.stop();
   assert.ok(made.oscillators.every(node => node.disconnect));
   await player.dispose();
@@ -177,9 +218,38 @@ test("Hype music loops only with explicit permission and stops at lifecycle end"
   assert.equal(made.gains.at(-1).gain.values.at(-1), 0.8, "viewer volume cannot boost beyond the original file level");
   assert.equal(player.setVolume(0), true);
   assert.equal(made.gains.at(-1).gain.values.at(-1), 0);
+  assert.equal(player.setVolume(70), true);
+  assert.equal(player.setEventVolume(0), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 0);
+  assert.equal(player.setEventVolume(40), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 0.28, "event level combines with the independently retained viewer level");
+  assert.equal(player.setVolume(100), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 0.4, "restoring viewer volume keeps event level");
+  assert.equal(player.setEventVolume(300), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 3, "event boost cannot change viewer attenuation");
+  assert.equal(player.setEventVolume(1000), true);
+  assert.equal(made.gains.at(-1).gain.values.at(-1), 3, "event level clamps to 300 percent");
   player.stop();
   assert.equal(sources[1].stopped, true);
   assert.equal(await player.playSound(file, 70, { loop: true }), true, "re-enabling after mute may play the same Hype sound again");
   assert.equal(sources[2].loop, true);
+  await player.dispose();
+});
+
+test("event volume changes while decode is pending apply to the eventual playback", async () => {
+  const { Context, made } = mockContext("running");
+  let resolveDecode;
+  Context.prototype.decodeAudioData = () => new Promise(resolve => { resolveDecode = resolve; });
+  Context.prototype.createBufferSource = () => ({ connect() {}, disconnect() {}, start() {}, stop() {} });
+  const player = createCelebrationPlayer(Context, async () => ({ ok: true, headers: { get: () => "4" }, async arrayBuffer() { return new Uint8Array([1, 2, 3, 4]).buffer; } }));
+  await player.unlock();
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, volume: 80 };
+  const pending = player.playSound(sound, 50);
+  for (let i = 0; i < 10 && !resolveDecode; i++) await new Promise(resolve => setImmediate(resolve));
+  assert.equal(player.setEventVolume(25), false, "no active node exists while decode is pending");
+  resolveDecode({ duration: 2 });
+  assert.equal(await pending, true);
+  assert.equal(made.gains.at(-1).gain.values[0], 0.125);
+  player.stop();
   await player.dispose();
 });

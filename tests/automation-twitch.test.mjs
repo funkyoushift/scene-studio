@@ -252,7 +252,7 @@ test("viewer admits only the saved celebration appearance and keeps it intact", 
     ["bad-duration", { ...appearance, durationSeconds: 21 }],
     ["extra-field", { ...appearance, metadata: "untrusted" }],
     ["bad-sound", { ...appearance, sound: { preset: "siren", volume: 85 } }],
-    ["bad-volume", { ...appearance, sound: { preset: "fanfare", volume: 101 } }],
+    ["bad-volume", { ...appearance, sound: { preset: "fanfare", volume: 301 } }],
     ["extra-sound-field", { ...appearance, sound: { ...appearance.sound, audioUrl: "https://example.invalid/tone" } }],
   ]) await send(h, event({ eventId, effect: { type: "celebrate", message: "Hooray", appearance: candidateAppearance } }));
   await send(h, event({ eventId: "missing-appearance", effect: { type: "celebrate", message: "Hooray" } }));

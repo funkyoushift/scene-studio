@@ -118,7 +118,7 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
     `}</style>
     {!enabled ? <button type="button" onClick={enableSound}>Enable celebration sound</button> : <div className="ss-ca-controls">
       <span className="ss-ca-label">Sound on</span>
-      <label className="ss-ca-volume"><span>Volume</span><input type="range" min="0" max="100" value={volume} aria-label="Celebration sound volume" onChange={event => { const next = Number(event.target.value); if (loopingUpload) playerRef.current?.setVolume(next); else playerRef.current?.stop(); setVolume(next); }} /></label>
+      <label className="ss-ca-volume"><span>Volume</span><input type="range" min="0" max="100" value={volume} aria-label="Celebration sound volume" onChange={event => { const next = Number(event.target.value); playerRef.current?.setVolume(next); setVolume(next); }} /></label>
       {preview && <button className="ss-ca-preview" type="button" disabled={!configured || loopingUpload} onClick={previewSound}>Play sample</button>}
       <button type="button" onClick={muteSound}>Mute</button>
     </div>}

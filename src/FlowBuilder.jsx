@@ -120,7 +120,7 @@ function CelebrationAppearance({ effect, onChange, idPrefix, onApplySound }) {
         catch (error) { setSampleStatus(error.message); }
         finally { setPreparing(false); }
       }}/></div>
-      {sound && <label>EVENT VOLUME · {sound.volume}%<input type="range" min="0" max="100" step="1" value={sound.volume} onChange={event => update({ sound: { ...sound, volume: Number(event.target.value) } })}/><small>Set the sound level for this celebration.</small></label>}
+      {sound && <label>EVENT VOLUME · {sound.volume}%<input type="range" min="0" max="300" step="1" value={sound.volume} onChange={event => { const volume = Number(event.target.value); samplePlayer.current?.setEventVolume(volume); update({ sound: { ...sound, volume } }); }}/><small>100% is the original level; up to 300% boosts quiet sounds. Adjust while the preview plays. Lower it if the sound distorts.</small></label>}
       {sound && <button type="button" className="flow-secondary" onClick={async () => {
         try {
           samplePlayer.current ??= createCelebrationPlayer();

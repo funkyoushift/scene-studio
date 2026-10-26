@@ -139,7 +139,7 @@ test("celebration appearance validates on direct and chosen effects and stays ba
     assert.throws(() => validateAutomations(candidate));
   }
   for (const sound of [
-    { preset: "siren", volume: 50 }, { preset: "chime", volume: -1 }, { preset: "chime", volume: 101 },
+    { preset: "siren", volume: 50 }, { preset: "chime", volume: -1 }, { preset: "chime", volume: 301 },
     { preset: "chime", volume: 1.5 }, { preset: "chime", volume: 50, extra: true }, { preset: "chime" },
     { volume: 50 }, { preset: "chime", volume: 50, file: "https://example.invalid/audio" },
   ]) for (const chosenEffect of [false, true]) {

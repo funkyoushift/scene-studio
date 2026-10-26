@@ -18,6 +18,11 @@ function clampVolume(value) {
   return Number.isFinite(numeric) ? Math.min(100, Math.max(0, numeric)) : 0;
 }
 
+function clampEventVolume(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.min(300, Math.max(0, numeric)) : 0;
+}
+
 /** A short local oscillator player. AudioContext construction and resume occur only in unlock(). */
 export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.fetch) {
   let context = null;
@@ -28,7 +33,9 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
   let pending = false;
   let fetchController = null;
   let activeUploadGain = null;
-  let uploadEventVolume = 100;
+  let activeToneEventGain = null;
+  let activeToneViewerDynamic = false;
+  let eventVolumeNow = 100;
   let viewerVolumeNow = 100;
 
   async function unlock() {
@@ -49,22 +56,36 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     const nodes = activeNodes;
     activeNodes = [];
     activeUploadGain = null;
+    activeToneEventGain = null;
+    activeToneViewerDynamic = false;
     for (const node of nodes) {
       try { node.stop?.(); } catch { /* It may already have ended. */ }
       try { node.disconnect?.(); } catch { /* Release best-effort. */ }
     }
   }
 
-  function play(preset, volume = 100) {
+  function toneEventGain(start, viewerDynamic = false) {
+    if (!activeToneEventGain) {
+      activeToneEventGain = context.createGain();
+      activeToneViewerDynamic = viewerDynamic;
+      activeToneEventGain.gain.setValueAtTime((eventVolumeNow / 100) * (viewerDynamic ? viewerVolumeNow / 100 : 1), start);
+      activeToneEventGain.connect(context.destination);
+      activeNodes.push(activeToneEventGain);
+    }
+    return activeToneEventGain;
+  }
+
+  function playTone(preset, volume = 100, viewerDynamic = false) {
     if (disposed || !context || context.state !== "running" || pending) return false;
     const tone = TONES[preset];
     const level = clampVolume(volume);
     if (!tone || level <= 0 || activeNodes.length) return false;
-    const gainScale = MAX_GAIN * level / 100;
-    if (tone.train) return playTrain(gainScale);
+    const gainScale = MAX_GAIN * (viewerDynamic ? 1 : level / 100);
+    if (tone.train) return playTrain(gainScale, viewerDynamic);
     let start = context.currentTime || 0;
     let totalSeconds = 0;
     try {
+      const eventGain = toneEventGain(start, viewerDynamic);
       for (const [frequency, noteSeconds] of tone.notes) {
         const duration = Math.min(noteSeconds, 0.48);
         const oscillator = context.createOscillator();
@@ -76,7 +97,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
         gain.gain.setValueAtTime(gainScale, start + Math.max(0.025, duration - 0.04));
         gain.gain.linearRampToValueAtTime(0, start + duration);
         oscillator.connect(gain);
-        gain.connect(context.destination);
+        gain.connect(eventGain);
         oscillator.start(start);
         oscillator.stop(start + duration + 0.01);
         activeNodes.push(oscillator, gain);
@@ -91,10 +112,16 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     }
   }
 
-  function playTrain(gainScale) {
+  function play(preset, volume = 100) {
+    eventVolumeNow = 100;
+    return playTone(preset, volume, false);
+  }
+
+  function playTrain(gainScale, viewerDynamic = false) {
     const start = context.currentTime || 0;
     const duration = 2.75;
     try {
+      const eventGain = toneEventGain(start, viewerDynamic);
       // Two lightly detuned whistle tones share 0.07 of the 0.12 total budget;
       // the rhythmic low chug uses at most 0.045, leaving headroom throughout.
       for (const [frequency, gainAmount] of [[660, 0.035], [880, 0.035]]) {
@@ -109,7 +136,8 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
         gain.gain.linearRampToValueAtTime(gainScale * gainAmount / MAX_GAIN, start + 0.04);
         gain.gain.setValueAtTime(gainScale * gainAmount / MAX_GAIN, start + 2.58);
         gain.gain.linearRampToValueAtTime(0, start + duration);
-        oscillator.connect(gain); gain.connect(context.destination);
+        oscillator.connect(gain);
+        gain.connect(eventGain);
         oscillator.start(start); oscillator.stop(start + duration + 0.01);
         activeNodes.push(oscillator, gain);
       }
@@ -127,7 +155,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
         chugGain.gain.linearRampToValueAtTime(peak, pulseStart + 0.045);
         chugGain.gain.linearRampToValueAtTime(0, pulseStart + 0.15);
       }
-      chug.connect(chugGain); chugGain.connect(context.destination);
+      chug.connect(chugGain); chugGain.connect(eventGain);
       chug.start(start); chug.stop(start + duration + 0.01);
       activeNodes.push(chug, chugGain);
       cleanupTimer = setTimeout(releaseNodes, Math.min(MAX_PLAY_MS, Math.ceil(duration * 1000) + 80));
@@ -148,20 +176,43 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
 
   function setVolume(value) {
     viewerVolumeNow = clampVolume(value);
-    if (disposed || !context || context.state !== "running" || !activeUploadGain) return false;
-    activeUploadGain.gain.setValueAtTime(MAX_UPLOAD_GAIN * viewerVolumeNow * uploadEventVolume / 10_000, context.currentTime || 0);
-    return true;
+    if (disposed || !context || context.state !== "running") return false;
+    const now = context.currentTime || 0;
+    if (activeUploadGain) {
+      activeUploadGain.gain.setValueAtTime(MAX_UPLOAD_GAIN * viewerVolumeNow * eventVolumeNow / 10_000, now);
+      return true;
+    }
+    if (activeToneEventGain && activeToneViewerDynamic) {
+      activeToneEventGain.gain.setValueAtTime(viewerVolumeNow * eventVolumeNow / 10_000, now);
+      return true;
+    }
+    return false;
+  }
+
+  function setEventVolume(value) {
+    eventVolumeNow = clampEventVolume(value);
+    if (disposed || !context || context.state !== "running") return false;
+    const now = context.currentTime || 0;
+    if (activeUploadGain) {
+      activeUploadGain.gain.setValueAtTime(MAX_UPLOAD_GAIN * viewerVolumeNow * eventVolumeNow / 10_000, now);
+      return true;
+    }
+    if (activeToneEventGain) {
+      activeToneEventGain.gain.setValueAtTime((eventVolumeNow / 100) * (activeToneViewerDynamic ? viewerVolumeNow / 100 : 1), now);
+      return true;
+    }
+    return false;
   }
 
   async function playSound(sound, viewerVolume = 100, { loop = false } = {}) {
     if (disposed || !context || context.state !== "running" || pending || activeNodes.length || !sound || typeof sound !== "object") return false;
     viewerVolumeNow = clampVolume(viewerVolume);
-    const volume = viewerVolumeNow * clampVolume(sound.volume ?? 100) / 100;
-    if (sound.preset !== "upload") return play(sound.preset, volume);
+    eventVolumeNow = clampEventVolume(sound.volume ?? 100);
+    const volume = viewerVolumeNow;
+    if (sound.preset !== "upload") return playTone(sound.preset, volume, true);
     const fullTrack = sound.playback === "hype-loop";
     const shouldLoop = fullTrack && loop === true;
     if (volume <= 0 && !shouldLoop) return false;
-    uploadEventVolume = clampVolume(sound.volume ?? 100);
     const mp3 = typeof sound.url === "string" && (sound.url.endsWith(".mp3") || sound.url.startsWith("data:audio/mpeg;base64,"));
     const byteLimit = mp3 ? MAX_MP3_BYTES : 500_000;
     let bytes;
@@ -211,7 +262,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
       const gain = context.createGain();
       source.buffer = buffer;
       source.loop = shouldLoop;
-      gain.gain.setValueAtTime(MAX_UPLOAD_GAIN * viewerVolumeNow * uploadEventVolume / 10_000, context.currentTime || 0);
+      gain.gain.setValueAtTime(MAX_UPLOAD_GAIN * viewerVolumeNow * eventVolumeNow / 10_000, context.currentTime || 0);
       source.connect(gain); gain.connect(context.destination);
       activeNodes.push(source, gain);
       activeUploadGain = gain;
@@ -235,7 +286,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     }
   }
 
-  return Object.freeze({ unlock, play, playSound, setVolume, stop, dispose });
+  return Object.freeze({ unlock, play, playSound, setVolume, setEventVolume, stop, dispose });
 }
 
 export const CELEBRATION_SOUND_PRESETS = Object.freeze(Object.keys(TONES));

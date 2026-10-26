@@ -233,6 +233,16 @@ test("shared sound contract accepts own hosted or bounded inline URLs only", () 
   for (const bad of [{ ...own, url: address.replace("/123/", "/456/") },
     { ...own, url: "https://other.example/sounds/123/" + "a".repeat(64) + ".wav" },
     { ...own, extra: true }, { ...own, name: " ".repeat(81) },
-    { ...own, volume: 101 }, { ...own, url: "data:audio/wav;base64," + "A".repeat(666672) }])
+    { ...own, volume: 301 }, { ...own, url: "data:audio/wav;base64," + "A".repeat(666672) }])
     assert.throws(() => validateCelebrationSound(bad, { channel }));
+});
+
+
+test("event sound boost up to 300 percent round-trips and invalid levels are rejected", () => {
+  for (const volume of [0, 100, 150, 300]) {
+    assert.deepEqual(validateCelebrationSound({ preset: "chime", volume }), { preset: "chime", volume });
+    const upload = { preset: "upload", name: "Quiet clip", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.wav`, volume };
+    assert.deepEqual(validateCelebrationSound(upload, { channel: "123" }), upload);
+  }
+  for (const volume of [-1, 301, 1.5, NaN, Infinity]) assert.throws(() => validateCelebrationSound({ preset: "chime", volume }), /volume/);
 });
