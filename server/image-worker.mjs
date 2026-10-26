@@ -2,11 +2,12 @@
 // EXTENSION_SECRET (base64 secret), EXTENSION_ORIGIN,
 // and TEST_CHANNELS (comma-separated numeric channel IDs). Empty allowlist denies writes.
 import { partyRequest } from "./party-service.mjs";
-import { startConnect, startTriggerConnect, completeConnect, getChatConnection, disconnectChat, validateIdleChatGrants, ChatAuthorizationError } from "./chat-authorization.mjs";
+import { startConnect, startTriggerConnect, startActivityConnect, completeConnect, getChatConnection, disconnectChat, validateIdleChatGrants, ChatAuthorizationError } from "./chat-authorization.mjs";
 import { publicPage } from "./public-pages.mjs";
 import { developerRequest } from "./developer-service.mjs";
 import { automationRequest, tickAutomations, processAutomationInput, hasMatchingKeywordRule } from "./automation-service.mjs";
 import { getTriggerConnection, ensureTriggerSubscription, disconnectTriggerSubscription, handleChatWebhook, cleanupChatTriggerReceipts } from "./chat-triggers.mjs";
+import { getActivityConnection, ensureActivitySubscriptions, disconnectActivitySubscriptions, handleActivityWebhook } from "./twitch-events.mjs";
 const MAX_IMAGE = 200_000;
 export const MAX_IMAGES = 48;
 export const MAX_TOTAL_IMAGES = 1000;
@@ -175,6 +176,11 @@ export default {
       });
     try {
       const url = new URL(request.url);
+      const activityWebhook = url.pathname.match(/^\/eventsub\/activity\/([1-9][0-9]{0,19})\/(subscribe|resubscribe|gift|hype_begin|hype_progress|hype_end)$/);
+      if (activityWebhook) {
+        if (env.TWITCH_ACTIVITY_ENABLED !== "true") return json({error:"Twitch activity events are not enabled."},404);
+        return handleActivityWebhook(request,env,activityWebhook[1],activityWebhook[2],{processInput:processAutomationInput,waitUntil:ctx ? promise=>ctx.waitUntil(promise) : undefined});
+      }
       const webhook = url.pathname.match(/^\/eventsub\/chat\/([1-9][0-9]{0,19})$/);
       if (webhook) {
         if (env.CHAT_TRIGGERS_ENABLED !== "true") return json({error:"Chat triggers are not enabled."},404);
@@ -217,15 +223,20 @@ export default {
         let status = 200;
         try {
           const connected = await completeConnect(env, request.url);
-          if (connected.triggerAccess) {
-            const trigger = await ensureTriggerSubscription(env,connected.channel);
+          if (connected.triggerAccess) await ensureTriggerSubscription(env,connected.channel);
+          if (connected.activityAccess) {
+            const activity = await ensureActivitySubscriptions(env,connected.channel);
+            message = activity.connected ? "Subscription and Hype Train events are connected. Return to Scene Studio and refresh event status." : "Event access is authorized. Return to Scene Studio and refresh event status to confirm Twitch has enabled the listeners.";
+          }
+          if (connected.triggerAccess && !connected.activityAccess) {
+            const trigger = await getTriggerConnection(env,connected.channel);
             message = trigger.connected ? "Chat triggers are connected. Return to Scene Studio and choose Check connection." : "Chat access is connected. Return to Scene Studio and choose Check connection to confirm Twitch has enabled the chat listener.";
           }
         }
         catch { message = "Chat could not be connected. Return to Scene Studio and start Connect chat again."; status = 400; }
         return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Scene Studio chat</title><h1>Scene Studio</h1><p>${message}</p></html>`, {status, headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; frame-ancestors 'none'","X-Content-Type-Options":"nosniff"}});
       }
-      const chat = url.pathname.match(/^\/v1\/chat\/([1-9][0-9]{0,19})\/(connection|connect|triggers|trigger-connect)$/);
+      const chat = url.pathname.match(/^\/v1\/chat\/([1-9][0-9]{0,19})\/(connection|connect|triggers|trigger-connect|activity|activity-connect)$/);
       if (chat) {
         if (!env.EXTENSION_ORIGIN || origin !== env.EXTENSION_ORIGIN) return json({error:"Open this channel’s configuration on Twitch."},403);
         if (request.method === "OPTIONS") {
@@ -234,6 +245,10 @@ export default {
           return new Response(null,{status:204,headers});
         }
         const claims = await broadcaster(request, env.EXTENSION_SECRET, chat[1]);
+        if (chat[2] === "activity-connect" && request.method === "POST") return json(await startActivityConnect(env,chat[1],origin,claims));
+        if (chat[2] === "activity" && request.method === "GET") return json(await getActivityConnection(env,chat[1]));
+        if (chat[2] === "activity" && request.method === "POST") return json(await ensureActivitySubscriptions(env,chat[1]));
+        if (chat[2] === "activity" && request.method === "DELETE") return json(await disconnectActivitySubscriptions(env,chat[1]));
         if (chat[2] === "trigger-connect" && request.method === "POST") return json(await startTriggerConnect(env,chat[1],origin,claims));
         if (chat[2] === "triggers" && request.method === "GET") return json(await getTriggerConnection(env,chat[1]));
         if (chat[2] === "triggers" && request.method === "POST") return json(await ensureTriggerSubscription(env,chat[1]));
@@ -241,6 +256,7 @@ export default {
         if (chat[2] === "connect" && request.method === "POST") return json(await startConnect(env,chat[1],origin,claims));
         if (chat[2] === "connection" && request.method === "GET") return json(await getChatConnection(env,chat[1],origin,claims));
         if (chat[2] === "connection" && request.method === "DELETE") {
+          if (env.TWITCH_ACTIVITY_ENABLED === "true") await disconnectActivitySubscriptions(env,chat[1]);
           if (env.CHAT_TRIGGERS_ENABLED === "true") await disconnectTriggerSubscription(env,chat[1]);
           return json(await disconnectChat(env,chat[1],origin,claims));
         }

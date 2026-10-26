@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AUTOMATION_LIMITS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule } from "../src/automations.mjs";
+import { AUTOMATION_LIMITS, TWITCH_AUTOMATION_EVENTS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule } from "../src/automations.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
 
 function fixture() {
@@ -81,17 +81,17 @@ test("automation validation enforces counts, IDs, references, supported actions 
   assert.deepEqual(validateAutomations({ version: 1, carousels: [], rules: [] }), { version: 1, carousels: [], rules: [] });
 });
 
-test("automation limits accept six carousels and twelve rules, then reject excess", () => {
+test("automation limits accept eight carousels and eighteen rules, then reject excess", () => {
   const base = fixture();
   const accepted = structuredClone(base);
-  accepted.carousels = Array.from({ length: 6 }, (_, i) => ({ ...structuredClone(base.carousels[0]), id: `c${i}` }));
-  accepted.rules = Array.from({ length: 12 }, (_, i) => ({ ...structuredClone(base.rules[0]), id: `r${i}` }));
-  assert.equal(validateAutomations(accepted).carousels.length, 6);
-  assert.equal(validateAutomations(accepted).rules.length, 12);
-  accepted.carousels.push({ ...structuredClone(accepted.carousels[0]), id: "c6" });
+  accepted.carousels = Array.from({ length: 8 }, (_, i) => ({ ...structuredClone(base.carousels[0]), id: `c${i}` }));
+  accepted.rules = Array.from({ length: 18 }, (_, i) => ({ ...structuredClone(base.rules[0]), id: `r${i}` }));
+  assert.equal(validateAutomations(accepted).carousels.length, 8);
+  assert.equal(validateAutomations(accepted).rules.length, 18);
+  accepted.carousels.push({ ...structuredClone(accepted.carousels[0]), id: "c8" });
   assert.throws(() => validateAutomations(accepted), /Carousels/);
   accepted.carousels.pop();
-  accepted.rules.push({ ...structuredClone(accepted.rules[0]), id: "r12" });
+  accepted.rules.push({ ...structuredClone(accepted.rules[0]), id: "r18" });
   assert.throws(() => validateAutomations(accepted), /Rules/);
 });
 
@@ -215,6 +215,30 @@ test("external rules have independent cooldowns and do not consume keyword or in
   assert.deepEqual(result.events.map(event => event.ruleId), ["boss", "boss_slow"]);
   result = evaluateAutomations(design, result.state, { type: "tick" }, 30000);
   assert.deepEqual(result.events.map(event => event.ruleId), ["rotate"]);
+});
+
+test("Twitch subscription and Hype Train triggers normalize, match exact events, and validate IDs", () => {
+  const design = fixture();
+  design.rules = TWITCH_AUTOMATION_EVENTS.map((event, index) => ({
+    id: `twitch${index}`, name: `Twitch ${event}`, enabled: true,
+    trigger: { type: "twitch", event, ignored: "discarded" },
+    effect: { type: "celebrate", message: event }, cooldownSeconds: 0,
+  }));
+  const parsed = parseAutomations(JSON.stringify(design));
+  assert.deepEqual(parsed.rules.map(rule => rule.trigger), TWITCH_AUTOMATION_EVENTS.map(event => ({ type: "twitch", event })));
+  for (const event of TWITCH_AUTOMATION_EVENTS) {
+    const result = evaluateAutomations(parsed, createAutomationState(), { type: "twitch", event, id: "eventsub-123" }, 0);
+    assert.deepEqual(result.events.map(item => item.effect.message), [event]);
+  }
+  for (const event of ["subscription", "HYPE_BEGIN", "", null]) {
+    const candidate = structuredClone(design); candidate.rules[0].trigger.event = event;
+    assert.throws(() => validateAutomations(candidate), /Twitch event/);
+    assert.throws(() => evaluateAutomations(parsed, createAutomationState(), { type: "twitch", event, id: "e1" }, 0), /Twitch event/);
+  }
+  for (const id of [undefined, "", "x".repeat(257), "line\nbreak", "\u007f"]) {
+    assert.throws(() => evaluateAutomations(parsed, createAutomationState(), { type: "twitch", event: "subscribe", id }, 0), /event ID/);
+  }
+  assert.equal(evaluateAutomations(parsed, createAutomationState(), { type: "twitch", event: "subscribe", id: "x".repeat(256) }, 0).events.length, 1);
 });
 
 test("the new-draft external starter makes the documented first event visibly actionable", () => {

@@ -31,6 +31,7 @@ const required = [
   "server/party-service.mjs", "server/public-pages.mjs", "server/schema.sql",
   "server/developer-service.mjs", "server/developer-schema.sql",
   "server/automation-service.mjs", "server/automation-schema.sql", "server/chat-triggers.mjs", "server/chat-triggers-schema.sql",
+  "server/twitch-events.mjs", "server/twitch-events-schema.sql", "tests/twitch-events.test.mjs",
   "tests/chat-authorization.test.mjs", "tests/chat-ui.test.mjs",
   "tests/image-client.test.mjs", "tests/images.test.mjs", "tests/party.test.mjs",
   "tests/scene.test.mjs", "tests/templates.test.mjs", "tests/twitch.test.mjs",
@@ -86,7 +87,7 @@ if (packageJson.scripts?.["build:pages"] !== "node scripts/build-pages.mjs") {
 
 const config = JSON.parse(await readFile(path.join(root, "wrangler.jsonc"), "utf8"));
 const configKeys = new Set(["$schema", "name", "main", "account_id", "compatibility_date", "workers_dev", "preview_urls", "observability", "triggers", "vars", "d1_databases"]);
-const varKeys = new Set(["PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "MERCH_TEST_STORES", "POPUP_TEST_LINKS"]);
+const varKeys = new Set(["PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "TWITCH_ACTIVITY_ENABLED", "MERCH_TEST_STORES", "POPUP_TEST_LINKS"]);
 for (const key of Object.keys(config)) {
   if (!configKeys.has(key)) throw new Error(`Wrangler setting needs explicit export approval: ${key}`);
 }

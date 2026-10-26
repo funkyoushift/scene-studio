@@ -15,6 +15,7 @@
     ]
   },
   "vars": {
+    "TWITCH_ACTIVITY_ENABLED": "true",
     "PUBLIC_PAGES": "false",
     "PUBLIC_IMAGES": "false",
     "PUBLIC_CHAT": "false",

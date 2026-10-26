@@ -1,10 +1,12 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import {
+  AUTOMATION_LIMITS,
   validateAutomations,
   parseAutomations,
   createAutomationState,
   evaluateAutomations,
   createExternalStarterRule,
+  TWITCH_AUTOMATION_EVENTS,
 } from "./automations.mjs";
 import { prepareImage } from "./images.mjs";
 import merch from "../designs/funkyoushift-merch-preview.json";
@@ -79,6 +81,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
     [carouselId, setCarouselId] = useState(() => design.carousels[0]?.id),
     [slideIndex, setSlideIndex] = useState(0);
   const [message, setMessage] = useState("merch"),
+    [previewTwitchEvent, setPreviewTwitchEvent] = useState("subscribe"),
     [externalName, setExternalName] = useState("boss_defeated"),
     [notice, setNotice] = useState(
       "Try a message below. Nothing is sent to Twitch.",
@@ -97,6 +100,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
   const [auth, setAuth] = useState(null), [linked, setLinked] = useState(false), [channelName, setChannelName] = useState(""),
     [savedConfig, setSavedConfig] = useState(null), [liveStatus, setLiveStatus] = useState("Waiting for Twitch channel authorization…"),
     [busy, setBusy] = useState(false), [chatStatus, setChatStatus] = useState(null), [authorizeUrl, setAuthorizeUrl] = useState("");
+  const [activityStatus, setActivityStatus] = useState(null), [activityAuthorize, setActivityAuthorize] = useState(false);
   const authRef = useRef(null), loadGeneration = useRef(0), viewerRef = useRef(null);
   viewerRef.current = managed ? session?.viewer : window.Twitch?.ext?.viewer;
   const dirty = liveEditor && savedConfig && JSON.stringify(design) !== JSON.stringify(savedConfig.design);
@@ -169,20 +173,24 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
     } catch (error) { setLiveStatus(error.message); }
     finally { setBusy(false); }
   }
-  async function chatConnection(connect = false, retry = false) {
+  async function chatConnection(connect = false, retry = false, activity = false, disconnect = false) {
     if (!auth || !linked || busy) return;
-    setBusy(true); setAuthorizeUrl("");
+    setBusy(true); setAuthorizeUrl(""); setActivityAuthorize(activity);
     try {
-      const response = await fetch(`${IMAGE_ORIGIN}/v1/chat/${auth.channelId}/${connect ? "trigger-connect" : "triggers"}`, { method: connect || retry ? "POST" : "GET", headers: { Authorization: `Bearer ${auth.token}` }, credentials: "omit", redirect: "error", signal: AbortSignal.timeout(20000) });
+      const response = await fetch(`${IMAGE_ORIGIN}/v1/chat/${auth.channelId}/${activity ? (connect ? "activity-connect" : "activity") : (connect ? "trigger-connect" : "triggers")}`, { method: disconnect ? "DELETE" : connect || retry ? "POST" : "GET", headers: { Authorization: `Bearer ${auth.token}` }, credentials: "omit", redirect: "error", signal: AbortSignal.timeout(30000) });
       const result = await response.json();
       if (!response.ok) throw Error(result.message || result.error || "Chat triggers could not be connected.");
       if (connect) {
         const url = new URL(result.authorizeUrl);
         const fields = ["response_type", "client_id", "redirect_uri", "scope", "state"];
-        const scopes = url.searchParams.get("scope")?.split(" ").sort().join(" ");
-        if (url.origin !== "https://id.twitch.tv" || url.pathname !== "/oauth2/authorize" || url.username || url.password || url.hash || fields.some(key => url.searchParams.getAll(key).length !== 1) || url.searchParams.get("response_type") !== "code" || !/^[a-zA-Z0-9]{10,80}$/.test(url.searchParams.get("client_id") || "") || url.searchParams.get("redirect_uri") !== `${IMAGE_ORIGIN}/chat/callback` || !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get("state") || "") || scopes !== ["moderation:read", "user:read:chat", "user:bot", "channel:bot"].sort().join(" ") || !Number.isFinite(result.expiresAt) || result.expiresAt <= Date.now()) throw Error("The Twitch authorization link could not be verified.");
+        const scopeList = url.searchParams.get("scope")?.split(" ") || [];
+        const chatScopes = ["moderation:read", "user:read:chat", "user:bot", "channel:bot"];
+        const activityScopes = ["channel:read:subscriptions", "channel:read:hype_train"];
+        const requiredScopes = activity ? activityScopes : chatScopes;
+        const scopesValid = requiredScopes.every(s => scopeList.includes(s)) && new Set(scopeList).size === scopeList.length && scopeList.every(s => [...chatScopes, ...activityScopes].includes(s));
+        if (url.origin !== "https://id.twitch.tv" || url.pathname !== "/oauth2/authorize" || url.username || url.password || url.hash || fields.some(key => url.searchParams.getAll(key).length !== 1) || url.searchParams.get("response_type") !== "code" || !/^[a-zA-Z0-9]{10,80}$/.test(url.searchParams.get("client_id") || "") || url.searchParams.get("redirect_uri") !== `${IMAGE_ORIGIN}/chat/callback` || !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get("state") || "") || !scopesValid || !Number.isFinite(result.expiresAt) || result.expiresAt <= Date.now()) throw Error("The Twitch authorization link could not be verified.");
         setAuthorizeUrl(url.href); setLiveStatus("Open Twitch authorization below, then refresh connection status.");
-      } else { setChatStatus(result); setLiveStatus("Chat trigger status refreshed."); }
+      } else { if (activity) setActivityStatus(result); else setChatStatus(result); setLiveStatus(activity ? "Subscription and Hype Train event status refreshed." : "Chat trigger status refreshed."); }
     } catch (error) { setLiveStatus(error.message); }
     finally { setBusy(false); }
   }
@@ -424,9 +432,12 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
         {!linked && <div><p>Connect your Twitch identity to save designs, fire viewer effects or authorize chat triggers. You can inspect the channel's settings first.</p><button disabled={!auth || busy} onClick={() => { try { window.Twitch.ext.actions.requestIdShare(); } catch { setLiveStatus("Twitch could not open identity sharing. Try reopening the extension configuration."); } }}>Connect Twitch identity</button></div>}
         <p role="status">{liveStatus}</p>
         <div className="live-automation-actions"><button disabled={!auth || busy} onClick={() => { if (!dirty || window.confirm("Replace unsaved edits with this channel's saved automation design?")) void loadChannel(auth); }}>Reload saved channel design</button><button disabled={!auth || !linked || busy} onClick={() => chatConnection(false)}>Refresh chat trigger status</button><button disabled={!auth || !linked || busy} onClick={() => chatConnection(true)}>Connect Twitch chat triggers</button></div>
-        {authorizeUrl && <a href={authorizeUrl} target="_blank" rel="noopener noreferrer">Authorize chat triggers on Twitch ↗</a>}
+        {authorizeUrl && <a href={authorizeUrl} target="_blank" rel="noopener noreferrer">{activityAuthorize ? "Authorize subscription & Hype Train events on Twitch ↗" : "Authorize chat triggers on Twitch ↗"}</a>}
         {chatStatus && <p>Chat triggers: {chatStatus.connected === true ? "connected" : "not connected"}. {chatStatus.reconnectRequired ? "Reconnect required." : ""} {typeof chatStatus.status === "string" ? chatStatus.status : "Refresh status after authorizing."}</p>}
         {chatStatus?.retryRequired && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, true)}>Retry chat connection</button>}
+        <h3>Subscription & Hype Train popups</h3><p>Connect once, then choose a Twitch event in your rules. Requires read-only subscription and Hype Train access. Events display your saved popup or celebration; they do not send chat messages.</p>
+        <div className="live-automation-actions"><button disabled={!auth || !linked || busy} onClick={() => chatConnection(true, false, true)}>Connect subscriptions & Hype Trains</button><button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, false, true)}>Refresh event status</button>{activityStatus?.authorized && !activityStatus?.connected && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, true, true)}>Retry event listeners</button>}{activityStatus?.authorized && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, false, true, true)}>Disconnect event listeners</button>}</div>
+        {activityStatus && <p role="status">Twitch events: {activityStatus.connected ? "connected" : "not connected"}. {Array.isArray(activityStatus.events) ? `${activityStatus.events.filter(e => e.connected).length} of 6 listeners ready.` : ""} {activityStatus.reconnectRequired ? "Authorization required." : ""} {typeof activityStatus.status === "string" ? activityStatus.status : ""}</p>}
         {savedConfig?.revision > 0 && <><h3>Fire a saved action on Twitch</h3><p>These buttons use saved revision {savedConfig.revision}, not unsaved edits. They send a real viewer effect; they do not post a chat message.</p><div className="live-automation-actions">{savedConfig.design.carousels.map(c => <button disabled={busy || !linked} key={c.id} onClick={() => fireLive({ type: "carousel", carouselId: c.id })}>Fire on Twitch · {c.title}</button>)}{savedConfig.design.rules.filter(r => r.enabled && r.effect.type === "celebrate").map(r => <button disabled={busy || !linked} key={r.id} onClick={() => fireLive({ type: "celebrate", message: r.effect.message })}>Fire on Twitch · {r.name}</button>)}</div></>}
       </section>}
       <main className="director-grid" inert={busy ? true : undefined}>
@@ -450,7 +461,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               <div className="section-heading">
                 <h2>If this, then that.</h2>
                 <button
-                  disabled={design.rules.length >= 12}
+                  disabled={design.rules.length >= AUTOMATION_LIMITS.rules}
                   onClick={() =>
                     setDesign((d) => ({
                       ...d,
@@ -458,16 +469,15 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
                         ...d.rules,
                         {
                           id: uid(),
-                          name: "My new moment",
+                          name: "Welcome a new subscriber",
                           enabled: true,
                           trigger: {
-                            type: "keyword",
-                            phrase: "hello",
-                            match: "word",
+                            type: "twitch",
+                            event: "subscribe",
                           },
                           effect: {
                             type: "celebrate",
-                            message: "WELCOME TO THE STREAM",
+                            message: "WELCOME TO THE STREAM!",
                           },
                           cooldownSeconds: 20,
                         },
@@ -517,7 +527,9 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
                                 }
                               : e.target.value === "external"
                                 ? { type: "external", event: "boss_defeated" }
-                                : { type: "interval", everySeconds: 300 },
+                                : e.target.value === "twitch"
+                                  ? { type: "twitch", event: "subscribe" }
+                                  : { type: "interval", everySeconds: 300 },
                         })
                       }
                     >
@@ -528,6 +540,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
                       <option value="external">
                         A game or service sends an event
                       </option>
+                      <option value="twitch">Twitch subscription or Hype Train event</option>
                     </select>
                   </label>
                   {r.trigger.type === "external" && (
@@ -547,6 +560,19 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
                         Choose your own name, like boss_defeated or
                         goal.reached. Local simulation only.
                       </small>
+                    </label>
+                  )}
+                  {r.trigger.type === "twitch" && (
+                    <label>
+                      Twitch event
+                      <select
+                        aria-label={`Rule ${index + 1} Twitch event`}
+                        value={r.trigger.event}
+                        onChange={(e) => updateRule(r.id, { trigger: { ...r.trigger, event: e.target.value } })}
+                      >
+                        {TWITCH_AUTOMATION_EVENTS.map((event) => <option key={event} value={event}>{({ subscribe: "A viewer subscribes", resubscribe: "A viewer renews a subscription", gift: "A viewer gifts a subscription", hype_begin: "A Hype Train begins", hype_progress: "A Hype Train level advances", hype_end: "A Hype Train ends" })[event]}</option>)}
+                      </select>
+                      <small>Matches authenticated Twitch subscription and Hype Train events.</small>
                     </label>
                   )}
                   {r.trigger.type === "keyword" ? (
@@ -699,7 +725,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               <div className="section-heading">
                 <h2>Images with somewhere to go.</h2>
                 <button
-                  disabled={design.carousels.length >= 6}
+                  disabled={design.carousels.length >= AUTOMATION_LIMITS.carousels}
                   onClick={() => {
                     const id = uid();
                     setDesign((d) => ({
@@ -1116,6 +1142,7 @@ export default function AutomationStudio({ session, onBack, visible = true }) {
               <button type="submit">Simulate event →</button>
             </form>
           </div>
+          <div className="try-chat"><label htmlFor="preview-twitch-event">Preview a subscription or Hype Train</label><p>Tests your saved rule design here only. It does not create a real subscription, start a Hype Train, or send to Twitch.</p><form onSubmit={e => {e.preventDefault(); evaluate({type:"twitch",event:previewTwitchEvent,id:uid()});}}><select id="preview-twitch-event" value={previewTwitchEvent} onChange={e => setPreviewTwitchEvent(e.target.value)}>{TWITCH_AUTOMATION_EVENTS.map(event => <option key={event} value={event}>{({subscribe:"New subscription",resubscribe:"Resubscription shared in chat",gift:"Gift subscriptions",hype_begin:"Hype Train starts",hype_progress:"Hype Train progresses",hype_end:"Hype Train ends"})[event]}</option>)}</select><button type="submit">Preview Twitch event →</button></form></div>
           <div className="timer-controls">
             <button
               aria-pressed={running}

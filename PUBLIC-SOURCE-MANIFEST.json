@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T04:00:19.067Z",
+  "createdUtc": "2026-10-26T04:54:01.551Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -141,8 +141,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 21495,
-      "sha256": "3136c67ea619b53c77ea457e40cfb935507ef76a8acb6c0cf8a5bf0dac72d647"
+      "bytes": 21620,
+      "sha256": "1d71aa522a980d9ede4ba882868ff42e8b5c676982ede3c5bce69f37c61a7e84"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -166,13 +166,13 @@
     },
     {
       "path": "server/automation-service.mjs",
-      "bytes": 20999,
-      "sha256": "3dd39911d536ccdc836c41fdcc4df25ba71cb1f0325dbf4c793181b5a55d493c"
+      "bytes": 21238,
+      "sha256": "c05ff505995c607f6437689b3cadbb54b97a59c1076279e22e07a29e6a7a9387"
     },
     {
       "path": "server/chat-authorization.mjs",
-      "bytes": 27157,
-      "sha256": "93eaaba6d94651768e24ad8af96066b8bbacc51b86685e1f3ee10d9816275a61"
+      "bytes": 33905,
+      "sha256": "baacd1fc9cb347c02e9381812b8ac2c1f02d1189a4bd536e09e39d9b83bf568b"
     },
     {
       "path": "server/chat-triggers-schema.sql",
@@ -196,8 +196,8 @@
     },
     {
       "path": "server/image-worker.mjs",
-      "bytes": 18023,
-      "sha256": "2670dbeb49e13c24ddf6af4bd2dfe6fcd698fc9022fd85464be6525a27dfcf6c"
+      "bytes": 19875,
+      "sha256": "5a618501f5a50711f92209e088a41c7f73170eb3e0befb3e0f3b40c0e011553c"
     },
     {
       "path": "server/party-service.mjs",
@@ -206,13 +206,23 @@
     },
     {
       "path": "server/public-pages.mjs",
-      "bytes": 11682,
-      "sha256": "5efe826d5679a66d9187736c843138812811e3e18b9e381a7af9e7967751d4ba"
+      "bytes": 12215,
+      "sha256": "8c17f0a8c27a2fc1de7a8bdb00c4f66e197955150a79d46680b0d53c93a8b5d6"
     },
     {
       "path": "server/schema.sql",
-      "bytes": 1825,
-      "sha256": "4c99520363cbec45862e06cb29b5201dedd297d609e88f0eed61cee12efd7572"
+      "bytes": 2901,
+      "sha256": "031a3a2733327364ca4b3b8712a6ad48f3d20d9fbd34f1422813507035b884b0"
+    },
+    {
+      "path": "server/twitch-events-schema.sql",
+      "bytes": 1075,
+      "sha256": "9322532563b8fb6282ff09695333cbc3c437ae3767fd77460052b546f519a69e"
+    },
+    {
+      "path": "server/twitch-events.mjs",
+      "bytes": 21721,
+      "sha256": "b812f2adb1b1f46c9226f0bbbeb1b93a25b4759d8291aea06707e0463dc7f274"
     },
     {
       "path": "src/automation-entry.jsx",
@@ -231,18 +241,18 @@
     },
     {
       "path": "src/automations.mjs",
-      "bytes": 9804,
-      "sha256": "e10d864b1b628bbe1e2a9bf1d0ffba3580b1a6a23f014eb84423b7d322bc22c4"
+      "bytes": 10750,
+      "sha256": "5013654dc433bbbc074d8a0dfd7709831fc822a4435b8f076eef82ed9c9ff22c"
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 50319,
-      "sha256": "f5a73606a638fc27546bfb3499ee75562eedfa58baf3bcd3ecff4e7c98de7e48"
+      "bytes": 54613,
+      "sha256": "a42db8040968eb2c21dddf80d355100e228ed95ce74c76a48e09b2f9410e99b0"
     },
     {
       "path": "src/AutomationViewer.jsx",
-      "bytes": 8306,
-      "sha256": "b939dc9dec85440900c3cc9109c7eb52f5de753243ebe36bb7e064d97b8e4bae"
+      "bytes": 8695,
+      "sha256": "e27c81bcaf63386806814b731db67163e409bea99cbcff8f38d253ec6231d9fe"
     },
     {
       "path": "src/DeveloperPanel.jsx",
@@ -306,13 +316,13 @@
     },
     {
       "path": "tests/automation-router.test.mjs",
-      "bytes": 4002,
-      "sha256": "667e2804dcb423d9b2bc13272629dbb21d9a17ef5e552ad55ce0448d18265c7f"
+      "bytes": 4741,
+      "sha256": "815c5d481720b4ddd3fbaf90866e8d686f32602eb021c5be626d6394ce1611cb"
     },
     {
       "path": "tests/automation-service.test.mjs",
-      "bytes": 22547,
-      "sha256": "dcb8ae4f404b8dd7ada906761f827429ff8cb31964a6c97cd7b595c4576e48d3"
+      "bytes": 23647,
+      "sha256": "04188878a1f95c7ef72b8db87d18a2cc841679501dec99b47b8b50450b5bebec"
     },
     {
       "path": "tests/automation-twitch.test.mjs",
@@ -321,8 +331,8 @@
     },
     {
       "path": "tests/automations.test.mjs",
-      "bytes": 15757,
-      "sha256": "f03c0b67f7dfb7df61a394800be2f6df1c0ec7681f9fb48b9c4ae52d6a8a712e"
+      "bytes": 17384,
+      "sha256": "983576c8d04002584e722cbeb3cf75523db7dd0d95aaf3a82ce5d940d654d891"
     },
     {
       "path": "tests/chat-authorization.test.mjs",
@@ -400,6 +410,11 @@
       "sha256": "a055153d4e78835e2bb29eddbceca626f6e82d703d3ef61d0ccffb43ac428efa"
     },
     {
+      "path": "tests/twitch-events.test.mjs",
+      "bytes": 16406,
+      "sha256": "91d683feceeebb6e13b1b19383ebca21a093237cc05faec9ac07cc560186af4e"
+    },
+    {
       "path": "tests/twitch.test.mjs",
       "bytes": 2750,
       "sha256": "0c5be48edd2de76b29477d8938ef2c23247480b5bfd5a3f88925733a7636a416"
@@ -416,8 +431,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 1369,
-      "sha256": "8c615da9aa95851e55b67e3984adb590ca907cb763e7589c877b62f7142be515"
+      "bytes": 1408,
+      "sha256": "47c3598849be53df579425b36e94670cccf023e31caee0248a9e9264deef4010"
     }
   ],
   "scan": {

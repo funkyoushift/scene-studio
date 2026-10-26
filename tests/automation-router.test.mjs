@@ -55,3 +55,13 @@ test('active catch-up route requires signed same-channel viewer proof and exact 
   assert.equal(response.headers.get('Access-Control-Allow-Origin'),origin);
   assert.equal(reads,1);
 });
+
+test('Twitch activity routes deny disabled webhooks, foreign origins and viewer mutations',async()=>{
+  assert.equal((await worker.fetch(new Request('https://service.test/eventsub/activity/123/subscribe',{method:'POST',body:'untrusted'}),env)).status,404);
+  const active={...env,TWITCH_ACTIVITY_ENABLED:'true'};
+  assert.equal((await worker.fetch(new Request('https://service.test/v1/chat/123/activity-connect',{method:'POST'}),active)).status,403);
+  for(const route of ['activity-connect','activity']){
+    const response=await worker.fetch(new Request(`https://service.test/v1/chat/123/${route}`,{method:'POST',headers:{Origin:origin,Authorization:`Bearer ${await token()}`}}),active);
+    assert.equal(response.status,401);
+  }
+});

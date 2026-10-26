@@ -288,3 +288,17 @@ test("slow request bodies start saved timers and manual celebrations at completi
   assert.equal(fired.event.expires, wall + 8000);
   assert.equal(s.db.prepare("SELECT last_event_at FROM automation_configs").get().last_event_at, wall);
 });
+
+test('authenticated Twitch event inputs select saved effects and deduplicate across event types', async t => {
+  const s=fixture(t), value=design();
+  value.rules=[{id:'sub',name:'Subscriber welcome',enabled:true,trigger:{type:'twitch',event:'subscribe'},effect:{type:'carousel',carouselId:'merch'},cooldownSeconds:30}];
+  assert.equal((await s.save(value)).status,200);
+  const input={type:'twitch',event:'subscribe',id:'twitch-notification-1'};
+  const first=await processAutomationInput(s.env,'123',input,{now,fetcher:s.fetcher});
+  assert.equal(first.status,'sent');assert.equal(first.event.effect.carouselId,'merch');
+  const count=s.sent.length;
+  const again=await processAutomationInput(s.env,'123',input,{now:now+40000,fetcher:s.fetcher});
+  assert.equal(again.status,'sent');assert.equal(s.sent.length,count);
+  await assert.rejects(processAutomationInput(s.env,'123',{...input,event:'hype_begin'},{now:now+40000,fetcher:s.fetcher}),e=>e.status===409);
+  await assert.rejects(processAutomationInput(s.env,'123',{...input,event:'invented'},{now,fetcher:s.fetcher}),e=>e.status===400);
+});

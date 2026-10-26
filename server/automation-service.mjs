@@ -1,4 +1,4 @@
-import { validateAutomations, evaluateAutomations, createAutomationState, keywordMatches } from "../src/automations.mjs";
+import { validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
 import { signPartyToken } from "./party-service.mjs";
 
@@ -163,9 +163,10 @@ async function admittedEffect(env, channel, row, inputId, inputHash, effect, nex
 // Message text is used transiently for matching; it is never stored or broadcast.
 export async function processAutomationInput(env, channel, event, { now = Date.now(), fetcher = fetch } = {}) {
   enabled(env, channel); clock(now);
-  if (!event || !["message", "external", "tick"].includes(event.type)) fail(400, "invalid_event", "Unsupported automation input.");
+  if (!event || !["message", "external", "tick", "twitch"].includes(event.type)) fail(400, "invalid_event", "Unsupported automation input.");
   if (event.type !== "tick" && (typeof event.id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(event.id))) fail(400, "event_id_required", "Pass a stable source event ID.");
   if (event.type === "message" && (typeof event.text !== "string" || event.text.length > 2000)) fail(400, "invalid_event", "Chat input must be at most 2000 characters.");
+  if (event.type === "twitch" && !TWITCH_AUTOMATION_EVENTS.includes(event.event)) fail(400, "invalid_event", "Use a supported Twitch event.");
   if (event.type === "external" && (typeof event.name !== "string" || !/^[A-Za-z][A-Za-z0-9._-]{0,63}$/.test(event.name))) fail(400, "invalid_event", "Use a valid external event name.");
   const row = await load(env, channel);
   if (!row) return { status: "no_match" };
@@ -174,7 +175,7 @@ export async function processAutomationInput(env, channel, event, { now = Date.n
   // Check receipts before cooldown evaluation, so an uncertain input cannot
   // become a different rule after its original rule enters cooldown.
   const inputId = `${event.type}:${event.type === "tick" ? Math.floor(now / 60000) : event.id}`;
-  const inputHash = await hash(JSON.stringify({ type: event.type, text: event.text ?? null, name: event.name ?? null }));
+  const inputHash = await hash(JSON.stringify({ type: event.type, text: event.text ?? null, name: event.name ?? null, ...(event.type === "twitch" ? { event: event.event } : {}) }));
   const old = await stmt(env, "SELECT input_hash,status,event FROM automation_receipts WHERE channel=?1 AND input_id=?2 AND expires>?3", channel, inputId, now).first();
   if (old) { if (old.input_hash !== inputHash) fail(409, "input_conflict", "This input ID has already been used for a different event."); return receipt(old, true); }
   const result = evaluateAutomations(design, previous, event, now);

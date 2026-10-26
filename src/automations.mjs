@@ -3,11 +3,14 @@
 import { MAX_IMPORT_BYTES, bytes, validateScene } from "./scene.mjs";
 
 export const AUTOMATION_LIMITS = Object.freeze({
-  carousels: 6, slides: 6, rules: 12, messageCharacters: 2000,
+  carousels: 8, slides: 6, rules: 18, messageCharacters: 2000,
   displaySeconds: Object.freeze([2, 300]),
   everySeconds: Object.freeze([5, 3600]),
   cooldownSeconds: Object.freeze([0, 3600]),
 });
+export const TWITCH_AUTOMATION_EVENTS = Object.freeze([
+  "subscribe", "resubscribe", "gift", "hype_begin", "hype_progress", "hype_end",
+]);
 
 const record = (value, label) => {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object.`);
@@ -88,6 +91,9 @@ export function validateAutomations(input) {
       trigger = { type: "interval", everySeconds: duration(source.everySeconds, AUTOMATION_LIMITS.everySeconds, "Rule interval") };
     } else if (source.type === "external") {
       trigger = { type: "external", event: externalEventName(source.event) };
+    } else if (source.type === "twitch") {
+      if (!TWITCH_AUTOMATION_EVENTS.includes(source.event)) throw new Error("Choose a supported Twitch event.");
+      trigger = { type: "twitch", event: source.event };
     } else throw new Error("Choose a keyword, interval, or external trigger.");
     const target = record(raw.effect, "Effect");
     let effect;
@@ -140,7 +146,8 @@ export function createAutomationState(now = 0) {
   return { startedAt: time(now, "Start time"), lastFired: {} };
 }
 
-// Input: {type:'message',text}, {type:'tick'}, or {type:'external',name}, and an
+// Input: {type:'message',text}, {type:'tick'}, {type:'external',name}, or a
+// validated Twitch event {type:'twitch',event,id}, and an
 // injected millisecond time. External names match exactly; payloads are ignored.
 // Output: a new state and {ruleId,name,effect,at} events; the caller renders them.
 // Intervals start after one full period and fire at most once per evaluation.
@@ -153,9 +160,16 @@ export function evaluateAutomations(input, previous, event, now) {
   if (now < startedAt) throw new Error("Evaluation time cannot be earlier than the start time.");
   const stored = record(previous.lastFired, "Rule cooldown state");
   record(event, "Preview event");
-  if (!["message", "tick", "external"].includes(event.type)) throw new Error("Choose a message, tick, or external event.");
+  if (!["message", "tick", "external", "twitch"].includes(event.type)) throw new Error("Choose a message, tick, or external/Twitch event.");
   const message = event.type === "message" ? text(event.text, AUTOMATION_LIMITS.messageCharacters, "Preview message") : "";
   const externalName = event.type === "external" ? externalEventName(event.name) : "";
+  let twitchEvent = "";
+  if (event.type === "twitch") {
+    if (!TWITCH_AUTOMATION_EVENTS.includes(event.event)) throw new Error("Choose a supported Twitch event.");
+    if (typeof event.id !== "string" || event.id.length < 1 || event.id.length > 256 || /\p{Cc}/u.test(event.id))
+      throw new Error("Twitch event ID must be 1 to 256 characters without controls.");
+    twitchEvent = event.event;
+  }
   const lastFired = Object.fromEntries(design.rules.flatMap(rule => {
     if (!Object.hasOwn(stored, rule.id)) return [];
     const at = time(stored[rule.id], "Last fired time");
@@ -172,7 +186,9 @@ export function evaluateAutomations(input, previous, event, now) {
       ? event.type === "message" && keywordMatches(message, rule.trigger.phrase, rule.trigger.match)
       : rule.trigger.type === "external"
         ? event.type === "external" && externalName === rule.trigger.event
-        : event.type === "tick" && now - last >= rule.trigger.everySeconds * 1000;
+        : rule.trigger.type === "twitch"
+          ? event.type === "twitch" && twitchEvent === rule.trigger.event
+          : event.type === "tick" && now - last >= rule.trigger.everySeconds * 1000;
     if (!matches) continue;
     Object.defineProperty(lastFired, rule.id, { value: now, writable: true, enumerable: true, configurable: true });
     events.push({ ruleId: rule.id, name: rule.name, effect: { ...rule.effect }, at: now });
