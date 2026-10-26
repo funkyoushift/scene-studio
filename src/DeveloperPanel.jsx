@@ -110,9 +110,9 @@ export default function DeveloperPanel({ onEvent }) {
     <details className="developer-panel">
       <summary>Developer mode · API roadmap and preview</summary>
       <p>Connect a game, website or service through named events, viewer actions and shared JSON state. The visual builder and event simulator work here without a local server.</p>
-      <p>The hosted developer API is not enabled yet. Channel-owned keys, permissions and revocation must be connected before an outside application can control a real Twitch overlay.</p>
-      <pre>{`POST /channels/{channel}/events\n{ "id": "victory-1", "name": "boss_defeated", "data": { "score": 100 } }\n\nGET /channels/{channel}/actions?after={cursor}\nGET /channels/{channel}/state`}</pre>
-      <p>These are the planned cloud API shapes, not active endpoints. Try your event names with “Try an outside event” above. No local API calls are made from this hosted page.</p>
+      <p>The hosted developer API is not enabled yet. Its prepared event endpoint stores a receipt marked “accepted-not-delivered”; it does not trigger effects on Twitch. Streamer key management and live effect delivery are not connected here.</p>
+      <pre>{`POST /v2/channels/{channel}/events\n{ "id": "victory-1", "name": "boss_defeated", "data": { "score": 100 } }\n\nPrepared response: { "status": "accepted-not-delivered", "delivered": false }\n\nGET /v2/channels/{channel}/actions?after={cursor}\nGET /v2/channels/{channel}/state`}</pre>
+      <p>These routes are prepared but disabled. Try “boss_defeated” with “Try an outside event” above: new designs include a matching celebration rule. For an existing draft, add an external-event rule with that name. No local API calls are made from this hosted page.</p>
     </details>
   );
   return (
@@ -128,6 +128,11 @@ export default function DeveloperPanel({ onEvent }) {
         data is accepted by the API but is not yet bound to text or properties
         in the overlay. Closing this page stops preview playback; restarting the
         bridge clears the sandbox.
+      </p>
+      <p>
+        New designs include a celebration for <code>boss_defeated</code>. If you
+        opened a saved draft, add a rule for “A game or service sends an event”
+        with that name before sending the example.
       </p>
       {!session ? (
         <button disabled={busy} onClick={start}>

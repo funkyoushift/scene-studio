@@ -46,6 +46,15 @@ An optional local developer bridge is included as source for developers;
 GitHub Pages cannot run a Node server. The hosted builder does not need that
 bridge for design work. No hosted developer API is enabled by this source export.
 
+The server/developer-service.mjs and server/developer-schema.sql files provide a
+source-only cloud API foundation, with tests for scoped keys, event receipts and
+state. Its schema has not been applied to the live service, and its route remains
+disabled. An accepted event returns status "accepted-not-delivered" with
+delivered: false; saved state also reports delivered: false. These receipts do
+not mean a viewer received an event, an overlay changed, or a game acted on it.
+Schema application, enabled routes and viewer delivery require separate work
+and qualification; publishing these sources does not perform those steps.
+
 The FunkYouSHiFT merch example contains actual product photos and Streamlabs
 destinations. Website/checkout actions remain preview-only in the submitted
 extension and are rejected when saving to Twitch. This is not a claim of live
@@ -88,8 +97,23 @@ enabling PUBLIC_PAGES, PUBLIC_IMAGES or PUBLIC_CHAT. Qualify your hosted flows
 before enabling wider access. GitHub Pages hosts only the frontend; authenticated
 uploads, token handling and chat checks belong in the backend.
 
-Use npm run build and scripts/package-twitch.ps1 for a separate Twitch package.
-Publishing the Pages site does not update a version already submitted to Twitch.
+For a separate Twitch package, choose a new unsubmitted version and set
+VITE_EXTENSION_VERSION before building. Pass that same value to the mandatory
+-Version argument of scripts/package-twitch.ps1. For example, in PowerShell:
+
+```powershell
+$env:VITE_EXTENSION_VERSION = '0.2.0'
+npm run build
+./scripts/package-twitch.ps1 -Version '0.2.0'
+Remove-Item Env:VITE_EXTENSION_VERSION
+```
+
+Use your chosen version consistently in the compiled frontend, ZIP filename,
+Twitch version and backend ALLOWED_EXTENSION_VERSIONS. That nonsecret backend
+allowlist is retained in this export for inspection; qualify the versions before
+enabling them. Naming a ZIP does not rewrite its compiled version. The packaging
+script refuses an existing ZIP. Publishing Pages does not update the version
+already submitted to Twitch; preserve the submitted 0.1.0 package.
 
 ## Boundaries
 

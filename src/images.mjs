@@ -1,5 +1,5 @@
 import { IMAGE_ORIGIN, hostedImage } from "./image-address.mjs";
-import { twitchContent, validateScene } from "./scene.mjs";
+import { bytes, twitchContent, validateScene } from "./scene.mjs";
 
 export async function prepareImage(file) {
   if (
@@ -79,14 +79,18 @@ async function service(path, auth, options = {}, fetcher = fetch) {
     );
   return result;
 }
-export async function publishImages(scene, auth, fetcher = fetch) {
+// Shared, side-effect-free admission for the editor and actual publication.
+// Before channel identity is known, the longest allowed ID gives a conservative
+// estimate; uploaded image bytes never count as Twitch configuration text.
+export function preflightPublish(scene, channelId) {
   const clean = validateScene(scene);
-  if (!clean.objects.some((o) => o.image)) {
-    twitchContent(clean);
-    return clean;
-  }
-  const channel = identity(auth);
+  if (channelId != null && (typeof channelId !== "string" || !/^[1-9][0-9]{0,19}$/.test(channelId)))
+    throw new Error("Your Twitch channel identity is not ready.");
+  const hasImages = clean.objects.some(object => object.image);
+  const estimated = hasImages && channelId == null;
+  const channel = channelId ?? "99999999999999999999";
   if (
+    channelId != null &&
     clean.objects.some(
       (o) =>
         o.image &&
@@ -98,7 +102,7 @@ export async function publishImages(scene, auth, fetcher = fetch) {
       "Use images uploaded to your own channel. Replace images copied from another channel.",
     );
   // Validate final configuration size/actions before any public uploads.
-  twitchContent({
+  const content = twitchContent({
     ...clean,
     objects: clean.objects.map((o) => ({
       ...o,
@@ -107,6 +111,15 @@ export async function publishImages(scene, auth, fetcher = fetch) {
         : "",
     })),
   });
+  return { scene: clean, content, bytes: bytes(content), estimated };
+}
+
+export async function publishImages(scene, auth, fetcher = fetch) {
+  const initial = validateScene(scene);
+  const hasImages = initial.objects.some(object => object.image);
+  const channel = hasImages ? identity(auth) : undefined;
+  const { scene: clean } = preflightPublish(initial, channel);
+  if (!hasImages) return clean;
   const uploaded = new Map(),
     objects = [];
   for (const object of clean.objects) {

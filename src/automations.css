@@ -479,6 +479,54 @@ body {
   max-width: 100%;
   font-size: 11px;
 }
+.merch-declaration {
+  min-width: 0;
+  margin: 18px 0;
+  padding: 12px 14px 14px;
+  border: 1px solid #526447;
+  border-radius: 10px;
+  background: #1c291e;
+  line-height: 1.5;
+}
+.merch-declaration legend {
+  padding: 0 5px;
+  color: #d5edb5;
+  font-size: 13px;
+  font-weight: 600;
+}
+.merch-declaration p {
+  margin: 0 0 10px;
+  color: #bac9bc;
+  font-size: 12px;
+}
+.director .merch-declaration-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #e2ebdb;
+  font-size: 12px;
+  cursor: pointer;
+}
+.merch-declaration-check input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+}
+.merch-declaration small,
+.merch-link-guidance {
+  display: block;
+  color: #a5b5a5;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.merch-link-guidance {
+  margin-top: 7px;
+}
+.merch-declaration .merch-declaration-status {
+  margin: 10px 0 0;
+  color: #d0e8b0;
+}
 .director-burst {
   position: absolute;
   inset: 0;

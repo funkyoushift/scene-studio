@@ -10,6 +10,20 @@ export const MAX_PARTY_ATTEMPTS = 10000;
 class PartyError extends Error { constructor(status, message) { super(message); this.status = status; } }
 const fail = (status, message) => { throw new PartyError(status, message); };
 
+function extensionVersion(requested, env) {
+  const valid = value => typeof value === "string" && value.length <= 32 && /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/.test(value);
+  const configured = env.ALLOWED_EXTENSION_VERSIONS === undefined ? env.EXTENSION_VERSION : env.ALLOWED_EXTENSION_VERSIONS;
+  if (typeof configured !== "string" || configured.length > 512)
+    fail(503, "Chat extension versions are not configured.");
+  const allowed = configured.split(",").map(value => value.trim());
+  if (!allowed.length || allowed.length > 16 || allowed.some(value => !valid(value)))
+    fail(503, "Chat extension versions are not configured.");
+  const version = requested === undefined ? env.EXTENSION_VERSION : requested;
+  if (!valid(version) || !allowed.includes(version))
+    fail(400, "This extension version is not enabled for chat. Refresh the player.");
+  return version;
+}
+
 export async function verifyPartyViewer(request, secret, channel, now) {
   try {
     const token = request.headers.get("authorization")?.match(/^Bearer ([A-Za-z0-9_.-]+)$/)?.[1];
@@ -71,6 +85,10 @@ export async function partyRequest(request,env,channel,json,fetcher=fetch,now=Da
     if(!publicChat && !/^[a-z0-9_]{1,25}$/.test(actor||"")) fail(403,"Chat celebrations are currently limited to the invited test accounts.");
     if(request.headers.get("content-type")!=="application/json") fail(415,"Use JSON.");
     const input=await smallJson(request,1024);
+    if(!input || typeof input!=="object" || Array.isArray(input)) fail(400,"Choose a supported celebration.");
+    // Reject unknown versions before database admission, moderation, or delivery.
+    // Existing packages without this field retain the configured legacy version.
+    const version=extensionVersion(input.extensionVersion,env);
     eventId=input.eventId;
     if(!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(eventId||"") ||
        typeof input.objectId!=="string" || input.objectId.length>64 || !Object.hasOwn(PARTY_PRESETS,input.preset)) fail(400,"Choose a supported celebration.");
@@ -115,7 +133,7 @@ export async function partyRequest(request,env,channel,json,fetcher=fetch,now=Da
     admitted=true;
     const text=`${actor} ${PARTY_PRESETS[input.preset].chat}`;
     stage="chat_send";
-    const chat=await call(`https://api.twitch.tv/helix/extensions/chat?broadcaster_id=${channel}`,{method:"POST",body:JSON.stringify({text,extension_id:env.EXTENSION_CLIENT_ID,extension_version:env.EXTENSION_VERSION})});
+    const chat=await call(`https://api.twitch.tv/helix/extensions/chat?broadcaster_id=${channel}`,{method:"POST",body:JSON.stringify({text,extension_id:env.EXTENSION_CLIENT_ID,extension_version:version})});
     if(!chat.ok) fail(503,"Twitch did not accept the chat message. The streamer may need to enable extension chat.");
     stage="chat_receipt";
     await env.IMAGES.prepare("UPDATE party_events SET status='chat_sent' WHERE channel=?1 AND event_id=?2").bind(channel,eventId).run();

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getChatConnection, startChatConnection, disconnectChatConnection } from "../src/twitch.mjs";
+import { getChatConnection, startChatConnection, disconnectChatConnection, sendParty } from "../src/twitch.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
 
 const auth = { token: "test-extension-jwt", channelId: "123" };
@@ -15,6 +15,21 @@ function authorization(overrides = {}) {
   }).toString();
   return { authorizeUrl: url.href, expiresAt: Date.now() + 600000, ...overrides };
 }
+
+test("party requests identify the default extension package without changing channel or preset", async () => {
+  let posted;
+  const event = await sendParty(auth, { id: "my-button", preset: "disco" }, async (url, options) => {
+    assert.equal(url, `${IMAGE_ORIGIN}/party/123`);
+    assert.equal(options.method, "POST");
+    posted = JSON.parse(options.body);
+    assert.equal(posted.extensionVersion, "0.1.0");
+    assert.equal(posted.objectId, "my-button");
+    assert.equal(posted.preset, "disco");
+    return json({ status: "sent", event: { type: "scene-studio-party", eventId: posted.eventId, preset: "disco", actor: "tester", created: Date.now() } });
+  });
+  assert.equal(event.eventId, posted.eventId);
+  assert.equal(event.preset, "disco");
+});
 
 test("chat UI helpers scope requests to the current channel without cookies or redirect following", async () => {
   const replies = [

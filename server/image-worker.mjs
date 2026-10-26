@@ -4,6 +4,7 @@
 import { partyRequest } from "./party-service.mjs";
 import { startConnect, completeConnect, getChatConnection, disconnectChat, validateIdleChatGrants, ChatAuthorizationError } from "./chat-authorization.mjs";
 import { publicPage } from "./public-pages.mjs";
+import { developerRequest } from "./developer-service.mjs";
 const MAX_IMAGE = 200_000;
 export const MAX_IMAGES = 48;
 export const MAX_TOTAL_IMAGES = 1000;
@@ -163,6 +164,19 @@ export default {
       });
     try {
       const url = new URL(request.url);
+      if (url.pathname.startsWith('/v2/channels/')) {
+        // Next-version foundation: absent flag denies access before any DB work.
+        // Do not enable until schema, key management and delivery are qualified.
+        if (env.DEVELOPER_API_ENABLED !== 'true') return json({error:'Developer API is not enabled.'},404);
+        const developer = url.pathname.match(/^\/v2\/channels\/([1-9][0-9]{0,19})\/(keys|events|state|actions)(?:\/([A-Za-z0-9_-]+))?$/);
+        if (!developer) return json({error:'Not found.'},404);
+        if (request.method === 'OPTIONS') {
+          if (!env.EXTENSION_ORIGIN || origin !== env.EXTENSION_ORIGIN) return json({error:'Origin not allowed.'},403);
+          return new Response(null,{status:204,headers:{...Object.fromEntries(headers),'Access-Control-Allow-Methods':'GET, POST, PUT, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
+        }
+        const verifiedClaims = developer[2] === 'keys' ? await broadcaster(request, env.EXTENSION_SECRET, developer[1]) : undefined;
+        return developerRequest(request, env, developer[1], {verifiedClaims});
+      }
       if (env.PUBLIC_PAGES === "true" && request.method === "GET") {
         const page = publicPage(url.pathname);
         if (page) return page;

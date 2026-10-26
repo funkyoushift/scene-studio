@@ -2,6 +2,9 @@ import { parseScene, twitchContent } from "./scene.mjs";
 import { partyEvent } from "./party.mjs";
 import { IMAGE_ORIGIN } from "./image-address.mjs";
 
+// Compiled into each hosted extension package; old packages may omit the field.
+const EXTENSION_VERSION = import.meta.env?.VITE_EXTENSION_VERSION || "0.1.0";
+
 async function chatConnectionRequest(auth, suffix, method, fetcher) {
   if (!auth?.token || !/^[1-9][0-9]{0,19}$/.test(auth.channelId))
     throw new Error("Open your channel's Twitch configuration and connect your identity first.");
@@ -63,7 +66,7 @@ export async function sendParty(auth, object, fetcher=fetch) {
   const response=await fetcher(`${IMAGE_ORIGIN}/party/${auth.channelId}`,{
     method:"POST",headers:{Authorization:`Bearer ${auth.token}`,"Content-Type":"application/json"},
     credentials:"omit",redirect:"error",signal:AbortSignal.timeout(30000),
-    body:JSON.stringify({eventId:crypto.randomUUID(),objectId:object.id,preset:object.preset??"ducks"}),
+    body:JSON.stringify({eventId:crypto.randomUUID(),objectId:object.id,preset:object.preset??"ducks",extensionVersion:EXTENSION_VERSION}),
   });
   const result=await response.json();
   if(!response.ok || result.status!=="sent") throw new Error(result.error||"Result not confirmed. Check chat before another click.");

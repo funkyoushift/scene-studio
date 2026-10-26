@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { AUTOMATION_LIMITS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations } from "../src/automations.mjs";
+import { AUTOMATION_LIMITS, validateAutomations, parseAutomations, keywordMatches, createAutomationState, evaluateAutomations, createExternalStarterRule } from "../src/automations.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
 
 function fixture() {
@@ -201,4 +201,22 @@ test("external rules have independent cooldowns and do not consume keyword or in
   assert.deepEqual(result.events.map(event => event.ruleId), ["boss", "boss_slow"]);
   result = evaluateAutomations(design, result.state, { type: "tick" }, 30000);
   assert.deepEqual(result.events.map(event => event.ruleId), ["rotate"]);
+});
+
+test("the new-draft external starter makes the documented first event visibly actionable", () => {
+  const design = { version: 1, carousels: [], rules: [createExternalStarterRule()] };
+  const first = evaluateAutomations(design, createAutomationState(), { type: "external", name: "boss_defeated" }, 0);
+  assert.equal(first.events.length, 1);
+  assert.deepEqual(first.events[0].effect, { type: "celebrate", message: "BOSS DEFEATED. YOU DID THAT." });
+  assert.equal(evaluateAutomations(design, first.state, { type: "external", name: "boss_defeated" }, 19999).events.length, 0);
+  assert.equal(evaluateAutomations(design, first.state, { type: "external", name: "boss_defeated" }, 20000).events.length, 1);
+  design.rules[0].trigger.event = "custom_event";
+  assert.equal(createExternalStarterRule().trigger.event, "boss_defeated", "editing one new draft must not alter later starters");
+});
+
+test("loading an existing draft does not silently add the new external starter", () => {
+  const original = fixture();
+  const loaded = parseAutomations(JSON.stringify(original));
+  assert.deepEqual(loaded.rules, original.rules);
+  assert.equal(evaluateAutomations(loaded, createAutomationState(), { type: "external", name: "boss_defeated" }, 0).events.length, 0);
 });

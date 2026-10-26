@@ -4,6 +4,7 @@ import {
   parseAutomations,
   createAutomationState,
   evaluateAutomations,
+  createExternalStarterRule,
 } from "./automations.mjs";
 import { prepareImage } from "./images.mjs";
 import merch from "../designs/funkyoushift-merch-preview.json";
@@ -60,6 +61,7 @@ function initialDesign() {
         effect: { type: "celebrate", message: "CHAT HAS ENTERED PARTY MODE" },
         cooldownSeconds: 10,
       },
+      createExternalStarterRule(),
     ],
   });
 }
@@ -80,6 +82,9 @@ export default function AutomationStudio() {
     [queue, setQueue] = useState([]),
     [log, setLog] = useState([]),
     [manualSlide, setManualSlide] = useState(null);
+  // Streamer declarations belong to this editing session, not the runtime design.
+  // They are not evidence of ownership and never grant Twitch link permission.
+  const [merchDeclarations, setMerchDeclarations] = useState({});
   const offset = useRef(0),
     engine = useRef(createAutomationState(Date.now())),
     designRef = useRef(design),
@@ -165,6 +170,7 @@ export default function AutomationStudio() {
     }));
   }
   function updateCarousel(patch) {
+    setMerchDeclarations((old) => ({ ...old, [carousel.id]: false }));
     setDesign((d) => ({
       ...d,
       carousels: d.carousels.map((c) =>
@@ -201,6 +207,7 @@ export default function AutomationStudio() {
       target = slide.id;
     try {
       const image = await prepareImage(file);
+      setMerchDeclarations((old) => ({ ...old, [owner]: false }));
       setDesign((d) => ({
         ...d,
         carousels: d.carousels.map((c) =>
@@ -241,6 +248,7 @@ export default function AutomationStudio() {
     try {
       if (file.size > 2000000) throw Error("Keep the design under 2 MB.");
       const clean = parseAutomations(await file.text());
+      setMerchDeclarations({});
       setDesign(clean);
       setCarouselId(clean.carousels[0]?.id);
       setSlideIndex(0);
@@ -615,6 +623,42 @@ export default function AutomationStudio() {
                       ))}
                     </select>
                   </label>
+                  <fieldset className="merch-declaration">
+                    <legend>Your own branded merch</legend>
+                    <p>
+                      Any merchandise in this carousel must be your own brand.
+                      Sponsor products, sales for other brands, and affiliate or
+                      referral links are excluded.
+                    </p>
+                    <label className="merch-declaration-check">
+                      <input
+                        type="checkbox"
+                        checked={merchDeclarations[carousel.id] === true}
+                        onChange={(e) =>
+                          setMerchDeclarations((old) => ({
+                            ...old,
+                            [carousel.id]: e.target.checked,
+                          }))
+                        }
+                      />
+                      <span>
+                        I confirm that any merch shown here is my own branded
+                        merchandise, with direct store links and no sponsor sales
+                        or affiliate links.
+                      </span>
+                    </label>
+                    <small>
+                      This is your declaration, not ownership verification or
+                      Twitch approval. It lasts for this editing session and
+                      resets when you change this carousel. Existing drafts and
+                      previews remain available.
+                    </small>
+                    {merchDeclarations[carousel.id] === true && (
+                      <p className="merch-declaration-status" role="status">
+                        Your declaration is noted for this carousel.
+                      </p>
+                    )}
+                  </fieldset>
                   <label>
                     Name
                     <input
@@ -712,15 +756,21 @@ export default function AutomationStudio() {
                         />
                       </label>
                       <label>
-                        Website link (optional)
+                        Your store link (optional)
                         <input
                           aria-label="Slide website link"
+                          aria-describedby="merch-link-guidance"
                           type="url"
                           placeholder="https://…"
                           value={slide.url}
                           maxLength={1000}
                           onChange={(e) => updateSlide({ url: e.target.value })}
                         />
+                        <small id="merch-link-guidance" className="merch-link-guidance">
+                          For merchandise, link directly to your own branded item
+                          or store. No sponsor, affiliate, or referral links.
+                          Links open real websites in this prototype only.
+                        </small>
                       </label>
                       <div className="field-pair">
                         <button

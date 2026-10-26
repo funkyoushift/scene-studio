@@ -1,3 +1,5 @@
+[CmdletBinding()]
+param([Parameter(Mandatory = $true)][ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version)
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $distPath = Join-Path $projectRoot 'dist'
@@ -11,10 +13,10 @@ foreach ($page in @('config.html', 'viewer.html')) {
   }
 }
 New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
-$archivePath = Join-Path $outputPath 'scene-studio-twitch-0.1.0.zip'
+$archivePath = Join-Path $outputPath "scene-studio-twitch-$Version.zip"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 Add-Type -AssemblyName System.IO.Compression
-$fileStream = [IO.File]::Open($archivePath, [IO.FileMode]::Create)
+$fileStream = [IO.File]::Open($archivePath, [IO.FileMode]::CreateNew)
 $archive = New-Object IO.Compression.ZipArchive($fileStream, [IO.Compression.ZipArchiveMode]::Create)
 try {
   $packageFiles = @((Get-Item -LiteralPath (Join-Path $distPath 'config.html')), (Get-Item -LiteralPath (Join-Path $distPath 'viewer.html')))

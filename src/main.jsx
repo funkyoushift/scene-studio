@@ -29,6 +29,7 @@ import { TEMPLATE_OPTIONS, createTemplate } from "./templates.mjs";
 import {
   prepareImage,
   publishImages,
+  preflightPublish,
   imageLibrary,
   deleteImage,
 } from "./images.mjs";
@@ -531,6 +532,8 @@ function Editor() {
     [authorized, setAuthorized] = useState(false),
     [linked, setLinked] = useState(false),
     [profile, setProfile] = useState(null),
+    [profileStatus, setProfileStatus] = useState("idle"),
+    [publishBarHeight, setPublishBarHeight] = useState(null),
     [busy, setBusy] = useState(false),
     [library, setLibrary] = useState([]),
     [removeImage, setRemoveImage] = useState(null),
@@ -538,6 +541,8 @@ function Editor() {
     [saveStatus, setSaveStatus] = useState("Saved on this device");
   const sceneRef = useRef(scene),
     authRef = useRef(null),
+    profileRequest = useRef(0),
+    publishBarRef = useRef(null),
     lastSentScene = useRef(null),
     lastLoadedScene = useRef(null),
     titleInput = useRef(null),
@@ -551,9 +556,30 @@ function Editor() {
   const object = scene.objects.find((o) => o.id === selected);
   const previewLinks = scene.objects.filter(o => o.action === 'link');
   let publishProblem = '';
-  try { validateScene(scene); } catch(error) { publishProblem = error.message; }
+  try { preflightPublish(scene, isConfig ? authRef.current?.channelId : undefined); } catch(error) { publishProblem = error.message; }
   if (previewLinks.length) publishProblem = `${previewLinks.length} website-link object${previewLinks.length===1?' is':'s are'} preview-only in this version. Remove or change those actions before publishing to Twitch.`;
   const cannotPublish = busy || Boolean(publishProblem) || (isConfig && (!authorized || !configReady || (scene.objects.length > 0 && (!linked || !profile))));
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      if (publishBarRef.current) setPublishBarHeight(Math.ceil(publishBarRef.current.getBoundingClientRect().height));
+    });
+    observer.observe(publishBarRef.current);
+    return () => observer.disconnect();
+  }, []);
+  async function refreshChannelProfile(auth = authRef.current, retrying = false) {
+    const requestId = ++profileRequest.current;
+    const channelId = auth?.channelId, helixToken = auth?.helixToken;
+    const stillCurrent = () => requestId === profileRequest.current && authRef.current === auth &&
+      authRef.current?.channelId === channelId && authRef.current?.helixToken === helixToken;
+    setProfile(null);
+    setProfileStatus(retrying ? "retrying" : "loading");
+    try {
+      const next = await channelProfile(auth);
+      if (stillCurrent()) { setProfile(next); setProfileStatus("ready"); }
+    } catch {
+      if (stillCurrent()) { setProfile(null); setProfileStatus("failed"); }
+    }
+  }
   useEffect(()=>{
     if(focusNewTitle.current && titleInput.current) {
       focusNewTitle.current=false;
@@ -586,15 +612,16 @@ function Editor() {
   }, [scene, configReady]);
   useEffect(() => {
     if (!isConfig || !helper) return;
+    let active = true;
     helper.onAuthorized((auth) => {
+      if (!active) return;
       authRef.current = auth;
       setAuthorized(helper.viewer?.role === "broadcaster");
       setLinked(Boolean(helper.viewer?.isLinked));
-      channelProfile(auth)
-        .then(setProfile)
-        .catch(() => setProfile(null));
+      refreshChannelProfile(auth);
     });
     helper.configuration.onChanged(() => {
+      if (!active) return;
       const raw = helper.configuration.broadcaster?.content;
       setConfigReady(true);
       if (raw) {
@@ -616,6 +643,7 @@ function Editor() {
         }
       }
     });
+    return () => { active = false; profileRequest.current += 1; authRef.current = null; };
   }, []);
   function commit(next, complete = true) {
     edited.current = true;
@@ -785,7 +813,7 @@ function Editor() {
     }
   }
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={publishBarHeight == null ? undefined : { "--publish-bar-height": `${publishBarHeight}px` }}>
       <header className="topbar">
         <a className="brand" href={isConfig ? "./config.html" : "./"}>
           <span>✳</span> scene<span className="brand-light">studio</span>
@@ -1214,13 +1242,14 @@ function Editor() {
           </button>
         </div>
       )}
-      <section className={`publish-bar${publishProblem ? ' publish-blocked' : ''}`} aria-label="Publish your overlay">
+      <section ref={publishBarRef} className={`publish-bar${publishProblem ? ' publish-blocked' : ''}`} aria-label="Publish your overlay">
         <div className="publish-summary">
           <strong>{publishProblem ? 'This draft is not ready to publish' : busy ? 'Publishing your overlay…' : isConfig ? saveStatus === 'Sent to Twitch' ? 'Update sent to Twitch' : saveStatus === 'Loaded from Twitch' ? 'Current Twitch configuration' : 'You have unpublished changes' : 'Your draft is not on Twitch yet'}</strong>
-          <p>{publishProblem || (isConfig ? !configReady ? 'Loading the channel’s saved configuration.' : !authorized ? 'Open this editor as the channel’s broadcaster on Twitch.' : scene.objects.length && !linked ? 'Connect your Twitch identity, then publish your changes.' : scene.objects.length && !profile ? 'Waiting for Twitch to confirm the channel.' : saveStatus === 'Sent to Twitch' ? 'Reopen configuration to verify the saved design. New edits need another publish.' : `Publishing updates ${profile?.login || 'this channel'} and sends the overlay to connected viewers.` : 'Open the publishing steps to move this draft into your channel’s Twitch configuration.')}</p>
+          <p>{publishProblem || (isConfig ? !configReady ? 'Loading the channel’s saved configuration.' : !authorized ? 'Open this editor as the channel’s broadcaster on Twitch.' : scene.objects.length && !linked ? 'Connect your Twitch identity, then publish your changes.' : scene.objects.length && !profile ? profileStatus === 'failed' ? 'Twitch could not confirm this channel. Retry the channel connection; your draft is safe.' : profileStatus === 'retrying' ? 'Retrying the channel connection…' : 'Waiting for Twitch to confirm the channel.' : saveStatus === 'Sent to Twitch' ? 'Reopen configuration to verify the saved design. New edits need another publish.' : `Publishing updates ${profile?.login || 'this channel'} and sends the overlay to connected viewers.` : 'Open the publishing steps to move this draft into your channel’s Twitch configuration.')}</p>
         </div>
         <div className="publish-bar-actions">
           {isConfig && authorized && !linked && <button onClick={()=>helper.actions.requestIdShare()}>Connect Twitch identity</button>}
+          {isConfig && authorized && (profileStatus === "failed" || profileStatus === "retrying") && <button disabled={profileStatus === "retrying"} onClick={() => refreshChannelProfile(authRef.current, true)}>{profileStatus === "retrying" ? "Retrying connection…" : "Retry channel connection"}</button>}
           {publishProblem && <button onClick={()=>setModal('publish')}>Why can’t I publish?</button>}
           <button className="primary" disabled={cannotPublish} onClick={isConfig ? saveTwitch : ()=>setModal('publish')}>{busy ? 'Publishing…' : 'Publish to Twitch →'}</button>
         </div>
@@ -1352,6 +1381,7 @@ function Editor() {
           status={notice}
           onClose={() => setModal(null)}
         >
+          {publishProblem && <p role="alert">{publishProblem}</p>}
           <p>
             Scene Studio is currently available on invited test channels.
             Public installation is not available yet. Your design belongs in

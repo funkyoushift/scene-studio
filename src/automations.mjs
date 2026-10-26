@@ -112,6 +112,18 @@ export function parseAutomations(source) {
   return validateAutomations(value);
 }
 
+// Opt-in starter for new drafts only. Parsing existing designs never adds rules.
+export function createExternalStarterRule() {
+  return {
+    id: "game-victory",
+    name: "Celebrate a game victory",
+    enabled: true,
+    trigger: { type: "external", event: "boss_defeated" },
+    effect: { type: "celebrate", message: "BOSS DEFEATED. YOU DID THAT." },
+    cooldownSeconds: 20,
+  };
+}
+
 // Literal, case-insensitive matching. Word boundaries include Unicode letters,
 // numbers, combining marks, and underscores; phrases are never treated as regex.
 export function keywordMatches(message, phrase, match = "word") {

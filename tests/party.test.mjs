@@ -57,6 +57,43 @@ test("uncertain chat delivery is recorded and never replayed automatically",asyn
  r=await partyRequest(await s.request({eventId}),s.env,"123",s.json,failFetch,now+30000);assert.equal(r.status,202);assert.equal((await r.json()).status,"chat_send_uncertain");assert.equal(sends,1);
  s.db.close();
 });
+
+test("party chat keeps legacy requests and sends only explicitly allowed package versions",async t=>{
+ for(const [requested,expected,allowlist] of [
+  [undefined,"0.1.0",undefined],
+  ["0.1.0","0.1.0",undefined],
+  [undefined,"0.1.0","0.1.0,0.2.0"],
+  ["0.2.0","0.2.0","0.1.0,0.2.0"],
+ ]) {
+  const s=setup();t.after(()=>s.db.close());
+  if(allowlist!==undefined)s.env.ALLOWED_EXTENSION_VERSIONS=allowlist;
+  const result=await partyRequest(await s.request({extra:{extensionVersion:requested}}),s.env,"123",s.json,s.fetcher,now);
+  assert.equal(result.status,200);
+  const chat=JSON.parse(s.calls.find(call=>call.url.includes("/chat?")).opts.body);
+  assert.equal(chat.extension_version,expected);
+  assert.equal(s.db.prepare("SELECT count(*) AS n FROM party_events").get().n,1);
+ }
+});
+
+test("unknown or malformed package versions cannot reach providers or consume admission",async t=>{
+ const s=setup();t.after(()=>s.db.close());
+ for(const requested of ["0.2.0","0.3.0","*","0.1.0 ","0.1","0.1.0-beta",null,123,{},["0.1.0"]]) {
+  const result=await partyRequest(await s.request({extra:{extensionVersion:requested}}),s.env,"123",s.json,s.fetcher,now);
+  assert.equal(result.status,400);
+  assert.equal((await result.json()).uncertain,false);
+ }
+ s.env.ALLOWED_EXTENSION_VERSIONS="0.1.0,0.2.0";
+ const unknown=await partyRequest(await s.request({extra:{extensionVersion:"0.3.0"}}),s.env,"123",s.json,s.fetcher,now);
+ assert.equal(unknown.status,400);
+ for(const configured of ["*","0.1.0,*","",null]) {
+  s.env.ALLOWED_EXTENSION_VERSIONS=configured;
+  const result=await partyRequest(await s.request(),s.env,"123",s.json,s.fetcher,now);
+  assert.equal(result.status,503);
+ }
+ assert.equal(s.calls.length,0);
+ assert.equal(s.db.prepare("SELECT count(*) AS n FROM party_attempts").get().n,0);
+ assert.equal(s.db.prepare("SELECT count(*) AS n FROM party_events").get().n,0);
+});
 test("shared celebrations do not replace scene configuration and reject expired or repeated packets",()=>{
  let receive;const helper={listen(t,cb){receive=cb;},unlisten(){},configuration:{onChanged(){}}};const scenes=[],events=[];
  watchTwitchScene(helper,s=>scenes.push(s),()=>{},e=>events.push(e));
