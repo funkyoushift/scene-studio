@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { CHAT_AUTH_SCHEMA, ACTIVITY_SCOPES, TRIGGER_SCOPES, startConnect, startTriggerConnect, startActivityConnect, completeConnect, getActivityAuthorization, getChatConnection, checkViewerModeration, validateIdleChatGrants } from "../server/chat-authorization.mjs";
-import { deriveActivityWebhookSecret, ensureActivitySubscriptions, getActivityConnection, disconnectActivitySubscriptions, handleActivityWebhook } from "../server/twitch-events.mjs";
+import { deriveActivityWebhookSecret, ensureActivitySubscriptions, getActivityConnection, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "../server/twitch-events.mjs";
 import { automationRequest, processAutomationInput } from "../server/automation-service.mjs";
 
 const now=Date.now(),origin="https://example.ext-twitch.tv",claims={role:"broadcaster",user_id:"123",channel_id:"123"};
@@ -153,4 +153,12 @@ test("uncertain provider registration is reconciled before retry, and disconnect
  s.options.failDelete=true;
  assert.deepEqual(await disconnectActivitySubscriptions(s.env,"123",{fetcher:s.fetcher,now:now+2}),{connected:false,subscriptionRemoved:false});
  assert.equal((await getActivityConnection(s.env,"123",{now:now+3})).events.every(item=>!item.connected),true);
+});
+
+test("activity receipt cleanup removes expired IDs and retains current delivery records",async t=>{
+ const s=fixture(t);
+ s.db.prepare("INSERT INTO twitch_activity_receipts(channel,message_id,created,status) VALUES (?,?,?,?)").run("123","old",now-86400000,"sent");
+ s.db.prepare("INSERT INTO twitch_activity_receipts(channel,message_id,created,status) VALUES (?,?,?,?)").run("123","current",now-1000,"sent");
+ await cleanupActivityReceipts(s.env,now);
+ assert.deepEqual(s.db.prepare("SELECT message_id FROM twitch_activity_receipts").all().map(r=>r.message_id),["current"]);
 });

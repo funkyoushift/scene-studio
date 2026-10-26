@@ -7,7 +7,7 @@ import { publicPage } from "./public-pages.mjs";
 import { developerRequest } from "./developer-service.mjs";
 import { automationRequest, tickAutomations, processAutomationInput, hasMatchingKeywordRule } from "./automation-service.mjs";
 import { getTriggerConnection, ensureTriggerSubscription, disconnectTriggerSubscription, handleChatWebhook, cleanupChatTriggerReceipts } from "./chat-triggers.mjs";
-import { getActivityConnection, ensureActivitySubscriptions, disconnectActivitySubscriptions, handleActivityWebhook } from "./twitch-events.mjs";
+import { getActivityConnection, ensureActivitySubscriptions, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "./twitch-events.mjs";
 const MAX_IMAGE = 200_000;
 export const MAX_IMAGES = 48;
 export const MAX_TOTAL_IMAGES = 1000;
@@ -149,6 +149,7 @@ export default {
       if (env.AUTOMATIONS_ENABLED === "true")
         await env.IMAGES.prepare("DELETE FROM automation_receipts WHERE expires<=?1").bind(Date.now()).run();
       if (env.CHAT_TRIGGERS_ENABLED === "true") await cleanupChatTriggerReceipts(env);
+      if (env.TWITCH_ACTIVITY_ENABLED === "true") await cleanupActivityReceipts(env);
       if (!env.TWITCH_CHAT_CLIENT_ID || !env.TWITCH_CHAT_CLIENT_SECRET) return;
       const result = await validateIdleChatGrants(env,{limit:2});
       if (result.remainingDue > 25) console.warn("Chat validation has a pending batch.");
