@@ -78,13 +78,30 @@ test("Twitch packaging enforces byte size and unsupported feature gates", () => 
   const clean = starterScene();
   assert.ok(twitchContent(clean).length > 0);
   clean.objects[0].action = "link";
-  assert.throws(() => twitchContent(clean), /preview-only/);
+  assert.throws(() => twitchContent(clean), /Add a full HTTPS website address/);
   clean.objects[0].action = "reveal";
   clean.objects[0].image = "data:image/png;base64,AAAA";
   assert.throws(() => twitchContent(clean), /hosting/);
   clean.objects[0].image = "";
   for (const o of clean.objects) o.detail = "💚".repeat(600);
   assert.throws(() => twitchContent(clean), /5 KB/);
+});
+
+test("Hosted Test link designs publish HTTPS destinations and identify missing object addresses", () => {
+  const scene = starterScene();
+  scene.objects[0].action = "link";
+  scene.objects[0].title = "Visit my store";
+  scene.objects[0].url = "https://streamlabs.com/FunkYouSHiFT/merch";
+  assert.equal(parseScene(twitchContent(scene)).objects[0].url, scene.objects[0].url);
+  scene.objects[0].url = "";
+  assert.throws(() => twitchContent(scene), /HTTPS website address to "Visit my store"/);
+  for (const address of ["http://example.com", "javascript:alert(1)", "data:text/html,hello", "https://user:secret@example.com", "not a link"]) {
+    scene.objects[0].url = address;
+    assert.throws(() => twitchContent(scene));
+  }
+  scene.objects[0].url = "https://example.com";
+  for (const object of scene.objects) object.detail = "💚".repeat(600);
+  assert.throws(() => twitchContent(scene), /5 KB/);
 });
 
 test("optional appearance round-trips through Twitch and produces only bounded inline styles", () => {

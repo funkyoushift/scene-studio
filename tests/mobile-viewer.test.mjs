@@ -22,6 +22,16 @@ function setup() {
   return { objects, scene, state, controller };
 }
 
+test("mobile website objects render user-activated HTTPS links with an external indicator", () => {
+  const object = {...newObject('link'), title:'Community', url:'https://www.twitch.tv/funkyoushift'};
+  const html = renderToStaticMarkup(React.createElement(MobileObjectCards,{scene:{version:1,name:'Links',objects:[object]},onActivate(){}}));
+  assert.match(html, /<a[^>]*href="https:\/\/www\.twitch\.tv\/funkyoushift"/);
+  assert.match(html, /target="_blank"/);
+  assert.match(html, /rel="noopener noreferrer"/);
+  assert.match(html, /Open website ↗/);
+  assert.throws(()=>renderToStaticMarkup(React.createElement(MobileObjectCards,{scene:{version:1,name:'Bad',objects:[{...object,url:'javascript:alert(1)'}]},onActivate(){}})),/HTTPS/);
+});
+
 test("mobile initial state explains Twitch entry and cards load no image media before an explicit tap", () => {
   const initial = renderToStaticMarkup(React.createElement(MobileViewer, { helper: null }));
   assert.match(initial, /Extensions menu in the Twitch app/);

@@ -6,3 +6,5 @@
 .mobile-live-status{padding:12px 0;color:#c8d7cb;font-size:13px;line-height:1.5}.mobile-live-status p{margin:0 0 10px}.mobile-live-status button:disabled{opacity:.6;cursor:wait}
 @media(max-width:290px){.mobile-viewer{padding:10px}.mobile-object{flex-direction:column;align-items:stretch}.mobile-object>img{width:100%;height:100px}.mobile-object-symbol{align-self:center}}
 @media(prefers-reduced-motion:reduce){.mobile-viewer *, .mobile-viewer *::before, .mobile-viewer *::after{animation:none!important;transition:none!important}}
+/* Website cards retain native user-click navigation in Twitch's mobile WebView. */
+a.mobile-object-action { color:inherit; text-decoration:none; }

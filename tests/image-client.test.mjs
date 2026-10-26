@@ -42,7 +42,7 @@ test("shared preflight accepts exactly 5000 UTF-8 bytes and rejects overflow bef
   assert.equal(requests, 0);
 });
 
-test("shared preflight rejects wrong-channel hosted images and unsupported actions", () => {
+test("shared preflight rejects wrong-channel hosted images and incomplete links", () => {
   const scene = starterScene();
   scene.objects[0].image = address;
   assert.equal(preflightPublish(scene, "123").estimated, false);
@@ -50,7 +50,9 @@ test("shared preflight rejects wrong-channel hosted images and unsupported actio
   assert.equal(preflightPublish(scene).estimated, true, "public previews cannot claim ownership before identity is known");
   assert.throws(() => preflightPublish(scene, "123/other"), /identity/);
   scene.objects[0].action = "link";
-  assert.throws(() => preflightPublish(scene, "123"), /preview-only/);
+  assert.throws(() => preflightPublish(scene, "123"), /full HTTPS/);
+  scene.objects[0].url = 'https://www.twitch.tv/funkyoushift';
+  assert.doesNotThrow(() => preflightPublish(scene, '123'));
   const textOnly = { version: 1, name: "Long guide", objects: Array.from({ length: 8 }, () => ({ ...newObject("reveal"), detail: "A".repeat(600) })) };
   assert.doesNotThrow(() => validateScene(textOnly));
   assert.throws(() => preflightPublish(textOnly), /5 KB/);
@@ -72,7 +74,7 @@ test("hosted images are restricted to this service, with no credentials, redirec
   scene.objects[0].image = address + "?x=1";
   assert.throws(() => validateScene(scene));
 });
-test("publish preflight rejects cross-channel images and oversized or unsupported scenes before uploading", async () => {
+test("publish preflight rejects cross-channel images and oversized or incomplete scenes before uploading", async () => {
   let calls = 0;
   const fetcher = async () => {
     calls++;
@@ -88,7 +90,7 @@ test("publish preflight rejects cross-channel images and oversized or unsupporte
   );
   scene.objects[0].image = "data:image/png;base64,AAAA";
   scene.objects[0].action = "link";
-  await assert.rejects(publishImages(scene, auth, fetcher), /preview-only/);
+  await assert.rejects(publishImages(scene, auth, fetcher), /full HTTPS/);
   scene.objects[0].action = "reveal";
   for (const o of scene.objects) o.detail = "💚".repeat(600);
   await assert.rejects(publishImages(scene, auth, fetcher), /5 KB/);

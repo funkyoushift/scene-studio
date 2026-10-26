@@ -572,10 +572,9 @@ function Editor() {
     fileRef = useRef(null);
   sceneRef.current = scene;
   const object = scene.objects.find((o) => o.id === selected);
-  const previewLinks = scene.objects.filter(o => o.action === 'link');
+  const websiteLinks = scene.objects.filter(o => o.action === 'link');
   let publishProblem = '';
   try { preflightPublish(scene, isConfig ? authRef.current?.channelId : undefined); } catch(error) { publishProblem = error.message; }
-  if (previewLinks.length) publishProblem = `${previewLinks.length} website-link object${previewLinks.length===1?' is':'s are'} preview-only in this version. Remove or change those actions before publishing to Twitch.`;
   const cannotPublish = busy || Boolean(publishProblem) || (isConfig && (!authorized || !configReady || (scene.objects.length > 0 && (!linked || !profile))));
   useEffect(() => {
     const observer = new ResizeObserver(() => {
@@ -1109,7 +1108,7 @@ function Editor() {
                       onChange={(e) => update({ url: e.target.value })}
                     />
                     <small>
-                      Opens in a new tab. Local preview only for now.
+                      Opens after a viewer clicks. HTTPS required. Social, commerce and promotional destinations may not pass Twitch public review.
                     </small>
                   </label>
                 ) : (
@@ -1314,6 +1313,7 @@ function Editor() {
         <div className="publish-summary">
           <strong>{publishProblem ? 'This draft is not ready to publish' : busy ? 'Publishing your overlay…' : isConfig ? saveStatus === 'Sent to Twitch' ? 'Update sent to Twitch' : saveStatus === 'Loaded from Twitch' ? 'Current Twitch configuration' : 'You have unpublished changes' : 'Your draft is not on Twitch yet'}</strong>
           <p>{publishProblem || (isConfig ? !configReady ? 'Loading the channel’s saved configuration.' : !authorized ? 'Open this editor as the channel’s broadcaster on Twitch.' : scene.objects.length && !linked ? 'Connect your Twitch identity, then publish your changes.' : scene.objects.length && !profile ? profileStatus === 'failed' ? 'Twitch could not confirm this channel. Retry the channel connection; your draft is safe.' : profileStatus === 'retrying' ? 'Retrying the channel connection…' : 'Waiting for Twitch to confirm the channel.' : saveStatus === 'Sent to Twitch' ? 'Reopen configuration to verify the saved design. New edits need another publish.' : `Publishing updates ${profile?.login || 'this channel'} and sends the overlay to connected viewers.` : 'Open the publishing steps to move this draft into your channel’s Twitch configuration.')}</p>
+          {websiteLinks.length > 0 && !publishProblem && <small>{websiteLinks.length} HTTPS link{websiteLinks.length===1?'':'s'} · test configuration. Social and commerce links still need Twitch policy review for release.</small>}
         </div>
         <div className="publish-bar-actions">
           {isConfig && authorized && !linked && <button onClick={()=>helper.actions.requestIdShare()}>Connect Twitch identity</button>}
@@ -1481,8 +1481,9 @@ function Editor() {
           </ol>
           <p>
             Saving uploads your images for viewers on the test channel.
-            Website-link objects, including the store preview, cannot be saved
-            to Twitch yet; permitted destinations still need review.
+            HTTPS link objects can be saved in this test version. Twitch public
+            review restricts social, commerce and promotional destinations;
+            publishing a configuration does not approve its links for release.
           </p>
           <div className="modal-actions">
             <button className={isConfig ? "" : "primary"} onClick={download}>Export design</button>

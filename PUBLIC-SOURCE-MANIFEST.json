@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T03:11:29.569Z",
+  "createdUtc": "2026-10-26T03:25:08.908Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -261,8 +261,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 66245,
-      "sha256": "99e22dd1060879a27ca59bc116ff4885661c999f956ac693974145e6a41e34ce"
+      "bytes": 66422,
+      "sha256": "ad1a835d1d7e6d09d3bd0ef445c96ea95204694e3174cf8076b65acd6dd38764"
     },
     {
       "path": "src/mobile-entry.jsx",
@@ -271,13 +271,13 @@
     },
     {
       "path": "src/mobile.css",
-      "bytes": 2858,
-      "sha256": "6eb85fb7984ed4c25f198b48dc9f638484734f17460c41ad26abde89bad5ed2e"
+      "bytes": 3006,
+      "sha256": "37facdcc7d3b9175cf24ea0750ed189217e0dac9d192c05412da27c0a1fa70ea"
     },
     {
       "path": "src/MobileViewer.jsx",
-      "bytes": 11243,
-      "sha256": "22b821242a49c82ba7cda4dbaec38c5542b050d33a12ac326c2c416402a4b1f7"
+      "bytes": 11542,
+      "sha256": "67bc6cd782e11d60f99a15a600869a332cbf8d6585c23f4529a3d0f606a202e6"
     },
     {
       "path": "src/party.mjs",
@@ -286,8 +286,8 @@
     },
     {
       "path": "src/scene.mjs",
-      "bytes": 8919,
-      "sha256": "57845f472b4a10700be54ecb396d76ebda006eb5b6ccbb7c7bc081035b3e183f"
+      "bytes": 9459,
+      "sha256": "2bd422f672aafea493691c7c7f4c1464b62ca7aa8971c8c122d1c8e95c1c8214"
     },
     {
       "path": "src/style.css",
@@ -366,8 +366,8 @@
     },
     {
       "path": "tests/image-client.test.mjs",
-      "bytes": 5706,
-      "sha256": "ce87b3a37d5bdc670c18c23e76c4560e4ac9a95c5e75e097359ce59f3837c504"
+      "bytes": 5822,
+      "sha256": "0fea351e61dc7447a507c75e8fd57bacac2faeced3178c624d57a8af5f6eab3b"
     },
     {
       "path": "tests/images.test.mjs",
@@ -381,8 +381,8 @@
     },
     {
       "path": "tests/mobile-viewer.test.mjs",
-      "bytes": 6654,
-      "sha256": "255deb0967098f0f68decbabc8f57aa78c5c18ccb4b3be8d1ccae803cc176213"
+      "bytes": 7401,
+      "sha256": "94c1403746ef023a28c4d2c5128835be1ec2cbb18949f5d7058d0f734570024d"
     },
     {
       "path": "tests/party.test.mjs",
@@ -391,8 +391,8 @@
     },
     {
       "path": "tests/scene.test.mjs",
-      "bytes": 5369,
-      "sha256": "b31da9b4d11bd96d53c087bf723ec7f92ec5642f5eee920bdf66e9a91b7b7c93"
+      "bytes": 6297,
+      "sha256": "77f1bf1e2f31094be5ed418fa5a5bbdbd6c1580bc51804206a9e79c06728824e"
     },
     {
       "path": "tests/templates.test.mjs",

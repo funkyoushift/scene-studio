@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { channelProfile, readTwitchScene, sendParty, watchTwitchScene } from "./twitch.mjs";
 import { PARTY_PRESETS, partyEvent } from "./party.mjs";
 import AutomationViewer from "./AutomationViewer.jsx";
-import { objectAppearance } from "./scene.mjs";
+import { objectAppearance, safeLink } from "./scene.mjs";
 
 const symbols = { spark: "✦", heart: "♡", star: "☆", gift: "◇", info: "i", bolt: "ϟ", message: "☏", link: "↗" };
 
@@ -67,17 +67,21 @@ export function MobileObjectCards({ scene, counts = {}, onActivate }) {
   const [images, setImages] = useState({});
   useEffect(() => { setImages(old => Object.fromEntries(scene.objects.filter(item => old[item.id]).map(item => [item.id, true]))); }, [scene]);
   return <section className="mobile-objects" aria-label="Channel objects">
-    {scene.objects.map(object => <article key={object.id} className="mobile-object" style={{ "--object-accent": object.color, ...objectAppearance(object) }}>
-      <button className="mobile-object-action" onClick={() => onActivate(object.id)}>
+    {scene.objects.map(object => {
+      const destination = object.action === 'link' ? safeLink(object.url) : '';
+      const Control = destination ? 'a' : 'button';
+      return <article key={object.id} className="mobile-object" style={{ "--object-accent": object.color, ...objectAppearance(object) }}>
+      <Control className="mobile-object-action" {...(destination ? {href:destination,target:'_blank',rel:'noopener noreferrer'} : {onClick:()=>onActivate(object.id)})}>
       <span className="mobile-object-symbol" aria-hidden="true">{object.action === "party" ? PARTY_PRESETS[object.preset ?? "ducks"].symbol : symbols[object.icon] || "✦"}</span>
       <span className="mobile-object-copy"><strong>{object.title}</strong>
         <span>{object.action === "party" ? "Celebrate together + post in chat" : object.caption}</span>
         {object.action === "counter" && <span className="mobile-count" aria-live="polite">{counts[object.id] || 0} from you this visit{counts[object.id] ? ` · ${object.detail}` : ""}</span>}
         {object.action === "celebrate" && <small>A celebration just for you</small>}
+        {destination && <small>Open website ↗</small>}
       </span>
-      </button>
+      </Control>
       {object.image && <><button className="mobile-image-toggle" aria-expanded={Boolean(images[object.id])} aria-label={`${images[object.id] ? "Hide" : "Show"} image for ${object.title}`} onClick={() => setImages(old => ({ ...old, [object.id]: !old[object.id] }))}>{images[object.id] ? "Hide image" : "Show image"}</button>{images[object.id] && <img src={object.image} alt={object.title} />}</>}
-    </article>)}
+    </article>})}
   </section>;
 }
 
