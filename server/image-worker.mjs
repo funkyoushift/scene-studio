@@ -2,9 +2,11 @@
 // EXTENSION_SECRET (base64 secret), EXTENSION_ORIGIN,
 // and TEST_CHANNELS (comma-separated numeric channel IDs). Empty allowlist denies writes.
 import { partyRequest } from "./party-service.mjs";
-import { startConnect, completeConnect, getChatConnection, disconnectChat, validateIdleChatGrants, ChatAuthorizationError } from "./chat-authorization.mjs";
+import { startConnect, startTriggerConnect, completeConnect, getChatConnection, disconnectChat, validateIdleChatGrants, ChatAuthorizationError } from "./chat-authorization.mjs";
 import { publicPage } from "./public-pages.mjs";
 import { developerRequest } from "./developer-service.mjs";
+import { automationRequest, tickAutomations, processAutomationInput, hasMatchingKeywordRule } from "./automation-service.mjs";
+import { getTriggerConnection, ensureTriggerSubscription, disconnectTriggerSubscription, handleChatWebhook, cleanupChatTriggerReceipts } from "./chat-triggers.mjs";
 const MAX_IMAGE = 200_000;
 export const MAX_IMAGES = 48;
 export const MAX_TOTAL_IMAGES = 1000;
@@ -24,7 +26,7 @@ function decode(value) {
     (c) => c.charCodeAt(0),
   );
 }
-export async function broadcaster(request, secret, channel, now = Date.now()) {
+export async function extensionClaims(request, secret, channel, now = Date.now(), broadcasterOnly = false) {
   const token = request.headers
     .get("authorization")
     ?.match(/^Bearer ([A-Za-z0-9_.-]+)$/)?.[1];
@@ -53,9 +55,9 @@ export async function broadcaster(request, secret, channel, now = Date.now()) {
       throw new Error();
     const claims = JSON.parse(new TextDecoder().decode(decode(parts[1])));
     if (
-      claims.role !== "broadcaster" ||
+      !["broadcaster", "viewer", "moderator"].includes(claims.role) ||
       claims.channel_id !== channel ||
-      claims.user_id !== channel ||
+      (broadcasterOnly && (claims.role !== "broadcaster" || claims.user_id !== channel)) ||
       !Number.isFinite(claims.exp) ||
       claims.exp <= Math.floor(now / 1000) ||
       (claims.nbf !== undefined &&
@@ -66,6 +68,10 @@ export async function broadcaster(request, secret, channel, now = Date.now()) {
   } catch {
     reject(401, "The broadcaster’s linked extension sign-in is required.");
   }
+}
+
+export async function broadcaster(request, secret, channel, now = Date.now()) {
+  return extensionClaims(request, secret, channel, now, true);
 }
 
 async function boundedBody(request) {
@@ -139,12 +145,17 @@ export default {
     // No credentials, callback queries, or provider responses enter logs.
     ctx.waitUntil((async () => {
       await env.IMAGES.prepare("DELETE FROM party_attempts WHERE expires<=?1").bind(Date.now()).run();
+      if (env.AUTOMATIONS_ENABLED === "true")
+        await env.IMAGES.prepare("DELETE FROM automation_receipts WHERE expires<=?1").bind(Date.now()).run();
+      if (env.CHAT_TRIGGERS_ENABLED === "true") await cleanupChatTriggerReceipts(env);
       if (!env.TWITCH_CHAT_CLIENT_ID || !env.TWITCH_CHAT_CLIENT_SECRET) return;
-      const result = await validateIdleChatGrants(env);
+      const result = await validateIdleChatGrants(env,{limit:2});
       if (result.remainingDue > 25) console.warn("Chat validation has a pending batch.");
     })().catch(() => console.warn("Chat validation deferred; provider unavailable.")));
+    if (env.AUTOMATIONS_ENABLED === "true")
+      ctx.waitUntil(tickAutomations(env,{limit:2}).catch(() => console.warn("Scheduled overlay effects unavailable.")));
   },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const origin = request.headers.get("origin");
     const headers = new Headers({
       "X-Content-Type-Options": "nosniff",
@@ -164,6 +175,24 @@ export default {
       });
     try {
       const url = new URL(request.url);
+      const webhook = url.pathname.match(/^\/eventsub\/chat\/([1-9][0-9]{0,19})$/);
+      if (webhook) {
+        if (env.CHAT_TRIGGERS_ENABLED !== "true") return json({error:"Chat triggers are not enabled."},404);
+        return handleChatWebhook(request,env,webhook[1],{processInput:processAutomationInput,hasMatchingKeywordRule,waitUntil:ctx ? promise=>ctx.waitUntil(promise) : undefined});
+      }
+      const automation = url.pathname.match(/^\/v1\/automations\/([1-9][0-9]{0,19})\/(config|fire)$/);
+      if (automation) {
+        if (env.AUTOMATIONS_ENABLED !== "true") return json({error:"Live automations are not enabled."},404);
+        if (!env.EXTENSION_ORIGIN || origin !== env.EXTENSION_ORIGIN) return json({error:"Open Scene Studio on Twitch."},403);
+        if (request.method === "OPTIONS") return new Response(null,{status:204,headers:{...Object.fromEntries(headers),"Access-Control-Allow-Methods":"GET, PUT, POST, OPTIONS","Access-Control-Allow-Headers":"Authorization, Content-Type"}});
+        const claims = request.method === "GET" && automation[2] === "config"
+          ? await extensionClaims(request,env.EXTENSION_SECRET,automation[1])
+          : await broadcaster(request,env.EXTENSION_SECRET,automation[1]);
+        const response = await automationRequest(request,env,automation[1],{claims});
+        const resultHeaders = new Headers(response.headers);
+        for (const [key,value] of headers) resultHeaders.set(key,value);
+        return new Response(response.body,{status:response.status,headers:resultHeaders});
+      }
       if (url.pathname.startsWith('/v2/channels/')) {
         // Next-version foundation: absent flag denies access before any DB work.
         // Do not enable until schema, key management and delivery are qualified.
@@ -186,11 +215,17 @@ export default {
         // Never echo OAuth query parameters or provider errors into HTML/logs.
         let message = "Chat is connected. Return to Scene Studio and choose Check connection.";
         let status = 200;
-        try { await completeConnect(env, request.url); }
+        try {
+          const connected = await completeConnect(env, request.url);
+          if (connected.triggerAccess) {
+            const trigger = await ensureTriggerSubscription(env,connected.channel);
+            message = trigger.connected ? "Chat triggers are connected. Return to Scene Studio and choose Check connection." : "Chat access is connected. Return to Scene Studio and choose Check connection to confirm Twitch has enabled the chat listener.";
+          }
+        }
         catch { message = "Chat could not be connected. Return to Scene Studio and start Connect chat again."; status = 400; }
         return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Scene Studio chat</title><h1>Scene Studio</h1><p>${message}</p></html>`, {status, headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; frame-ancestors 'none'","X-Content-Type-Options":"nosniff"}});
       }
-      const chat = url.pathname.match(/^\/v1\/chat\/([1-9][0-9]{0,19})\/(connection|connect)$/);
+      const chat = url.pathname.match(/^\/v1\/chat\/([1-9][0-9]{0,19})\/(connection|connect|triggers|trigger-connect)$/);
       if (chat) {
         if (!env.EXTENSION_ORIGIN || origin !== env.EXTENSION_ORIGIN) return json({error:"Open this channel’s configuration on Twitch."},403);
         if (request.method === "OPTIONS") {
@@ -199,9 +234,16 @@ export default {
           return new Response(null,{status:204,headers});
         }
         const claims = await broadcaster(request, env.EXTENSION_SECRET, chat[1]);
+        if (chat[2] === "trigger-connect" && request.method === "POST") return json(await startTriggerConnect(env,chat[1],origin,claims));
+        if (chat[2] === "triggers" && request.method === "GET") return json(await getTriggerConnection(env,chat[1]));
+        if (chat[2] === "triggers" && request.method === "POST") return json(await ensureTriggerSubscription(env,chat[1]));
+        if (chat[2] === "triggers" && request.method === "DELETE") return json(await disconnectTriggerSubscription(env,chat[1]));
         if (chat[2] === "connect" && request.method === "POST") return json(await startConnect(env,chat[1],origin,claims));
         if (chat[2] === "connection" && request.method === "GET") return json(await getChatConnection(env,chat[1],origin,claims));
-        if (chat[2] === "connection" && request.method === "DELETE") return json(await disconnectChat(env,chat[1],origin,claims));
+        if (chat[2] === "connection" && request.method === "DELETE") {
+          if (env.CHAT_TRIGGERS_ENABLED === "true") await disconnectTriggerSubscription(env,chat[1]);
+          return json(await disconnectChat(env,chat[1],origin,claims));
+        }
         return json({error:"Method not allowed."},405);
       }
       const party = url.pathname.match(/^\/party\/([1-9][0-9]{0,19})$/);
@@ -259,6 +301,12 @@ export default {
           403,
         );
       if (request.method === "DELETE") {
+        if (env.AUTOMATIONS_ENABLED === "true") {
+          const saved = await env.IMAGES.prepare("SELECT design FROM automation_configs WHERE channel=?1").bind(channel).first();
+          const address = `${env.PUBLIC_SERVICE_URL}/images/${channel}/${hash}.png`;
+          if (saved && JSON.parse(saved.design).carousels.some(carousel=>carousel.slides.some(slide=>slide.image===address)))
+            return json({error:"This image is used by your saved carousel. Remove it there and publish the change before deleting the image."},409);
+        }
         await env.IMAGES.prepare(
           "DELETE FROM images WHERE channel = ?1 AND hash = ?2",
         )

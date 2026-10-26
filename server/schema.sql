@@ -48,3 +48,10 @@ CREATE TABLE IF NOT EXISTS chat_oauth_validation (
   checked_at INTEGER NOT NULL DEFAULT 0
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS chat_oauth_validation_due ON chat_oauth_validation(next_check);
+
+CREATE TABLE IF NOT EXISTS chat_oauth_intents (
+  channel TEXT PRIMARY KEY,
+  state_hash TEXT NOT NULL UNIQUE,
+  trigger_access INTEGER NOT NULL,
+  expires INTEGER NOT NULL
+) WITHOUT ROWID;

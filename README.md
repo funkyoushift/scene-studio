@@ -37,11 +37,31 @@ streamer connects read-only moderation access. Channel bans, timeouts and
 cooldowns apply. Ordinary viewing and personal effects do not require identity
 sharing. Existing image and chat services run on Cloudflare, not a local PC.
 
-The newer carousel, rules, chat-input simulation and developer-event experiments
-are **browser prototypes**. Their previews do not read Twitch chat, modify a
-game, or publish new behavior to the extension currently in review. A simulated
-event is not evidence of a live integration. On the hosted site, the developer
-panel provides a roadmap and event simulation without contacting localhost.
+Version 0.3 implements channel-owned carousel and celebration rules, authenticated
+publishing and manual effects, Twitch viewer broadcasts, hosted timers and optional
+real chat-keyword input through EventSub. Its Cloudflare backend is deployed and
+its package is uploaded to Hosted Test and active as Overlay 1 on Shift. The
+actual hosted editor published automation revision 1 and uploaded three images.
+Shift completed optional trigger OAuth and its listener is enabled. In the actual
+live Twitch player, the carousel rendered, Next showed the shirt as item 2 of 3,
+the configured product destination was verified, and dismissal worked. This
+does not establish purchase completion, chat-keyword delivery or timer delivery;
+the latter two still await live qualification. Rev also completed its four-scope
+trigger authorization and has an enabled listener, while remaining on active
+0.1. Version 0.1 remains in review. Browser test
+messages/events remain simulations; simulation is not live integration evidence.
+
+Real chat input requires separate optional broadcaster authorization for
+moderation:read, user:read:chat, user:bot and channel:bot and an enabled listener.
+No chat-write scope is added. Moderation checks gate shared effects; raw chat text
+is not stored, and trigger receipt IDs/timestamps/status expire after 24 hours.
+Hosted timers use minute scheduling and require intervals of at least 60 seconds.
+The rule editor supports file import and a JSON-paste alternative. These hosted
+paths do not require the creator's PC to stay on. The current source
+suite passes 122 tests; automated coverage does not establish live delivery.
+
+On the hosted site, the developer panel provides a roadmap and event simulation
+without contacting localhost. No real game integration is claimed.
 An optional local developer bridge is included as source for developers;
 GitHub Pages cannot run a Node server. The hosted builder does not need that
 bridge for design work. No hosted developer API is enabled by this source export.
@@ -56,9 +76,11 @@ Schema application, enabled routes and viewer delivery require separate work
 and qualification; publishing these sources does not perform those steps.
 
 The FunkYouSHiFT merch example contains actual product photos and Streamlabs
-destinations. Website/checkout actions remain preview-only in the submitted
-extension and are rejected when saving to Twitch. This is not a claim of live
-on-stream checkout. See assets/merch/SOURCES.md for image origins.
+destinations. Website/checkout objects remain preview-only in the submitted
+0.1 extension and its main editor. A separate narrow configured own-merch test
+exists in 0.3 automations; it is not general commerce approval or verified live
+checkout. This export disables that test mapping by default. See
+assets/merch/SOURCES.md for image origins.
 
 ## Run or inspect the source
 

@@ -1,8 +1,9 @@
-* {
+.director, .director * {
   box-sizing: border-box;
 }
-body {
+.director {
   margin: 0;
+  min-height: 100vh;
   background: #0d1016;
   color: #eef3ee;
   font:
@@ -15,7 +16,7 @@ body {
   font: inherit;
 }
 .director button,
-.import-control {
+.director .import-control {
   border: 1px solid #35443b;
   background: #1b2621;
   color: #eaf1e9;
@@ -37,25 +38,25 @@ body {
 .director a {
   color: #d0f694;
 }
-.director-top {
+.director .director-top {
   display: flex;
   align-items: center;
   gap: 20px;
   padding: 22px 4vw;
   border-bottom: 1px solid #29342e;
 }
-.director-top > a {
+.director .director-top > a {
   text-decoration: none;
   font:
     800 23px Manrope,
     sans-serif;
 }
-.director-top > div {
+.director .director-top > div {
   margin-left: auto;
   display: flex;
   gap: 8px;
 }
-.draft-badge {
+.director .draft-badge {
   font-size: 10px;
   letter-spacing: 0.12em;
   color: #c7d3bd;
@@ -69,21 +70,39 @@ body {
   border-color: #c2ec78;
   font-weight: 600;
 }
-.import-control {
+.director .live-automation-panel {
+  margin: 0 4vw 24px;
+  padding: 20px;
+  border: 1px solid #99c967;
+  border-radius: 14px;
+  background: #14231c;
+}
+.director .live-director-top { position: sticky; top: 0; z-index: 20; background: #0d1016; box-shadow: 0 8px 24px #0005; flex-wrap: wrap; }
+.director .live-director-top .lime { white-space: nowrap; }
+.director .live-automation-panel h2 { margin-top: 0; }
+.director .live-automation-panel [role="status"] { color: #e3ffb3; }
+.director .live-automation-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.director .live-automation-panel a { display: inline-block; margin-top: 12px; }
+.director .paste-design { margin: 0 4vw 24px; padding: 16px 20px; border: 1px solid #597447; border-radius: 12px; background: #17221c; }
+.director .paste-design summary { cursor: pointer; color: #d9fca3; font-weight: 600; }
+.director .paste-design p { max-width: 850px; line-height: 1.5; }
+.director .paste-design textarea { display: block; width: 100%; max-width: 100%; margin: 8px 0 12px; padding: 12px; border: 1px solid #617755; border-radius: 8px; background: #0d1712; color: #edffe0; font: 13px monospace; resize: vertical; }
+.director .paste-design [role="status"] { color: #d9fca3; }
+.director .import-control {
   position: relative;
   overflow: hidden;
 }
-.import-control input {
+.director .import-control input {
   position: absolute;
   inset: 0;
   opacity: 0;
   width: 100%;
   cursor: pointer;
 }
-.director-intro {
+.director .director-intro {
   padding: 35px 4vw 26px;
 }
-.eyebrow {
+.director .eyebrow {
   color: #bdd28a;
   font-size: 10px;
   letter-spacing: 0.18em;
@@ -94,78 +113,78 @@ body {
     sans-serif;
   margin: 10px 0;
 }
-.director-intro > p {
+.director .director-intro > p {
   color: #a9b8b2;
 }
-.director-intro .prototype-note {
+.director .director-intro .prototype-note {
   font-size: 12px;
   max-width: 1000px;
   color: #9fa8bd;
   line-height: 1.55;
 }
-.director-grid {
+.director .director-grid {
   display: grid;
   grid-template-columns: minmax(330px, 420px) minmax(0, 1fr);
   gap: 28px;
   padding: 0 4vw 50px;
 }
-.control-panel {
+.director .control-panel {
   border: 1px solid #2f3c33;
   border-radius: 18px;
   overflow: hidden;
   background: #131c18;
 }
-.control-panel nav {
+.director .control-panel nav {
   display: flex;
   padding: 12px;
   gap: 7px;
   border-bottom: 1px solid #2c382f;
 }
-.control-panel nav button {
+.director .control-panel nav button {
   flex: 1;
   font-size: 12px;
 }
-.control-panel nav button[aria-pressed="true"],
-.slide-tabs button[aria-pressed="true"] {
+.director .control-panel nav button[aria-pressed="true"],
+.director .slide-tabs button[aria-pressed="true"] {
   background: #c2ec78;
   color: #162512;
 }
-.rule-list,
-.carousel-editor {
+.director .rule-list,
+.director .carousel-editor {
   padding: 18px;
 }
-.section-heading {
+.director .section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 16px;
 }
-.section-heading h2 {
+.director .section-heading h2 {
   font-size: 17px;
   margin: 0;
 }
-.section-heading button {
+.director .section-heading button {
   font-size: 11px;
   white-space: nowrap;
 }
-.rule {
+.director .rule {
   padding: 16px;
   margin-bottom: 12px;
   border-radius: 14px;
   border: 1px solid #354238;
   background: #1b261f;
 }
-.rule-head {
+.director .rule-head {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.rule-head > span {
+.director .rule-head > span {
   color: #7f9a83;
   font-size: 12px;
 }
-.rule-head > input {
+.director .rule-head > input {
   font-weight: 600;
   min-width: 0;
   border: 0 !important;
@@ -193,28 +212,28 @@ body {
 .director input[type="checkbox"] {
   accent-color: #bdea74;
 }
-.rule-head .toggle {
+.director .rule-head .toggle {
   display: flex;
   gap: 4px;
   align-items: center;
   font-size: 11px;
   white-space: nowrap;
 }
-.field-pair {
+.director .field-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
-.rule-bottom {
+.director .rule-bottom {
   display: flex;
   gap: 20px;
   align-items: end;
 }
-.rule-bottom label {
+.director .rule-bottom label {
   max-width: 130px;
   flex: 1;
 }
-.rule-bottom .quiet {
+.director .rule-bottom .quiet {
   border: 0;
   background: none;
   font-size: 11px;
@@ -222,13 +241,13 @@ body {
   margin-bottom: 10px;
   padding: 8px 0;
 }
-.preview-panel {
+.director .preview-panel {
   min-width: 0;
   align-self: start;
   position: sticky;
   top: 15px;
 }
-.preview-heading {
+.director .preview-heading {
   display: flex;
   justify-content: space-between;
   color: #98aaa0;
@@ -236,7 +255,7 @@ body {
   letter-spacing: 0.12em;
   padding: 10px 2px;
 }
-.director-stage {
+.director .director-stage {
   aspect-ratio: 16/9;
   position: relative;
   border: 1px solid #3c4b45;
@@ -247,13 +266,13 @@ body {
     linear-gradient(130deg, #25372e, #111727 75%);
   isolation: isolate;
 }
-.stage-scenery {
+.director .stage-scenery {
   position: absolute;
   inset: 0;
   padding: 7%;
   overflow: hidden;
 }
-.stream-tag {
+.director .stream-tag {
   font-size: 9px;
   letter-spacing: 0.15em;
   border: 1px solid #637467;
@@ -261,22 +280,22 @@ body {
   padding: 5px 7px;
   color: #b4c4b4;
 }
-.stage-scenery h2 {
+.director .stage-scenery h2 {
   font:
     800 clamp(18px, 2.5vw, 39px)/1.2 Manrope,
     sans-serif;
   position: relative;
   margin-top: 15%;
 }
-.stage-scenery h2 em {
+.director .stage-scenery h2 em {
   font-style: normal;
   color: #c5ee90;
 }
-.stage-scenery p {
+.director .stage-scenery p {
   font-size: 12px;
   color: #8da69a;
 }
-.orbit {
+.director .orbit {
   position: absolute;
   width: 60%;
   aspect-ratio: 1;
@@ -288,18 +307,18 @@ body {
     0 0 0 35px #c3ed9b08,
     0 0 0 70px #c3ed9b04;
 }
-.orbit.two {
+.director .orbit.two {
   top: 60%;
   right: 50%;
 }
-.stage-status {
+.director .stage-status {
   position: absolute;
   bottom: 12px;
   left: 18px;
   color: #aec1af;
   font-size: 9px;
 }
-.popup-carousel {
+.director .popup-carousel {
   position: absolute;
   right: 3%;
   top: 5%;
@@ -313,7 +332,7 @@ body {
   box-shadow: 0 15px 60px #0008;
   animation: carousel-in 0.35s ease-out;
 }
-.popup-top {
+.director .popup-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -322,123 +341,123 @@ body {
   background: #e4eadb;
   gap: 6px;
 }
-.popup-top > span {
+.director .popup-top > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.popup-top button {
+.director .popup-top button {
   padding: 0 4px;
   border: 0;
   background: none;
   color: #243823;
   font-size: 18px;
 }
-.popup-carousel > img {
+.director .popup-carousel > img {
   display: block;
   width: 100%;
   height: clamp(90px, 13vw, 195px);
   object-fit: contain;
   background: #fff;
 }
-.popup-copy {
+.director .popup-copy {
   padding: 9px 12px;
 }
-.popup-copy strong {
+.director .popup-copy strong {
   display: block;
   font-size: clamp(11px, 1.2vw, 17px);
 }
-.popup-copy p {
+.director .popup-copy p {
   font-size: 11px;
   margin: 4px 0;
 }
-.popup-copy a {
+.director .popup-copy a {
   display: inline-block;
   color: #253e25;
   font-weight: 600;
   font-size: 11px;
   margin-top: 4px;
 }
-.popup-copy small {
+.director .popup-copy small {
   font-size: 10px;
 }
-.popup-controls {
+.director .popup-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 1px 10px 6px;
   font-size: 10px;
 }
-.popup-controls button {
+.director .popup-controls button {
   padding: 3px 9px;
   background: #dce7cf;
   color: #243823;
   border: 0;
 }
-.popup-progress {
+.director .popup-progress {
   height: 3px;
   background: #6e983b;
   transition: width 0.2s linear;
 }
-.preview-actions {
+.director .preview-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
   margin: 12px 0;
 }
-.preview-actions button {
+.director .preview-actions button {
   font-size: 11px;
 }
-.try-chat {
+.director .try-chat {
   padding: 18px;
   border: 1px solid #344136;
   background: #151f1a;
   border-radius: 15px;
   margin-top: 20px;
 }
-.try-chat > label {
+.director .try-chat > label {
   font-size: 15px;
   color: #e6eee3;
   font-weight: 600;
   margin-top: 0;
 }
-.try-chat p {
+.director .try-chat p {
   font-size: 11px;
   color: #97a99a;
 }
-.try-chat p button {
+.director .try-chat p button {
   padding: 2px 6px;
   font-size: 11px;
   border-color: #3d5139;
 }
-.try-chat form {
+.director .try-chat form {
   display: flex;
   gap: 8px;
   align-items: center;
 }
-.try-chat form input {
+.director .try-chat form input {
   margin: 0 !important;
   flex: 1;
 }
-.try-chat form button {
+.director .try-chat form button {
   white-space: nowrap;
   font-size: 12px;
 }
-.timer-controls {
+.director .timer-controls {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
   margin: 16px 0;
 }
-.timer-controls button {
+.director .timer-controls button {
   font-size: 11px;
 }
-.timer-controls span {
+.director .timer-controls span {
   font-size: 10px;
   color: #a5b0a2;
 }
-.director-notice {
+.director .director-notice {
   font-size: 12px;
   min-height: 2.5em;
   color: #d0e5b6;
@@ -451,15 +470,15 @@ body {
 .director li {
   padding: 4px;
 }
-.slide-tabs {
+.director .slide-tabs {
   display: flex;
   gap: 7px;
   margin: 16px 0;
 }
-.slide-tabs button {
+.director .slide-tabs button {
   padding: 7px 12px;
 }
-.slide-image {
+.director .slide-image {
   height: 160px;
   background: #0b110c;
   display: grid;
@@ -468,18 +487,18 @@ body {
   overflow: hidden;
   color: #7b927c;
 }
-.slide-image img {
+.director .slide-image img {
   height: 100%;
   width: 100%;
   object-fit: contain;
 }
-.carousel-editor input[type="file"] {
+.director .carousel-editor input[type="file"] {
   display: block;
   margin-top: 8px;
   max-width: 100%;
   font-size: 11px;
 }
-.merch-declaration {
+.director .merch-declaration {
   min-width: 0;
   margin: 18px 0;
   padding: 12px 14px 14px;
@@ -488,13 +507,13 @@ body {
   background: #1c291e;
   line-height: 1.5;
 }
-.merch-declaration legend {
+.director .merch-declaration legend {
   padding: 0 5px;
   color: #d5edb5;
   font-size: 13px;
   font-weight: 600;
 }
-.merch-declaration p {
+.director .merch-declaration p {
   margin: 0 0 10px;
   color: #bac9bc;
   font-size: 12px;
@@ -507,27 +526,27 @@ body {
   font-size: 12px;
   cursor: pointer;
 }
-.merch-declaration-check input {
+.director .merch-declaration-check input {
   flex: 0 0 auto;
   width: 16px;
   height: 16px;
   margin: 2px 0 0;
 }
-.merch-declaration small,
-.merch-link-guidance {
+.director .merch-declaration small,
+.director .merch-link-guidance {
   display: block;
   color: #a5b5a5;
   font-size: 11px;
   line-height: 1.5;
 }
-.merch-link-guidance {
+.director .merch-link-guidance {
   margin-top: 7px;
 }
-.merch-declaration .merch-declaration-status {
+.director .merch-declaration .merch-declaration-status {
   margin: 10px 0 0;
   color: #d0e8b0;
 }
-.director-burst {
+.director .director-burst {
   position: absolute;
   inset: 0;
   display: grid;
@@ -535,7 +554,7 @@ body {
   background: radial-gradient(ellipse, #66368688, transparent 75%);
   pointer-events: none;
 }
-.director-burst strong {
+.director .director-burst strong {
   font:
     800 clamp(20px, 3vw, 45px) Manrope,
     sans-serif;
@@ -546,7 +565,7 @@ body {
   z-index: 1;
   animation: burst-text 0.6s ease-out;
 }
-.director-burst i {
+.director .director-burst i {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -556,10 +575,10 @@ body {
   animation: burst-out 3.5s ease-out both;
   transform: rotate(calc(var(--i) * 18deg));
 }
-.director-burst i:nth-child(3n) {
+.director .director-burst i:nth-child(3n) {
   color: #e893ff;
 }
-.director-burst i:nth-child(3n + 1) {
+.director .director-burst i:nth-child(3n + 1) {
   color: #7de5e1;
 }
 @keyframes carousel-in {
@@ -593,68 +612,68 @@ body {
   }
 }
 @media (max-width: 1000px) {
-  .director-grid {
+  .director .director-grid {
     grid-template-columns: 350px minmax(0, 1fr);
     gap: 15px;
     padding: 0 20px 40px;
   }
-  .popup-carousel {
+  .director .popup-carousel {
     width: 44%;
   }
-  .popup-top {
+  .director .popup-top {
     font-size: 8px;
   }
-  .popup-carousel > img {
+  .director .popup-carousel > img {
     height: 90px;
   }
-  .popup-copy {
+  .director .popup-copy {
     padding: 5px 9px;
   }
-  .popup-copy p {
+  .director .popup-copy p {
     font-size: 9px;
   }
-  .popup-controls {
+  .director .popup-controls {
     padding-bottom: 2px;
   }
-  .popup-copy a {
+  .director .popup-copy a {
     font-size: 9px;
   }
 }
 @media (max-width: 800px) {
-  .director-top {
+  .director .director-top {
     flex-wrap: wrap;
   }
-  .director-top > div {
+  .director .director-top > div {
     margin-left: 0;
   }
-  .director-grid {
+  .director .director-grid {
     display: flex;
     flex-direction: column;
   }
-  .preview-panel {
+  .director .preview-panel {
     position: static;
     order: -1;
   }
-  .director-stage {
+  .director .director-stage {
     min-height: 300px;
   }
-  .popup-carousel {
+  .director .popup-carousel {
     width: 40%;
     max-width: 230px;
   }
-  .popup-carousel > img {
+  .director .popup-carousel > img {
     height: 130px;
   }
-  .stage-scenery h2 {
+  .director .stage-scenery h2 {
     font-size: 27px;
   }
-  .draft-badge {
+  .director .draft-badge {
     font-size: 8px;
   }
-  .try-chat form {
+  .director .try-chat form {
     flex-wrap: wrap;
   }
-  .rule-list {
+  .director .rule-list {
     display: grid;
     grid-template-columns: 1fr;
   }
@@ -667,36 +686,36 @@ body {
     animation: none !important;
     transition: none !important;
   }
-  .director-burst i {
+  .director .director-burst i {
     display: none;
   }
 }
 /* Keep carousel controls reachable at small preview sizes. */
-.popup-carousel {
+.director .popup-carousel {
   display: flex;
   flex-direction: column;
   height: 88%;
 }
-.popup-carousel > img {
+.director .popup-carousel > img {
   flex: 1 1 0;
   height: 0;
   min-height: 0;
 }
-.popup-top,
-.popup-controls,
-.popup-progress {
+.director .popup-top,
+.director .popup-controls,
+.director .popup-progress {
   flex-shrink: 0;
 }
-.popup-copy {
+.director .popup-copy {
   flex: 0 1 auto;
   min-height: 0;
   max-height: 42%;
   overflow: auto;
 }
-.popup-copy strong {
+.director .popup-copy strong {
   overflow-wrap: anywhere;
 }
-.developer-panel {
+.director .developer-panel {
   margin: 20px 0;
   padding: 18px;
   border: 1px solid #665185;
@@ -704,12 +723,12 @@ body {
   background: #1c1925;
   line-height: 1.5;
 }
-.developer-panel summary {
+.director .developer-panel summary {
   cursor: pointer;
   color: #e1c5ff;
   font-weight: 600;
 }
-.developer-panel pre {
+.director .developer-panel pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding: 12px;
@@ -718,7 +737,7 @@ body {
   color: #d9e6ce;
   font-size: 11px;
 }
-.developer-panel textarea {
+.director .developer-panel textarea {
   width: 100%;
   background: #111015;
   color: #e5e7e1;
@@ -727,11 +746,11 @@ body {
   padding: 10px;
   font: 12px monospace;
 }
-.developer-panel .field-pair {
+.director .developer-panel .field-pair {
   align-items: end;
   margin-top: 15px;
 }
-.developer-panel .field-pair button {
+.director .developer-panel .field-pair button {
   margin-bottom: 10px;
   font-size: 11px;
 }

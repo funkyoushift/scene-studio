@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
 $distPath = Join-Path $projectRoot 'dist'
 $outputPath = Join-Path $projectRoot 'outputs'
-foreach ($page in @('config.html', 'viewer.html')) {
+foreach ($page in @('config.html', 'viewer.html', 'automations.html')) {
   $pagePath = Join-Path $distPath $page
   $html = [IO.File]::ReadAllText($pagePath)
   $firstScript = [regex]::Match($html, '<script[^>]*src="([^"]+)"')
@@ -19,7 +19,7 @@ Add-Type -AssemblyName System.IO.Compression
 $fileStream = [IO.File]::Open($archivePath, [IO.FileMode]::CreateNew)
 $archive = New-Object IO.Compression.ZipArchive($fileStream, [IO.Compression.ZipArchiveMode]::Create)
 try {
-  $packageFiles = @((Get-Item -LiteralPath (Join-Path $distPath 'config.html')), (Get-Item -LiteralPath (Join-Path $distPath 'viewer.html')))
+  $packageFiles = @('config.html', 'viewer.html', 'automations.html' | ForEach-Object { Get-Item -LiteralPath (Join-Path $distPath $_) })
   $packageFiles += @(Get-ChildItem -LiteralPath (Join-Path $distPath 'assets') -File -Recurse)
   foreach ($file in $packageFiles) {
     $relativePath = $file.FullName.Substring($distPath.Length + 1).Replace('\', '/')

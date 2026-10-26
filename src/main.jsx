@@ -25,6 +25,8 @@ import {
 } from "./scene.mjs";
 import "./style.css";
 import { PARTY_PRESETS } from "./party.mjs";
+import AutomationViewer from "./AutomationViewer.jsx";
+import AutomationStudio from "./AutomationStudio.jsx";
 import { TEMPLATE_OPTIONS, createTemplate } from "./templates.mjs";
 import {
   prepareImage,
@@ -476,7 +478,8 @@ function Viewer() {
   const [scene, setScene] = useState(null),
     [creator, setCreator] = useState(null),
     [status, setStatus] = useState("Waiting for the channel’s scene…"),
-    [sharedEvent,setSharedEvent]=useState(null);
+    [sharedEvent,setSharedEvent]=useState(null),
+    [automationAuth,setAutomationAuth]=useState(null);
   const partyAuth=useRef(null);
   useEffect(() => {
     document.body.classList.add("viewer");
@@ -486,12 +489,15 @@ function Viewer() {
     }
     let active = true;
     helper.onAuthorized((auth) => {
+      if (!active) return;
       partyAuth.current=auth;
+      setAutomationAuth(auth);
+      setCreator(previous => previous?.id === auth.channelId ? previous : null);
       channelProfile(auth)
         .then((profile) => {
-          if (active) setCreator(profile);
+          if (active && partyAuth.current === auth && profile.id === auth.channelId) setCreator(profile);
         })
-        .catch(() => {if(active) setStatus("The channel’s creator could not be confirmed. Refresh to try again.");});
+        .catch(() => {if(active && partyAuth.current === auth) setStatus("The channel’s creator could not be confirmed. Refresh to try again.");});
     });
     const stop = watchTwitchScene(helper, setScene, setStatus,setSharedEvent);
     return () => {
@@ -499,7 +505,7 @@ function Viewer() {
       stop();
     };
   }, []);
-  return scene && (creator || scene.objects.length === 0) ? (
+  return <><AutomationViewer helper={helper} auth={automationAuth} creator={creator} />{scene && (creator || scene.objects.length === 0) ? (
     <>
       <Scene scene={scene} sharedEvent={sharedEvent} beforeParty={()=>{
         if(!helper.viewer.isLinked) {helper.actions.requestIdShare();throw new Error("Link your identity, then click again to celebrate and post in chat.");}
@@ -511,10 +517,13 @@ function Viewer() {
     </>
   ) : (
     <div className="viewer-status">{status || "Confirming the creator of these objects…"}</div>
-  );
+  )}</>;
 }
 
 function Editor() {
+  const [automationOpen, setAutomationOpen] = useState(false),
+    [automationVisited, setAutomationVisited] = useState(false),
+    [automationSession, setAutomationSession] = useState(null);
   const [scene, setScene] = useState(() => {
     if (isConfig) return starterScene();
     try {
@@ -616,6 +625,7 @@ function Editor() {
     helper.onAuthorized((auth) => {
       if (!active) return;
       authRef.current = auth;
+      setAutomationSession({ auth, viewer: { role: helper.viewer?.role, isLinked: helper.viewer?.isLinked === true } });
       setAuthorized(helper.viewer?.role === "broadcaster");
       setLinked(Boolean(helper.viewer?.isLinked));
       refreshChannelProfile(auth);
@@ -813,6 +823,8 @@ function Editor() {
     }
   }
   return (
+    <>
+    <div hidden={automationOpen}>
     <div className="app-shell" style={publishBarHeight == null ? undefined : { "--publish-bar-height": `${publishBarHeight}px` }}>
       <header className="topbar">
         <a className="brand" href={isConfig ? "./config.html" : "./"}>
@@ -836,6 +848,10 @@ function Editor() {
           )}
           <button onClick={download}>Export design ↗</button>
           <button onClick={() => setModal("chat")}>Optional chat</button>
+          <button disabled={busy || (isConfig && !authorized)} onClick={() => {
+            if (isConfig) { setAutomationVisited(true); setAutomationOpen(true); }
+            else window.location.href = './automations.html';
+          }}>Carousels & chat triggers →</button>
           <button onClick={() => setModal("present")}>Open viewer preview ↗</button>
           <button
             className="primary"
@@ -1434,6 +1450,11 @@ function Editor() {
         </Modal>
       )}
     </div>
+    </div>
+    {automationVisited && <div hidden={!automationOpen}>
+      <AutomationStudio session={{ auth: automationSession?.auth, viewer: automationSession?.viewer, profile }} visible={automationOpen} onBack={() => setAutomationOpen(false)} />
+    </div>}
+    </>
   );
 }
 

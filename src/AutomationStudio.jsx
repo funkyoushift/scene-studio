@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import {
   validateAutomations,
   parseAutomations,
@@ -10,9 +10,14 @@ import { prepareImage } from "./images.mjs";
 import merch from "../designs/funkyoushift-merch-preview.json";
 import "./automations.css";
 import DeveloperPanel from "./DeveloperPanel.jsx";
+import { getAutomationConfig, saveAutomationConfig, publishAutomationImages, fireAutomation, currentAutomationPublisher, connectAutomationSession } from "./automation-twitch.mjs";
+import { channelProfile } from "./twitch.mjs";
+import { IMAGE_ORIGIN } from "./image-address.mjs";
 
 const KEY = "scene-studio-automation-preview-v1";
 const uid = () => crypto.randomUUID();
+const emptyDesign = () => ({ version: 1, carousels: [], rules: [] });
+const twitchEditor = () => Boolean(window.Twitch?.ext && ["config", "dashboard"].includes(new URLSearchParams(location.search).get("mode")));
 function initialDesign() {
   try {
     const saved = localStorage.getItem(KEY);
@@ -66,8 +71,10 @@ function initialDesign() {
   });
 }
 
-export default function AutomationStudio() {
-  const [design, setDesign] = useState(initialDesign),
+export default function AutomationStudio({ session, onBack, visible = true }) {
+  const managed = session !== undefined;
+  const liveEditor = managed || twitchEditor();
+  const [design, setDesign] = useState(() => liveEditor ? emptyDesign() : initialDesign()),
     [tab, setTab] = useState("rules"),
     [carouselId, setCarouselId] = useState(() => design.carousels[0]?.id),
     [slideIndex, setSlideIndex] = useState(0);
@@ -85,6 +92,100 @@ export default function AutomationStudio() {
   // Streamer declarations belong to this editing session, not the runtime design.
   // They are not evidence of ownership and never grant Twitch link permission.
   const [merchDeclarations, setMerchDeclarations] = useState({});
+  const [pastedDesign, setPastedDesign] = useState(""), [importStatus, setImportStatus] = useState("");
+  const pasteId = useId();
+  const [auth, setAuth] = useState(null), [linked, setLinked] = useState(false), [channelName, setChannelName] = useState(""),
+    [savedConfig, setSavedConfig] = useState(null), [liveStatus, setLiveStatus] = useState("Waiting for Twitch channel authorization…"),
+    [busy, setBusy] = useState(false), [chatStatus, setChatStatus] = useState(null), [authorizeUrl, setAuthorizeUrl] = useState("");
+  const authRef = useRef(null), loadGeneration = useRef(0), viewerRef = useRef(null);
+  viewerRef.current = managed ? session?.viewer : window.Twitch?.ext?.viewer;
+  const dirty = liveEditor && savedConfig && JSON.stringify(design) !== JSON.stringify(savedConfig.design);
+  const backUrl = liveEditor ? `./config.html${location.search}` : "./";
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = event => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  function installConfig(next) {
+    setSavedConfig(next); setDesign(next.design); setCarouselId(next.design.carousels[0]?.id); setSlideIndex(0);
+    setMerchDeclarations(Object.fromEntries(next.design.carousels.map(c => [c.id, next.ownedMerch])));
+    setActive(null); setQueue([]); setRunning(false);
+  }
+  async function loadChannel(current) {
+    const generation = ++loadGeneration.current;
+    setBusy(true);
+    try {
+      const next = await getAutomationConfig(current);
+      if (generation !== loadGeneration.current || authRef.current?.channelId !== current.channelId) return;
+      installConfig(next);
+      setLiveStatus(`Loaded this channel's saved automation revision ${next.revision}.`);
+    } catch (error) { if (generation === loadGeneration.current) setLiveStatus(error.message); }
+    finally { if (generation === loadGeneration.current) setBusy(false); }
+  }
+  useEffect(() => {
+    if (!liveEditor) return;
+    let active = true;
+    const helper = window.Twitch.ext;
+    const disconnect = connectAutomationSession(helper, session, current => {
+      if (!active) return;
+      const next = current?.auth, viewer = current?.viewer;
+      if (!next) { authRef.current = null; setAuth(null); setLinked(false); setLiveStatus("Waiting for Twitch channel authorization…"); return; }
+      if (viewer?.role !== "broadcaster") { authRef.current = null; setAuth(null); setLinked(false); setSavedConfig(null); setDesign(emptyDesign()); setLiveStatus("Only this channel's broadcaster can configure live automations."); return; }
+      const changed = authRef.current?.channelId !== next.channelId;
+      authRef.current = next; setAuth(next); setLinked(viewer?.isLinked === true);
+      if (changed) {
+        setDesign(emptyDesign()); setSavedConfig(null); setMerchDeclarations({}); setChannelName(""); setChatStatus(null); setAuthorizeUrl("");
+        void loadChannel(next);
+        if (!managed) channelProfile(next).then(profile => { if (active && authRef.current?.channelId === next.channelId) setChannelName(profile.login); }).catch(() => {});
+      }
+      if (current.profile?.id === next.channelId) setChannelName(current.profile.login);
+    });
+    return () => { active = false; disconnect(); };
+  }, [liveEditor, managed, session?.auth, session?.viewer?.role, session?.viewer?.isLinked, session?.profile]);
+  useEffect(() => () => { loadGeneration.current++; }, []);
+  useEffect(() => { if (!visible) { setRunning(false); setActive(null); setQueue([]); } }, [visible]);
+  async function saveLive() {
+    if (!auth || !linked || !savedConfig || busy) return;
+    const current = auth, revision = savedConfig.revision;
+    const ownedMerch = design.carousels.filter(c => c.slides.some(s => s.url)).every(c => merchDeclarations[c.id] === true);
+    setBusy(true);
+    try {
+      const ready = await publishAutomationImages(design, current, ownedMerch);
+      const publisher = currentAutomationPublisher(current, authRef.current, viewerRef.current);
+      const result = await saveAutomationConfig(publisher, ready, revision, ownedMerch);
+      if (authRef.current?.channelId !== current.channelId) return;
+      installConfig(result);
+      setLiveStatus(result.notification === "uncertain" ? `Saved revision ${result.revision}. Viewer notification is uncertain; reload the viewer to verify.` : `Saved revision ${result.revision} for this channel. Connected viewers were notified.`);
+    } catch (error) { setLiveStatus(error.message); }
+    finally { setBusy(false); }
+  }
+  async function fireLive(effect) {
+    if (!auth || !linked || busy) return;
+    setBusy(true);
+    try {
+      const result = await fireAutomation(auth, effect);
+      setLiveStatus(result.status === "sent" ? "Sent to Twitch. Check a viewer session to confirm the result." : result.status === "uncertain" ? "Delivery is uncertain. Check viewers before another click." : result.status === "cooldown" ? "The channel is cooling down. Try later." : "No saved action matched. Reload the channel settings.");
+    } catch (error) { setLiveStatus(error.message); }
+    finally { setBusy(false); }
+  }
+  async function chatConnection(connect = false, retry = false) {
+    if (!auth || !linked || busy) return;
+    setBusy(true); setAuthorizeUrl("");
+    try {
+      const response = await fetch(`${IMAGE_ORIGIN}/v1/chat/${auth.channelId}/${connect ? "trigger-connect" : "triggers"}`, { method: connect || retry ? "POST" : "GET", headers: { Authorization: `Bearer ${auth.token}` }, credentials: "omit", redirect: "error", signal: AbortSignal.timeout(20000) });
+      const result = await response.json();
+      if (!response.ok) throw Error(result.message || result.error || "Chat triggers could not be connected.");
+      if (connect) {
+        const url = new URL(result.authorizeUrl);
+        const fields = ["response_type", "client_id", "redirect_uri", "scope", "state"];
+        const scopes = url.searchParams.get("scope")?.split(" ").sort().join(" ");
+        if (url.origin !== "https://id.twitch.tv" || url.pathname !== "/oauth2/authorize" || url.username || url.password || url.hash || fields.some(key => url.searchParams.getAll(key).length !== 1) || url.searchParams.get("response_type") !== "code" || !/^[a-zA-Z0-9]{10,80}$/.test(url.searchParams.get("client_id") || "") || url.searchParams.get("redirect_uri") !== `${IMAGE_ORIGIN}/chat/callback` || !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get("state") || "") || scopes !== ["moderation:read", "user:read:chat", "user:bot", "channel:bot"].sort().join(" ") || !Number.isFinite(result.expiresAt) || result.expiresAt <= Date.now()) throw Error("The Twitch authorization link could not be verified.");
+        setAuthorizeUrl(url.href); setLiveStatus("Open Twitch authorization below, then refresh connection status.");
+      } else { setChatStatus(result); setLiveStatus("Chat trigger status refreshed."); }
+    } catch (error) { setLiveStatus(error.message); }
+    finally { setBusy(false); }
+  }
   const offset = useRef(0),
     engine = useRef(createAutomationState(Date.now())),
     designRef = useRef(design),
@@ -130,13 +231,14 @@ export default function AutomationStudio() {
     }
   }
   useEffect(() => {
+    if (!visible) return;
     const timer = setInterval(() => {
       const time = Date.now() + offset.current;
       setNow(time);
       if (runningRef.current) evaluate({ type: "tick" }, time);
     }, 250);
     return () => clearInterval(timer);
-  }, []);
+  }, [visible]);
   useEffect(() => {
     if (!active && queue.length) {
       setActive({ ...queue[0], startedAt: now });
@@ -152,6 +254,7 @@ export default function AutomationStudio() {
       setActive(null);
   }, [active, now]);
   function save() {
+    if (liveEditor) { void saveLive(); return; }
     try {
       const clean = validateAutomations(design);
       localStorage.setItem(KEY, JSON.stringify(clean));
@@ -243,11 +346,8 @@ export default function AutomationStudio() {
       setNotice(e.message);
     }
   }
-  async function importDesign(file) {
-    if (!file) return;
-    try {
-      if (file.size > 2000000) throw Error("Keep the design under 2 MB.");
-      const clean = parseAutomations(await file.text());
+  function applyDesignText(text) {
+      const clean = parseAutomations(text);
       setMerchDeclarations({});
       setDesign(clean);
       setCarouselId(clean.carousels[0]?.id);
@@ -256,9 +356,16 @@ export default function AutomationStudio() {
       setActive(null);
       setRunning(false);
       engine.current = createAutomationState(Date.now() + offset.current);
-      setNotice("Imported for preview. Save to keep this design.");
+      const message = liveEditor ? "Imported. Publish to Twitch to save this channel's design." : "Imported for preview. Save to keep this design.";
+      setNotice(message); setImportStatus(message);
+  }
+  async function importDesign(file) {
+    if (!file) return;
+    try {
+      if (file.size > 2000000) throw Error("Keep the design under 2 MB.");
+      applyDesignText(await file.text());
     } catch (e) {
-      setNotice(e.message);
+      setNotice(e.message); setImportStatus(e.message);
     }
   }
   const shown = active?.carousel;
@@ -269,15 +376,16 @@ export default function AutomationStudio() {
     ];
   return (
     <div className="director">
-      <header className="director-top">
-        <a href="./">✳ scene studio</a>
-        <span className="draft-badge">NEXT VERSION · INTERACTIVE PREVIEW</span>
+      <header className={`director-top${liveEditor ? " live-director-top" : ""}`}>
+        <a href={backUrl} onClick={event => { if (onBack) { event.preventDefault(); onBack(); } else if (dirty && !window.confirm("Leave without saving this channel's automation edits?")) event.preventDefault(); }}>← Scene Studio objects</a>
+        <span className="draft-badge">{liveEditor ? "TWITCH CHANNEL AUTOMATIONS" : "NEXT VERSION · INTERACTIVE PREVIEW"}</span>
         <div>
           <button onClick={exportDesign}>Export</button>
           <label className="import-control">
             Import
             <input
               type="file"
+              disabled={busy}
               accept="application/json,.json"
               aria-label="Import trigger design"
               onChange={(e) => {
@@ -286,8 +394,8 @@ export default function AutomationStudio() {
               }}
             />
           </label>
-          <button className="lime" onClick={save}>
-            Save this draft
+          <button className="lime" title={liveEditor ? "Save this channel's design and notify its viewers" : "Save in this browser"} onClick={save} disabled={busy || (liveEditor && (!savedConfig || !linked))}>
+            {liveEditor ? "Publish to Twitch" : "Save this draft"}
           </button>
         </div>
       </header>
@@ -299,13 +407,29 @@ export default function AutomationStudio() {
           moment.
         </p>
         <p className="prototype-note">
-          This is an interactive prototype. Test messages are simulated; timers
-          run only on this page. Store links open real sites in preview. Twitch
-          chat reading, advertising and purchase links are not enabled in the
-          submitted extension.
+          {liveEditor ? "Save and fire controls below affect this channel's new extension version. The preview messages and timers remain simulations. Live timers require at least 60 seconds and are checked about once a minute. Store links are admitted only for the channel's configured own-merch store." : "This is an interactive preview. Test messages are simulated; timers run only on this page. Store links open real sites in preview. To save or fire a real action, open your Twitch extension configuration. The submitted 0.1 version is unchanged."}
         </p>
       </section>
-      <main className="director-grid">
+      <details className="paste-design">
+        <summary>Paste a design · no file picker needed</summary>
+        <p id={`${pasteId}-help`}>Paste an exported automation design or the JSON from your AI tool. Applying it replaces the editable draft; it does not publish or fire anything on Twitch. Export your current draft first if you want to keep it.</p>
+        <label htmlFor={pasteId}>Design JSON</label>
+        <textarea id={pasteId} aria-describedby={`${pasteId}-help`} value={pastedDesign} maxLength={2000000} rows={8} spellCheck={false} autoComplete="off" disabled={busy} onChange={event => { setPastedDesign(event.target.value); setImportStatus(""); }} placeholder='{"version":1,"carousels":[],"rules":[]}' />
+        <button disabled={busy || !pastedDesign.trim() || (liveEditor && !savedConfig)} onClick={() => { try { applyDesignText(pastedDesign); } catch (error) { setNotice(error.message); setImportStatus(error.message); } }}>Apply pasted design</button>
+        <p role="status" aria-live="polite">{importStatus}</p>
+      </details>
+      {liveEditor && <section className="live-automation-panel" aria-label="Live channel controls">
+        <h2>{channelName ? `@${channelName}` : auth ? `Twitch channel ${auth.channelId}` : "Your Twitch channel"}</h2>
+        <p>This editor loads only this channel's saved design. Your separate browser preview draft is not imported automatically.</p>
+        {!linked && <div><p>Connect your Twitch identity to save designs, fire viewer effects or authorize chat triggers. You can inspect the channel's settings first.</p><button disabled={!auth || busy} onClick={() => { try { window.Twitch.ext.actions.requestIdShare(); } catch { setLiveStatus("Twitch could not open identity sharing. Try reopening the extension configuration."); } }}>Connect Twitch identity</button></div>}
+        <p role="status">{liveStatus}</p>
+        <div className="live-automation-actions"><button disabled={!auth || busy} onClick={() => { if (!dirty || window.confirm("Replace unsaved edits with this channel's saved automation design?")) void loadChannel(auth); }}>Reload saved channel design</button><button disabled={!auth || !linked || busy} onClick={() => chatConnection(false)}>Refresh chat trigger status</button><button disabled={!auth || !linked || busy} onClick={() => chatConnection(true)}>Connect Twitch chat triggers</button></div>
+        {authorizeUrl && <a href={authorizeUrl} target="_blank" rel="noopener noreferrer">Authorize chat triggers on Twitch ↗</a>}
+        {chatStatus && <p>Chat triggers: {chatStatus.connected === true ? "connected" : "not connected"}. {chatStatus.reconnectRequired ? "Reconnect required." : ""} {typeof chatStatus.status === "string" ? chatStatus.status : "Refresh status after authorizing."}</p>}
+        {chatStatus?.retryRequired && <button disabled={!auth || !linked || busy} onClick={() => chatConnection(false, true)}>Retry chat connection</button>}
+        {savedConfig?.revision > 0 && <><h3>Fire a saved action on Twitch</h3><p>These buttons use saved revision {savedConfig.revision}, not unsaved edits. They send a real viewer effect; they do not post a chat message.</p><div className="live-automation-actions">{savedConfig.design.carousels.map(c => <button disabled={busy || !linked} key={c.id} onClick={() => fireLive({ type: "carousel", carouselId: c.id })}>Fire on Twitch · {c.title}</button>)}{savedConfig.design.rules.filter(r => r.enabled && r.effect.type === "celebrate").map(r => <button disabled={busy || !linked} key={r.id} onClick={() => fireLive({ type: "celebrate", message: r.effect.message })}>Fire on Twitch · {r.name}</button>)}</div></>}
+      </section>}
+      <main className="director-grid" inert={busy ? true : undefined}>
         <section className="control-panel">
           <nav aria-label="Edit automation">
             <button
@@ -769,7 +893,7 @@ export default function AutomationStudio() {
                         <small id="merch-link-guidance" className="merch-link-guidance">
                           For merchandise, link directly to your own branded item
                           or store. No sponsor, affiliate, or referral links.
-                          Links open real websites in this prototype only.
+                          {liveEditor ? "Only direct links to this channel's configured own-merch store may be saved." : "Links open real websites in this preview only."}
                         </small>
                       </label>
                       <div className="field-pair">
@@ -787,7 +911,7 @@ export default function AutomationStudio() {
                           Remove slide
                         </button>
                         <button className="lime" onClick={previewCarousel}>
-                          Show carousel now
+                          Preview carousel here
                         </button>
                       </div>
                     </>

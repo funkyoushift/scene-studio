@@ -27,6 +27,12 @@ CREATE TABLE IF NOT EXISTS chat_oauth_validation (
   checked_at INTEGER NOT NULL DEFAULT 0
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS chat_oauth_validation_due ON chat_oauth_validation(next_check);
+CREATE TABLE IF NOT EXISTS chat_oauth_intents (
+  channel TEXT PRIMARY KEY,
+  state_hash TEXT NOT NULL UNIQUE,
+  trigger_access INTEGER NOT NULL,
+  expires INTEGER NOT NULL
+) WITHOUT ROWID;
 `;
 export const CHAT_MAX_CONNECTIONS = 100;
 export const CHAT_VALIDATION_BATCH_LIMIT = 5;
@@ -36,6 +42,7 @@ const validId = value => typeof value === "string" && /^[1-9][0-9]{0,19}$/.test(
 const encode = bytes => btoa(String.fromCharCode(...bytes)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 const decode = text => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
 const SCOPE = "moderation:read";
+export const TRIGGER_SCOPES = Object.freeze(["moderation:read", "user:read:chat", "user:bot", "channel:bot"]);
 const STATE_TTL = 10 * 60_000;
 
 export class ChatAuthorizationError extends Error {
@@ -121,21 +128,22 @@ async function tokenExchange(env, parameters, fetcher) {
   if (!validToken(tokens.access_token) || !validToken(tokens.refresh_token) || tokens.token_type?.toLowerCase() !== "bearer") throw new Error();
   return {access_token:tokens.access_token, refresh_token:tokens.refresh_token};
 }
-async function validate(env, channel, token, fetcher) {
+async function validate(env, channel, token, fetcher, required = [SCOPE]) {
   const response = await call(fetcher, "https://id.twitch.tv/oauth2/validate", {headers:{Authorization:`OAuth ${token}`}});
   if (response.status === 401) return null;
   if (!response.ok) throw new Error();
   const claims = await boundedJson(response);
   if (claims.client_id !== env.TWITCH_CHAT_CLIENT_ID || claims.user_id !== channel ||
-      !Array.isArray(claims.scopes) || !claims.scopes.includes(SCOPE) ||
+      !Array.isArray(claims.scopes) || claims.scopes.length > 100 || claims.scopes.some(scope => typeof scope !== "string" || scope.length > 100) || !required.every(scope => claims.scopes.includes(scope)) ||
       !Number.isSafeInteger(claims.expires_in) || claims.expires_in <= 0 || claims.expires_in > 366 * 86400)
     fail(409,"wrong_authorization","Authorize the correct broadcaster account with chat moderation access.");
   return claims;
 }
 
-export function startConnect(env, channel, origin, verifiedClaims, now = Date.now()) {
+function beginConnect(env, channel, origin, verifiedClaims, now, triggerAccess) {
   return safe(async () => {
     ownChannel(env,channel,origin,verifiedClaims);
+    if (triggerAccess && env.CHAT_TRIGGERS_ENABLED !== "true") fail(503,"not_configured","Chat keyword triggers are not enabled yet.");
     const {client,callback} = settings(env);
     // Verify encryption is usable before asking the broadcaster to consent.
     await encryptionKey(env,channel);
@@ -146,10 +154,21 @@ export function startConnect(env, channel, origin, verifiedClaims, now = Date.no
     await statement(env,"DELETE FROM chat_oauth_states WHERE expires <= ?1",now).run();
     await statement(env,`INSERT INTO chat_oauth_states(channel,state_hash,expires,consumed) VALUES(?1,?2,?3,0)
       ON CONFLICT(channel) DO UPDATE SET state_hash=excluded.state_hash,expires=excluded.expires,consumed=0`,channel,await hash(state),expiresAt).run();
+    await statement(env,"DELETE FROM chat_oauth_intents WHERE expires<=?1",now).run();
+    await statement(env,`INSERT INTO chat_oauth_intents(channel,state_hash,trigger_access,expires)
+      SELECT channel,state_hash,?3,expires FROM chat_oauth_states WHERE channel=?1 AND state_hash=?2
+      ON CONFLICT(channel) DO UPDATE SET state_hash=excluded.state_hash,trigger_access=excluded.trigger_access,expires=excluded.expires`,channel,await hash(state),triggerAccess?1:0).run();
     const url = new URL("https://id.twitch.tv/oauth2/authorize");
-    url.search = new URLSearchParams({client_id:client,redirect_uri:callback,response_type:"code",scope:SCOPE,state,force_verify:"true"}).toString();
+    url.search = new URLSearchParams({client_id:client,redirect_uri:callback,response_type:"code",scope:triggerAccess?TRIGGER_SCOPES.join(" "):SCOPE,state,force_verify:"true"}).toString();
     return {authorizeUrl:url.href,expiresAt};
   });
+}
+
+export function startConnect(env,channel,origin,verifiedClaims,now=Date.now()) {
+  return beginConnect(env,channel,origin,verifiedClaims,now,false);
+}
+export function startTriggerConnect(env,channel,origin,verifiedClaims,now=Date.now()) {
+  return beginConnect(env,channel,origin,verifiedClaims,now,true);
 }
 
 export function completeConnect(env, callbackUrl, fetcher = fetch, now = Date.now()) {
@@ -166,18 +185,21 @@ export function completeConnect(env, callbackUrl, fetcher = fetch, now = Date.no
     const pending = await statement(env,`UPDATE chat_oauth_states SET consumed=1
       WHERE state_hash=?1 AND expires>?2 AND consumed=0 RETURNING channel`,stateHash,now).first();
     if (!pending) fail(400,"invalid_state","This connection request is invalid or expired. Start again.");
+    const intent = await statement(env,"SELECT trigger_access FROM chat_oauth_intents WHERE channel=?1 AND state_hash=?2",pending.channel,stateHash).first();
+    const triggerAccess = intent?.trigger_access === 1;
+    if(triggerAccess && env.CHAT_TRIGGERS_ENABLED !== "true") fail(503,"not_configured","Chat keyword triggers are not enabled yet.");
     if (url.searchParams.has("error")) fail(400,"authorization_declined","Chat authorization was not completed. You can connect again when ready.");
     const code = url.searchParams.get("code");
     if (!validToken(code)) fail(400,"invalid_callback","Start a fresh chat connection from the extension’s configuration.");
     const tokens = await tokenExchange(env,{grant_type:"authorization_code",code,redirect_uri:callback},fetcher);
-    const claims = await validate(env,pending.channel,tokens.access_token,fetcher);
+    const claims = await validate(env,pending.channel,tokens.access_token,fetcher,triggerAccess?TRIGGER_SCOPES:[SCOPE]);
     if (!claims) fail(409,"reconnect_required","Twitch could not validate this connection. Please connect again.");
     const result = await statement(env,`INSERT INTO chat_oauth_grants(channel,encrypted_tokens,revision,expires,invalidated,refresh_lock,refresh_until)
       SELECT channel,?3,?4,?5,0,NULL,0 FROM chat_oauth_states WHERE channel=?1 AND state_hash=?2 AND consumed=1 AND expires>?6
       AND (EXISTS(SELECT 1 FROM chat_oauth_grants WHERE channel=?1) OR (SELECT count(*) FROM chat_oauth_grants) < ${CHAT_MAX_CONNECTIONS})
       ON CONFLICT(channel) DO UPDATE SET encrypted_tokens=excluded.encrypted_tokens,revision=excluded.revision,
       expires=excluded.expires,invalidated=0,refresh_lock=NULL,refresh_until=0`,
-      pending.channel,stateHash,await encrypt(env,pending.channel,tokens),crypto.randomUUID(),now + claims.expires_in*1000,now).run();
+      pending.channel,stateHash,await encrypt(env,pending.channel,{...tokens,scopes:claims.scopes,triggerEnabled:triggerAccess,...(triggerAccess?{triggerEpoch:crypto.randomUUID()}:{})}),crypto.randomUUID(),now + claims.expires_in*1000,now).run();
     if (!result.meta.changes) {
       const capacity = await statement(env,"SELECT count(*) AS total, coalesce(sum(channel=?1),0) AS own FROM chat_oauth_grants",pending.channel).first();
       if (capacity.total >= CHAT_MAX_CONNECTIONS && !capacity.own)
@@ -185,7 +207,8 @@ export function completeConnect(env, callbackUrl, fetcher = fetch, now = Date.no
       fail(409,"connection_changed","The connection changed while authorizing. Start again if needed.");
     }
     await statement(env,"DELETE FROM chat_oauth_states WHERE channel=?1 AND state_hash=?2",pending.channel,stateHash).run();
-    return {connected:true,channel:pending.channel};
+    await statement(env,"DELETE FROM chat_oauth_intents WHERE channel=?1 AND state_hash=?2",pending.channel,stateHash).run();
+    return {connected:true,channel:pending.channel,...(triggerAccess?{triggerAccess:true}:{})};
   });
 }
 
@@ -210,7 +233,7 @@ async function refreshGrant(env, row, fetcher, now) {
     if (!claims) fail(409,"reconnect_required","The streamer needs to reconnect chat moderation.");
     const result = await statement(env,`UPDATE chat_oauth_grants SET encrypted_tokens=?4,revision=?5,expires=?6,refresh_lock=NULL,refresh_until=0
       WHERE channel=?1 AND revision=?2 AND refresh_lock=?3 AND invalidated=0`,
-      row.channel,row.revision,lock,await encrypt(env,row.channel,tokens),crypto.randomUUID(),now+claims.expires_in*1000).run();
+      row.channel,row.revision,lock,await encrypt(env,row.channel,{...tokens,scopes:claims.scopes,triggerEnabled:previous.triggerEnabled===true && TRIGGER_SCOPES.every(scope=>claims.scopes.includes(scope)),...(previous.triggerEpoch?{triggerEpoch:previous.triggerEpoch}:{})}),crypto.randomUUID(),now+claims.expires_in*1000).run();
     if (!result.meta.changes) fail(409,"connection_changed","The chat connection changed. Please try again.");
     return loadGrant(env,row.channel);
   } catch (error) {
@@ -240,6 +263,8 @@ export function checkViewerModeration(env,channel,userId,fetcher = fetch,now = D
     }
     if (!verified) {
       row = await refreshGrant(env,row,fetcher,now); tokens = await decrypt(env,row); refreshed = true;
+    } else if(tokens.triggerEnabled && !TRIGGER_SCOPES.every(scope=>verified.scopes.includes(scope))) {
+      await statement(env,"UPDATE chat_oauth_grants SET encrypted_tokens=?3 WHERE channel=?1 AND revision=?2 AND invalidated=0",channel,row.revision,await encrypt(env,channel,{...tokens,scopes:verified.scopes,triggerEnabled:false})).run();
     }
     async function get(url) {
       let response = await call(fetcher,url,{headers:{Authorization:`Bearer ${tokens.access_token}`,"Client-Id":env.TWITCH_CHAT_CLIENT_ID}});
@@ -275,6 +300,27 @@ export function getChatConnection(env,channel,origin,verifiedClaims) {
   });
 }
 
+// Trusted server use only; returns no token. Old moderation-only grants stay valid
+// for their original feature and never implicitly opt into chat ingestion.
+export function getTriggerAuthorization(env,channel,{fetcher=fetch,now=Date.now(),verify=false}={}) {
+  return safe(async()=>{
+    settings(env);
+    if(env.CHAT_TRIGGERS_ENABLED!=="true" || !validId(channel)) fail(409,"trigger_connection_required","Connect optional chat keyword triggers first.");
+    let row=await loadGrant(env,channel),tokens=await decrypt(env,row);
+    const enabled=()=>tokens.triggerEnabled===true && Array.isArray(tokens.scopes) && TRIGGER_SCOPES.every(scope=>tokens.scopes.includes(scope));
+    if(!enabled()) fail(409,"trigger_connection_required","Connect optional chat keyword triggers first. Existing moderation access is unchanged.");
+    if(verify) {
+      if(!await validate(env,channel,tokens.access_token,fetcher,TRIGGER_SCOPES)) {
+        row=await refreshGrant(env,row,fetcher,now);tokens=await decrypt(env,row);
+        if(!enabled() || !await validate(env,channel,tokens.access_token,fetcher,TRIGGER_SCOPES)) fail(409,"trigger_connection_required","Reconnect optional chat keyword triggers.");
+      }
+      const current=await loadGrant(env,channel);
+      if(current.revision!==row.revision) fail(409,"connection_changed","The chat connection changed. Try again.");
+    }
+    return {channel,revision:row.revision,grantId:tokens.triggerEpoch || row.revision,authorized:true};
+  });
+}
+
 // Invoke once per minute from the Worker's scheduled handler. At most five
 // grants are processed per call, including refreshes, to bound free-tier work.
 // Persistent due times drain subsequent batches fairly across isolates. With
@@ -303,7 +349,10 @@ export function validateIdleChatGrants(env,{limit=CHAT_VALIDATION_BATCH_LIMIT,fe
       if (!claim.meta.changes) return "deferred";
       try {
         const tokens = await decrypt(env,row);
-        if (!await validate(env,row.channel,tokens.access_token,fetcher)) row = await refreshGrant(env,row,fetcher,now);
+        const verified=await validate(env,row.channel,tokens.access_token,fetcher);
+        if (!verified) row = await refreshGrant(env,row,fetcher,now);
+        else if(tokens.triggerEnabled && !TRIGGER_SCOPES.every(scope=>verified.scopes.includes(scope)))
+          await statement(env,"UPDATE chat_oauth_grants SET encrypted_tokens=?3 WHERE channel=?1 AND revision=?2 AND invalidated=0",row.channel,row.revision,await encrypt(env,row.channel,{...tokens,scopes:verified.scopes,triggerEnabled:false})).run();
         const saved = await statement(env,`UPDATE chat_oauth_validation SET revision=?3,next_check=?4,checked_at=?5
           WHERE channel=?1 AND revision=?2 AND EXISTS(SELECT 1 FROM chat_oauth_grants WHERE channel=?1 AND revision=?3 AND invalidated=0)`,
           row.channel,original.revision,row.revision,now+55*60_000,now).run();
@@ -328,6 +377,7 @@ export function disconnectChat(env,channel,origin,verifiedClaims,fetcher = fetch
   return safe(async () => {
     ownChannel(env,channel,origin,verifiedClaims);
     await statement(env,"DELETE FROM chat_oauth_states WHERE channel=?1",channel).run();
+    await statement(env,"DELETE FROM chat_oauth_intents WHERE channel=?1",channel).run();
     const row = await statement(env,"DELETE FROM chat_oauth_grants WHERE channel=?1 RETURNING *",channel).first();
     await statement(env,"DELETE FROM chat_oauth_validation WHERE channel=?1",channel).run();
     let accessRevoked = !row;

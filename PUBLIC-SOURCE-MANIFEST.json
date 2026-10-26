@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T00:32:29.154Z",
+  "createdUtc": "2026-10-26T01:29:26.184Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -76,8 +76,8 @@
     },
     {
       "path": "automations.html",
-      "bytes": 341,
-      "sha256": "4190aa0d58ac7a57df423cfb1d2e85647c380b0fcf5f8ad348d079562b030a09"
+      "bytes": 428,
+      "sha256": "0218ec17e3938ab254632437f1f2a8e5127979d545ccebeafe2ef6b02dee7ad9"
     },
     {
       "path": "config.html",
@@ -111,8 +111,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 6691,
-      "sha256": "cc379759f433ac15f3b70e13ab773c104f8833c51441ccf870b863b8499ffcda"
+      "bytes": 8209,
+      "sha256": "1f0becbb9d6bd919663378134e178f0c3c7af53f3184cdd9b2ec4ad2a081ceb1"
     },
     {
       "path": "scripts/build-pages.mjs",
@@ -136,8 +136,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 16866,
-      "sha256": "711c7467557254a4a8c390cdeee9eca20e710d4b98095c92ffb7ae6b1ecde0af"
+      "bytes": 19238,
+      "sha256": "a00e2db577cfef8fbdcfa518a9cc8399a50a8b65c23deefc391659bc8b87cf77"
     },
     {
       "path": "scripts/make-branding.mjs",
@@ -151,13 +151,33 @@
     },
     {
       "path": "scripts/package-twitch.ps1",
-      "bytes": 1731,
-      "sha256": "88f93ae0af89fcdd73673d744b1cd7c1f46f66548828f235f3256e50d0f38417"
+      "bytes": 1747,
+      "sha256": "6692521fbc3722462765dac1a6cb7d6877068e159334c299443d5ab655efeb78"
+    },
+    {
+      "path": "server/automation-schema.sql",
+      "bytes": 1354,
+      "sha256": "462b50936eabf27925b20fe0464b63f09217a86c958ab9c882e43120fa0e081e"
+    },
+    {
+      "path": "server/automation-service.mjs",
+      "bytes": 17912,
+      "sha256": "835a7f09237394b5ac4f265012a906081056b5d906c425730dc8ce127dd0eef9"
     },
     {
       "path": "server/chat-authorization.mjs",
-      "bytes": 22569,
-      "sha256": "bd79d878e22bcecf51b97c9eaab9c5da0ec88fdc35c068e37c91e6771ed41826"
+      "bytes": 27157,
+      "sha256": "93eaaba6d94651768e24ad8af96066b8bbacc51b86685e1f3ee10d9816275a61"
+    },
+    {
+      "path": "server/chat-triggers-schema.sql",
+      "bytes": 851,
+      "sha256": "65e7a9b59444999afdbb2102a55ad43497eeb132d48d7fe718f4056ab453c712"
+    },
+    {
+      "path": "server/chat-triggers.mjs",
+      "bytes": 18222,
+      "sha256": "7318aadf0e62dcd27fc96fd6456d038d1f3e9a579bf23d138227ab490e907a09"
     },
     {
       "path": "server/developer-schema.sql",
@@ -171,8 +191,8 @@
     },
     {
       "path": "server/image-worker.mjs",
-      "bytes": 13804,
-      "sha256": "ad75000aa33a82f235d381d0243ad11321c5a544111248e01d5adfb3fef19b91"
+      "bytes": 17998,
+      "sha256": "332f8fea9d84c35ecd7801a45e7b6e503e1256b89c689781a727c34da542ee1a"
     },
     {
       "path": "server/party-service.mjs",
@@ -181,23 +201,28 @@
     },
     {
       "path": "server/public-pages.mjs",
-      "bytes": 10523,
-      "sha256": "284d473cb760c1422b7cee7b8f6a8c95ee7164483d88255c034fbca608d7b51e"
+      "bytes": 11682,
+      "sha256": "5efe826d5679a66d9187736c843138812811e3e18b9e381a7af9e7967751d4ba"
     },
     {
       "path": "server/schema.sql",
-      "bytes": 1634,
-      "sha256": "3bbb0e0b336fe1ebc5a4bae37ad83da8b4db6c1c968e346978d595228dea19a1"
+      "bytes": 1825,
+      "sha256": "4c99520363cbec45862e06cb29b5201dedd297d609e88f0eed61cee12efd7572"
     },
     {
       "path": "src/automation-entry.jsx",
-      "bytes": 335,
-      "sha256": "236e1e2dc36ae094d26d8a43cf01b041d3e1ea987fd35d9d9f244237e6f976f1"
+      "bytes": 445,
+      "sha256": "2f9146272a4a9e81f42c3f8df38b78263deaf70ac90571524b67f2eebc541071"
+    },
+    {
+      "path": "src/automation-twitch.mjs",
+      "bytes": 10234,
+      "sha256": "4ce93bea7359c6dc058ea6c825d9c16af833c7e885d39c4dd16d6f12eb8c9024"
     },
     {
       "path": "src/automations.css",
-      "bytes": 12785,
-      "sha256": "0b125fc94fbc2777c739f7953ef7d207414789a3fe53cbe2e5f2176dc2139eb7"
+      "bytes": 15251,
+      "sha256": "a35ad1c6c82b60c527bfac4f00b6a54f241c1cc5f653485bde310b14e7a7c006"
     },
     {
       "path": "src/automations.mjs",
@@ -206,8 +231,13 @@
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 37648,
-      "sha256": "d48b5675f119ff713486cffa9878ad83e2953910e723e3e312bb340a83523399"
+      "bytes": 50318,
+      "sha256": "de576125bc6b4fb8ced4a272b119a85ce5666ab0b9ebfeab1fa0620aa749469a"
+    },
+    {
+      "path": "src/AutomationViewer.jsx",
+      "bytes": 4756,
+      "sha256": "5c52a4883fb5c4c5651fffdf4a66f17de9ffe48eb18330e3f343e6d6cf125523"
     },
     {
       "path": "src/DeveloperPanel.jsx",
@@ -226,8 +256,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 58707,
-      "sha256": "5f24fb5f4b20b06ba780b988effed755d8743c615a36750166bdfc7a2c0966d7"
+      "bytes": 60086,
+      "sha256": "9cc342ad57b6411a9d8e7bd20c65f4f52e36b81cf6eeaecab63ecd47d506253e"
     },
     {
       "path": "src/party.mjs",
@@ -255,6 +285,21 @@
       "sha256": "41d4311c583cf6d26ed0740e66d21a0954cb5d9fcf43e3796a5b0007c70a9165"
     },
     {
+      "path": "tests/automation-router.test.mjs",
+      "bytes": 2728,
+      "sha256": "bcd782e3e3a429bdfc6e3e4abb1d0f0b1946d82ba60c8b843caa84097d9de748"
+    },
+    {
+      "path": "tests/automation-service.test.mjs",
+      "bytes": 17539,
+      "sha256": "663ca5ce136402d1b2344064a95211ad8e910d77c1df0ecda0b290543bf5491a"
+    },
+    {
+      "path": "tests/automation-twitch.test.mjs",
+      "bytes": 11615,
+      "sha256": "e2dfbdd4d3ea4ceb55de6e1e5217c3eb8b929b521197ca171acc84023f01487c"
+    },
+    {
       "path": "tests/automations.test.mjs",
       "bytes": 14913,
       "sha256": "09a6d85d30c3092b3dc52eb10275800247cb52e06d1c6ee8bb0e379e435f2882"
@@ -263,6 +308,11 @@
       "path": "tests/chat-authorization.test.mjs",
       "bytes": 17009,
       "sha256": "2f00708470c2a273fbedb504b47ac285113221d742fcbeec5e4670eacdf2e732"
+    },
+    {
+      "path": "tests/chat-triggers.test.mjs",
+      "bytes": 17144,
+      "sha256": "bd213c663234d59b47a98672b1375484611b3a7084d2ae2758eea83d78031876"
     },
     {
       "path": "tests/chat-ui.test.mjs",
@@ -321,13 +371,13 @@
     },
     {
       "path": "vite.config.js",
-      "bytes": 392,
-      "sha256": "8f9b2c941d1413637a565c0546b69980adc866d180bb3343d67a5b6f9d94172b"
+      "bytes": 442,
+      "sha256": "dd5b4a4be1a6e6c8c784270db0073e66cfbc274e76af5f5657cb112c5cc961e6"
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 1222,
-      "sha256": "72321c9c1d0db9ecdbdb6adb56f99766f657c1b1230b8ea8d99e5a1d0c6c7d1a"
+      "bytes": 1333,
+      "sha256": "9270d1dee675288979c80533279080eac401c8d7d6cc3e20a4e3c37c8476acad"
     }
   ],
   "scan": {
