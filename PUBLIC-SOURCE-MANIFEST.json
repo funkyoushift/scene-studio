@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T16:52:30.606Z",
+  "createdUtc": "2026-10-26T16:56:08.653Z",
   "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
   "generated": [
     "wrangler.jsonc",
@@ -326,13 +326,13 @@
     },
     {
       "path": "src/FlowBuilder.jsx",
-      "bytes": 37780,
-      "sha256": "9ecce32f2f2df1f9673da3fc5617a1951875cd7e1cce0e667e12a54ee56c7ff1"
+      "bytes": 38245,
+      "sha256": "b72fedde946c42f4511f1c4083f3a6b1a31708bf53a0f0174ea7c0d935665ce0"
     },
     {
       "path": "src/flows.css",
-      "bytes": 24558,
-      "sha256": "58c91075e68e0cede7fd1028a0665f988e28ba756bf604a1c6e6cc49fc66aa3d"
+      "bytes": 24752,
+      "sha256": "cae212f1e400a10d5036c72b7239251e6fdf1520f1b7f5f8edb3ade6cf7c15c5"
     },
     {
       "path": "src/hype-state.mjs",

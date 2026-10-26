@@ -85,3 +85,4 @@
 .flow-builder .flow-test-panel{flex-wrap:wrap;gap:12px}
 
 .flow-builder .flow-sidebar{max-height:75vh;overflow:auto}
+.flow-animation-picker summary{cursor:pointer;font-size:15px;font-weight:700;padding:12px;background:var(--flow-soft);border-radius:8px}.flow-animation-picker[open] summary{margin-bottom:12px}
