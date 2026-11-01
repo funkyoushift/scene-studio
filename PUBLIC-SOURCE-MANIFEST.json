@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-11-01T18:14:04.900Z",
+  "createdUtc": "2026-11-01T22:01:48.329Z",
   "snapshot": "Current 0.5 development source; separate from the queued Twitch 0.4.0 package. Portal status last verified October 27, 2026.",
   "generated": [
     "wrangler.jsonc",
@@ -130,6 +130,11 @@
       "sha256": "1cc85c420b5225371808d71592cd4339ad2a0a0083c1bd01b02476fbc6fb084d"
     },
     {
+      "path": "scripts/build-brb-maze.mjs",
+      "bytes": 12281,
+      "sha256": "4f5f1789dffd0f822003892e532278b4dbd22b3da49f6342c710fa782f1ec3c1"
+    },
+    {
       "path": "scripts/build-pages.mjs",
       "bytes": 431,
       "sha256": "8a1490acf37bcf279e4af1386e4deaa5dacdc2294f26df1bb9397b900e14c216"
@@ -151,8 +156,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 29839,
-      "sha256": "cc57545c89937761919f1ee427b3eef51e78bc546d7f63f0793b3686142bab86"
+      "bytes": 29374,
+      "sha256": "6c908174060d5c46f390a4fc8ab654f99628bb805428e9e07c2bbbffd433e9a1"
     },
     {
       "path": "scripts/import-trivia-bank.py",
@@ -366,8 +371,8 @@
     },
     {
       "path": "src/CardGame.jsx",
-      "bytes": 25000,
-      "sha256": "3c8e0c4a54b13f5142d7a354026c9206d22705b0657e1bde68fa94b4afa36796"
+      "bytes": 26878,
+      "sha256": "89210774f01a836b2fe63a5a50de6f98686d96150de102166c4732a8d23a9dfb"
     },
     {
       "path": "src/CardPlayer.jsx",
@@ -703,6 +708,11 @@
       "path": "tests/automations.test.mjs",
       "bytes": 33811,
       "sha256": "957ff4009a7e64c2196fdc51423f0d0f8c5e9c7b0663fd2633de1f04b0ded58f"
+    },
+    {
+      "path": "tests/brb-maze.test.mjs",
+      "bytes": 2040,
+      "sha256": "89257ef57af1f6d50c7c7e9e935ff63dd9c62341b20acf8f52e2ca0b1a4db31f"
     },
     {
       "path": "tests/card-game-service.test.mjs",

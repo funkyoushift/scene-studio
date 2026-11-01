@@ -90,9 +90,9 @@ function Rules({ value, onChange, disabled }) {
     </fieldset>
   );
 }
-function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
+function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate, browseOnly = false }) {
   const [search, setSearch] = useState(""),
-    [source, setSource] = useState("cah"),
+    [source, setSource] = useState(""),
     [official, setOfficial] = useState(false),
     [language, setLanguage] = useState(""),
     [limit, setLimit] = useState(80);
@@ -108,9 +108,9 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
   const toggle = (id) =>
     setPacks(selected.has(id) ? packs.filter((x) => x !== id) : [...packs, id]);
   return (
-    <div className="cg-setup">
+    <div className={browseOnly ? "cg-catalog" : "cg-setup"}>
       <section>
-        <h3>Choose your decks</h3>
+        <h3>{browseOnly ? "Full card catalog" : "Choose your decks"}</h3>
         <p>
           {catalog.packs.length.toLocaleString()} packs ·{" "}
           {(catalog.uniqueWhite + catalog.uniqueBlack).toLocaleString()}{" "}
@@ -138,16 +138,16 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
                 setLimit(80);
               }}
             >
-              <option value="cah">Main catalog</option>
-              <option value="community">Community / ManyDecks</option>
-              <option value="">Both collections</option>
+              <option value="">All collections ({catalog.packs.length.toLocaleString()} packs)</option>
+              <option value="cah">Main catalog ({catalog.packs.filter(p => p.source === "cah").length.toLocaleString()} packs)</option>
+              <option value="community">Community / ManyDecks ({catalog.packs.filter(p => p.source === "community").length.toLocaleString()} packs)</option>
             </select>
           </label>
           <label>
             Language
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              onChange={(e) => { setLanguage(e.target.value); setLimit(80); }}
             >
               <option value="">All / unspecified</option>
               {languages.map((l) => (
@@ -159,31 +159,34 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
             <input
               type="checkbox"
               checked={official}
-              onChange={(e) => setOfficial(e.target.checked)}
+              onChange={(e) => { setOfficial(e.target.checked); setLimit(80); }}
             />
             Only packs marked official by the source
           </label>
         </div>
         <div className="cg-actions">
-          <button
+          {!browseOnly && <button
             disabled={busy}
             onClick={() =>
               setPacks([...new Set([...packs, ...filtered.map((p) => p.id)])])
             }
           >
             Select all {filtered.length} matching
-          </button>
-          <button disabled={busy} onClick={() => setPacks([])}>
+          </button>}
+          {!browseOnly && <button disabled={busy} onClick={() => setPacks([])}>
             Clear selection
-          </button>
-          <strong>{packs.length} selected</strong>
+          </button>}
+          <strong>{packs.length} {browseOnly ? "included in this match" : "selected"}</strong>
+          {(search || source || language || official) && <button onClick={() => {setSearch(""); setSource(""); setLanguage(""); setOfficial(false); setLimit(80);}}>Clear filters — browse all packs</button>}
         </div>
+        <p role="status">Showing {Math.min(limit, filtered.length).toLocaleString()} of {filtered.length.toLocaleString()} matching packs · {catalog.packs.length.toLocaleString()} total. Search checks every matching pack, including those below.</p>
+        {browseOnly && <p className="cg-note">Checked packs are included in the current match. Browsing does not change the game. To choose different packs, close the current table and open a new lobby.</p>}
         <div className="cg-pack-list">
           {filtered.slice(0, limit).map((p) => (
             <label key={p.id}>
               <input
                 type="checkbox"
-                disabled={busy}
+                disabled={busy || browseOnly}
                 checked={selected.has(p.id)}
                 onChange={() => toggle(p.id)}
               />
@@ -198,13 +201,9 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
               </span>
             </label>
           ))}
-          {filtered.length > limit && (
-            <button onClick={() => setLimit(limit + 100)}>
-              Show more expansions
-            </button>
-          )}
           {!filtered.length && <p>No matching decks.</p>}
         </div>
+        {filtered.length > limit && <div className="cg-actions"><button onClick={() => setLimit(limit + 100)}>Show next {Math.min(100, filtered.length - limit)} packs ({(filtered.length - limit).toLocaleString()} more)</button></div>}
         <details>
           <summary>Review selected decks ({packs.length})</summary>
           <ul>
@@ -213,12 +212,12 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
               .map((p) => (
                 <li key={p.id}>
                   {p.name}{" "}
-                  <button
+                  {!browseOnly && <button
                     aria-label={`Remove ${p.name}`}
                     onClick={() => toggle(p.id)}
                   >
                     Remove
-                  </button>
+                  </button>}
                 </li>
               ))}
           </ul>
@@ -239,7 +238,7 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
           </p>
         </details>
       </section>
-      <section>
+      {!browseOnly && <section>
         <Rules value={rules} onChange={setRules} disabled={busy} />
         <p>
           Default play: ten-card hands, ordered answers, anonymous judging, one
@@ -259,7 +258,7 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate }) {
           Opening a lobby makes the game available to viewers. It does not post
           to chat or change your other overlay objects.
         </p>
-      </section>
+      </section>}
     </div>
   );
 }
@@ -566,7 +565,8 @@ export default function CardGame({
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(""),
     [rules, setRules] = useState({ ...DEFAULT_CARD_RULES }),
-    [packs, setPacks] = useState([]);
+    [packs, setPacks] = useState([]),
+    [browseCatalog, setBrowseCatalog] = useState(false);
   const dialog = useRef(null),
     current = useRef(auth),
     generation = useRef(0),
@@ -579,6 +579,7 @@ export default function CardGame({
     setCatalog(null);
     setError("");
     setPacks([]);
+    setBrowseCatalog(false);
     setBusy(false);
     return () => {
       generation.current++;
@@ -738,12 +739,18 @@ export default function CardGame({
               </p>
             )}
             {game ? (
-              <CardTable
+              <>
+              {host && game.isHost && catalog && <section aria-label="Available card packs">
+                <p>This match uses {game.deck.packs.length} selected packs. The full catalog has {catalog.packs.length.toLocaleString()} packs.</p>
+                <button onClick={() => setBrowseCatalog(!browseCatalog)}>{browseCatalog ? "Back to current match" : "Browse all card packs"}</button>
+              </section>}
+              {host && game.isHost && catalog && browseCatalog ? <Setup catalog={catalog} packs={game.deck.packs.map(p => p.id)} busy={busy} browseOnly /> : <CardTable
                 game={game}
                 busy={busy}
                 act={act}
                 isHost={host && game.isHost}
-              />
+              />}
+              </>
             ) : host && catalog ? (
               <Setup
                 catalog={catalog}

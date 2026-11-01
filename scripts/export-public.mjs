@@ -48,6 +48,7 @@ const required = [
   "src/viewer-entry.jsx",
   "tests/card-game-service.test.mjs",
   "tests/card-game.test.mjs",
+  "tests/brb-maze.test.mjs", "scripts/build-brb-maze.mjs",
   "tests/experience-service.test.mjs",
   "tests/experience.test.mjs",
   "tests/fixtures/card-game-browser.html",
