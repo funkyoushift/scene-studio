@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {loadStudioSession,loadPublishedScene,studioHelper,startStudioSignIn,signOutStudio,loadPublishHistory,restorePublishedScene} from './studio-client.mjs';
-import './studio.css';
+import './studio.css';import TestRoomControls from './TestRoomControls.jsx';import './test-room.css';
 
 const root=createRoot(document.getElementById('root'));
 function Welcome({message=''}) {
@@ -18,7 +18,7 @@ function AccountBar({auth}) {
   }
   return <div className="studio-account">
     <strong>Studio · @{auth.profile.login}</strong><span>Changes go to your Twitch player</span>
-    <button disabled={busy} onClick={async()=>{try{setHistory((await loadPublishHistory(auth)).history);setTarget(null);}catch(e){setMessage(e.message);}}}>Published history</button>
+    <TestRoomControls auth={auth}/>    <button disabled={busy} onClick={async()=>{try{setHistory((await loadPublishHistory(auth)).history);setTarget(null);}catch(e){setMessage(e.message);}}}>Published history</button>
     <button onClick={()=>window.dispatchEvent(new Event('studio-recover'))}>Recover local draft</button>
     <button disabled={busy} onClick={async()=>{try{await signOutStudio(auth);}catch(e){setMessage(e.message);}}}>Sign out</button>
     {message && <p role="status">{message}</p>}

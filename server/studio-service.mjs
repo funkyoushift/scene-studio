@@ -2,6 +2,7 @@ import { readExperienceBody } from './experience-service.mjs';
 import { parseScene, twitchContent, starterScene } from '../src/scene.mjs';
 import { hostedImage } from '../src/image-address.mjs';
 import { signPartyToken } from './party-service.mjs';
+import {approvedTester,registerTester,testChannelEnv} from './tester-access.mjs';
 
 const encoder = new TextEncoder();
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
@@ -25,7 +26,7 @@ export async function studioSession(request, env, now = Date.now()) {
   const row = await env.IMAGES.prepare("SELECT identity FROM studio_auth WHERE hash=?1 AND kind='session' AND expires>?2").bind(await digest(token), now).first();
   if (!row) fail(401, 'Your studio sign-in expired. Sign in again; your work is kept.');
   const identity = JSON.parse(row.identity);
-  if (!allowedChannel(env, identity.channelId)) fail(403, 'This channel is not enabled for the current test.');
+  if (!allowedChannel(env, identity.channelId) && !approvedTester(env,identity.profile?.login)) fail(403, 'This channel is not enabled for the current test.');
   return identity;
 }
 async function remember(env, value, kind, proof, identity, expires) {
@@ -64,7 +65,8 @@ export async function studioAuth(request, env, { now = Date.now(), fetcher = fet
       if (!validation.ok) fail(401, 'Twitch sign-in could not be verified.');
       const user = await validation.json();
       if (user.client_id !== env.TWITCH_CHAT_CLIENT_ID || !/^[1-9][0-9]{0,19}$/.test(user.user_id) || !/^[a-z0-9_]{1,25}$/.test(user.login)) fail(401, 'Twitch identity did not match.');
-      if (!allowedChannel(env, user.user_id)) fail(403, 'This channel is not enabled for the current test.');
+      if (!allowedChannel(env, user.user_id) && !approvedTester(env,user.login)) fail(403, 'This channel is not enabled for the current test.');
+      await registerTester(env,{id:user.user_id,login:user.login});
       const code = random();
       await remember(env, code, 'grant', row.proof, { channelId: user.user_id, profile: { id: user.user_id, login: user.login } }, now + 120000);
       return new Response(null, { status: 303, headers: { Location: `${env.STUDIO_URL}#studio_code=${code}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
@@ -125,7 +127,7 @@ export async function studioGateway(request, env, forward) {
     const headers = new Headers(request.headers);
     headers.set('Origin',env.EXTENSION_ORIGIN);
     headers.set('Authorization',`Bearer ${await internalToken(env, channel, Date.now())}`);
-    const result = await forward(new Request(request, {headers}));
+    const result = await forward(new Request(request, {headers}),await testChannelEnv(env,channel));
     const out = new Headers(result.headers);
     out.set('Access-Control-Allow-Origin',env.STUDIO_ORIGIN); out.set('Vary','Origin'); out.set('Cache-Control','no-store');
     return new Response(result.body,{status:result.status,headers:out});

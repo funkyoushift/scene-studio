@@ -34,7 +34,7 @@ export async function cardGameRequest(
     const isHost = claims?.role === "broadcaster" && claims.user_id === channel;
     const actor = /^[1-9][0-9]{0,19}$/.test(claims?.user_id || "")
       ? claims.user_id
-      : null;
+      : claims?.test_room === true && /^guest_[A-Za-z0-9_-]{43}$/.test(claims.guest_id || '') ? claims.guest_id : null;
     if (route.startsWith("shard-")) {
       if (!isHost)
         throw new CardGameError("Only the streamer can prepare decks.", 403);

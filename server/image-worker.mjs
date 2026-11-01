@@ -1,4 +1,6 @@
 import { studioAuth, studioGateway, channelSceneRequest } from './studio-service.mjs';
+import {testRoomRequest} from './test-room-service.mjs';
+import {requestTestChannelEnv} from './tester-access.mjs';
 // Dedicated Workers Free account. Bind IMAGES (D1),
 // EXTENSION_SECRET (base64 secret), EXTENSION_ORIGIN,
 // and TEST_CHANNELS (comma-separated numeric channel IDs). Empty allowlist denies writes.
@@ -172,9 +174,12 @@ const worker = {
       ctx.waitUntil(tickArrivals(env,{processInput:processAutomationInput}).catch(() => console.warn("Chat arrival checks unavailable.")));
   },
   async fetch(request, env, ctx) {
+    env = await requestTestChannelEnv(request, env);
+    const roomResponse = await testRoomRequest(request, env);
+    if (roomResponse) return roomResponse;
     const authResponse = await studioAuth(request, env);
     if (authResponse) return authResponse;
-    const studioResponse = await studioGateway(request, env, next => worker.fetch(next, env, ctx));
+    const studioResponse = await studioGateway(request, env, (next, scopedEnv=env) => worker.fetch(next, scopedEnv, ctx));
     if (studioResponse) return studioResponse;
     const origin = request.headers.get("origin");
     const headers = new Headers({

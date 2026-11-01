@@ -9,7 +9,7 @@ import { hypeAudio } from "./hype-audio.mjs";
 
 // This component deliberately imports no editor CSS: html/body and the video
 // stay transparent, and only the visible object captures pointer events.
-export default function AutomationViewer({ helper, auth, creator, viewMode = "overlay", brandImage }) {
+export default function AutomationViewer({ helper, auth, creator, viewMode = "overlay", brandImage, fetcher = fetch, catchUp = false }) {
   const [active, setActive] = useState(null), [slideIndex, setSlideIndex] = useState(0);
   const [hype, setHype] = useState(null), [hiddenTrain, setHiddenTrain] = useState(null);
   const lastObservedHype = useRef(null);
@@ -30,8 +30,8 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
       setHype(previous => previous && previous.revision !== next.revision ? null : previous);
     }, (event, config) => { setSlideIndex(0); setActive({ event, config }); }, message => {
       setConnection({ state: "error", message: `Live moments could not connect. ${message}` });
-    }, undefined, undefined, { catchUp: viewMode === "mobile", onHype: event => setHype(event) });
-  }, [helper, auth?.channelId, auth?.token, retry, viewMode]);
+    }, fetcher, undefined, { catchUp: catchUp || viewMode === "mobile", onHype: event => setHype(event) });
+  }, [helper, auth?.channelId, auth?.token, retry, viewMode, fetcher, catchUp]);
   useEffect(() => {
     if (!active) return;
     const dismiss = setTimeout(() => setActive(null), Math.max(0, active.event.expires - Date.now()));
