@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { IMAGE_ORIGIN } from "./image-address.mjs";
+import {performCardAction} from './card-actions.mjs';
 import { DEFAULT_CARD_RULES } from "./card-game.mjs";
 import { prepareCardDeck } from "./card-decks.mjs";
 import "./card-game.css";
@@ -674,11 +675,7 @@ export default function CardGame({
         if (token !== generation.current) return;
         action = { ...action, deck };
       }
-      const data = await request(requestAuth, "game", {
-        ...action,
-        gameId: game?.id,
-        revision: game?.revision,
-      });
+      const data = await performCardAction(requestAuth,action,game,request,()=>token===generation.current);
       if (token === generation.current) accept(data);
     } catch (e) {
       if (token === generation.current) {

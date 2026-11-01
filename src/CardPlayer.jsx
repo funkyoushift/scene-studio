@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {CardTable,cardRequest} from './CardGame.jsx';
+import {performCardAction} from './card-actions.mjs';
 
 // Viewer entry has no catalog, deck preparation, or authoring controls.
 export default function CardPlayer({auth,helper,request=cardRequest}) {
@@ -19,7 +20,7 @@ export default function CardPlayer({auth,helper,request=cardRequest}) {
     if(helper?.viewer && !helper.viewer.isLinked){helper.actions.requestIdShare();setError('Share your Twitch identity, then try again.');return;}
     if(!['join','leave','submit','judge','redraw'].includes(action.type))return;
     const started=generation.current;epoch.current++;locked.current=true;setBusy(true);setError('');
-    try{const data=await request(auth,'game',{...action,gameId:game?.id,revision:game?.revision});if(started===generation.current)accept(data);}
+    try{const data=await performCardAction(auth,action,game,request,()=>started===generation.current);if(started===generation.current)accept(data);}
     catch(e){if(started===generation.current){setError(e.message);try{const data=await request(auth,'game');if(started===generation.current)accept(data);}catch{}}}
     finally{if(started===generation.current){locked.current=false;setBusy(false);}}
   };

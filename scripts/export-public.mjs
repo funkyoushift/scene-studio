@@ -19,6 +19,7 @@ const output = path.join(outputs, folder);
 if (path.dirname(output) !== outputs) throw new Error("Export must stay inside outputs.");
 
 const required = [
+  'src/card-actions.mjs','tests/card-actions.test.mjs',
   'test-room.html','src/TestRoom.jsx','src/TestRoomControls.jsx','src/test-room-entry.jsx','src/test-room-client.mjs','src/test-room.css','server/test-room-service.mjs','server/tester-access.mjs','tests/test-room.test.mjs',
   // Reviewed external studio and stable player sources. No outputs or credentials.
   "server/card-catalog.mjs",
