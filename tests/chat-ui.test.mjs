@@ -93,6 +93,15 @@ test("authorization links require a future numeric expiry", async () => {
   }
 });
 
+test("reconnecting moderation accepts retained optional arrival scopes but not extra privileges", async () => {
+  const value = authorization(); const url = new URL(value.authorizeUrl);
+  url.searchParams.set("scope", "moderation:read moderator:read:chatters channel:read:subscriptions channel:read:hype_train");
+  value.authorizeUrl = url.href;
+  assert.equal((await startChatConnection(auth, async () => json(value))).authorizeUrl, url.href);
+  url.searchParams.set("scope", "moderator:read:chatters"); value.authorizeUrl = url.href;
+  await assert.rejects(startChatConnection(auth, async () => json(value)), /safely/);
+});
+
 test("status errors and unavailable service cannot be mistaken for a connection", async () => {
   for (const value of [null, {}, { available: true, connected: "true", reconnectRequired: false }, { available: true, connected: true }]) {
     await assert.rejects(getChatConnection(auth, async () => json(value)), /could not be confirmed/);

@@ -7,7 +7,9 @@ One Twitch extension. A different interactive experience for every channel.
 Scene Studio lets streamers place their own images, words, and clickable objects
 over a Twitch player without developing and publishing an extension themselves.
 The public builder runs as a static website on GitHub Pages: opening and editing
-designs does not depend on the creator's PC staying on.
+designs does not depend on the creator's PC staying on. Scene Studio supplies
+the hosted API; streamers do not create an API or arrange server hosting.
+Optional Twitch event sources need Twitch permission, not infrastructure setup.
 
 ## Build something of your own
 
@@ -20,10 +22,23 @@ showcases, round buttons, pills and image-only stickers.
 The optional AI flow prepares a structured prompt for the streamer's own AI
 account. Scene Studio does not require an AI API key or make paid AI calls.
 
+## Optional chat arrival shoutouts
+
+The current source adds a joins-chat choice alongside first-message and moderator
+command shoutouts. Arrival detection uses the hosted Get Chatters poller and
+requires explicit moderator:read:chatters consent. It establishes a silent
+initial baseline, checks partner/affiliate filters and moderation, and prevents
+repeat automatic shoutouts within a stream. Detection may be delayed. This new
+path has automated coverage; it has not yet been observed with real arrivals.
+
 ## Status: distinguish the submitted extension from experiments
 
-Twitch version 0.1.0 was submitted for review on October 25, 2026. It is **in
-review**, not approved or publicly released. Two test channels demonstrated
+Last verified portal status: 0.4.0 In Review (October 26); 0.5.0 Hosted Test
+(October 27). Version 0.1.0 was withdrawn to Local Test. Neither later version
+is confirmed publicly approved. This export includes the 0.5 sound controls;
+the public website and queued 0.4 package may differ. Recheck portal status
+before installation. The following paragraphs describe historical test evidence.
+Two test channels demonstrated
 independent saved layouts, custom hosted images, live configuration updates,
 creator attribution, and shared silent celebrations with preset chat messages.
 Optional broadcaster moderation authorization and disconnect/reconnect recovery
@@ -49,7 +64,7 @@ merch/party chat-triggered viewer effects and the scheduled carousel were later
 observed in the live Twitch player. This does not establish purchase completion.
 Rev also completed its four-scope
 trigger authorization and has an enabled listener, while remaining on active
-0.1. Version 0.1 remains in review. Browser test
+0.1 at that checkpoint. Browser test
 messages/events remain simulations; simulation is not live integration evidence.
 
 Real chat input requires separate optional broadcaster authorization for
@@ -69,7 +84,9 @@ responses. Optional carousel layout stores percentage placement and layer order.
 Subscriber and Hype Train text can use {subscriber} and {hypeLevel}; authenticated
 event context is broadcast transiently and is never retained in delivery receipts.
 The Game HUD page is an authoring entry point, not a connected Borderlands adapter.
-Music playback and arbitrary local/network integrations are not enabled features.
+Uploaded sound playback, duration, repeat count, action-length looping and
+Hype level sound changes are included in this source. Viewers must enable audio.
+Arbitrary local/network integrations are not enabled features.
 
 Version 0.4 source adds none, float, pulse and sway object motion presets. Browser
 checks confirmed preview motion, dragging without changing object size, and the
@@ -95,7 +112,7 @@ The repair backend is deployed and replacement ZIP uploaded; Hosted Test
 is restored and native retesting remains pending. A mounted browser fixture recovered
 the carousel after hide/broadcast/return, showed a failed-configuration error, and
 reconnected after service restoration. Browser fixtures
-are not native mobile proof. Rev stays on active 0.1, which remains in review.
+are not native mobile proof. Rev stayed on active 0.1 at that checkpoint.
 
 On the hosted site, the developer panel provides a roadmap and event simulation
 without contacting localhost. No real game integration is claimed.
@@ -198,7 +215,7 @@ Twitch version and backend ALLOWED_EXTENSION_VERSIONS. That nonsecret backend
 allowlist is retained in this export for inspection; qualify the versions before
 enabling them. Naming a ZIP does not rewrite its compiled version. The packaging
 script refuses an existing ZIP. Publishing Pages does not update the version
-already submitted to Twitch; preserve the submitted 0.1.0 package.
+already submitted to Twitch; preserve the queued 0.4.0 package.
 
 ## Boundaries
 

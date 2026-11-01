@@ -32,7 +32,11 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
   let generation = 0;
   let pending = false;
   let fetchController = null;
+  let pendingPlaybackDeadline = 0;
   let activeUploadGain = null;
+  let activeUploadRenewable = false;
+  let activeUploadStopAt = 0;
+  let activeUploadDeadline = 0;
   let activeToneEventGain = null;
   let activeToneViewerDynamic = false;
   let eventVolumeNow = 100;
@@ -56,6 +60,9 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     const nodes = activeNodes;
     activeNodes = [];
     activeUploadGain = null;
+    activeUploadRenewable = false;
+    activeUploadStopAt = 0;
+    activeUploadDeadline = 0;
     activeToneEventGain = null;
     activeToneViewerDynamic = false;
     for (const node of nodes) {
@@ -171,7 +178,22 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     pending = false;
     fetchController?.abort();
     fetchController = null;
+    pendingPlaybackDeadline = 0;
     releaseNodes();
+  }
+
+  function renewPlayback(expiresInMs) {
+    if (!Number.isFinite(expiresInMs)) return false;
+    if (pending && pendingPlaybackDeadline) {
+      pendingPlaybackDeadline = Date.now() + Math.max(0, expiresInMs);
+      return true;
+    }
+    if (!activeUploadRenewable || !activeNodes.length) return false;
+    activeUploadDeadline = Date.now() + Math.max(0, expiresInMs);
+    if (cleanupTimer !== null) clearTimeout(cleanupTimer);
+    const stopAt = Math.min(activeUploadStopAt || Infinity, activeUploadDeadline);
+    cleanupTimer = setTimeout(releaseNodes, Math.max(0, stopAt - Date.now()) + 30);
+    return true;
   }
 
   function setVolume(value) {
@@ -204,14 +226,19 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     return false;
   }
 
-  async function playSound(sound, viewerVolume = 100, { loop = false } = {}) {
+  async function playSound(sound, viewerVolume = 100, { loop = false, expiresInMs = 300_000 } = {}) {
     if (disposed || !context || context.state !== "running" || pending || activeNodes.length || !sound || typeof sound !== "object") return false;
     viewerVolumeNow = clampVolume(viewerVolume);
     eventVolumeNow = clampEventVolume(sound.volume ?? 100);
     const volume = viewerVolumeNow;
     if (sound.preset !== "upload") return playTone(sound.preset, volume, true);
     const fullTrack = sound.playback === "hype-loop";
-    const shouldLoop = fullTrack && loop === true;
+    const counted = sound.playback === "loop-count";
+    const eventLoop = sound.playback === "until-end";
+    const loopPlays = counted ? sound.loops : 1;
+    const shouldLoop = (fullTrack && loop === true) || eventLoop || (counted && loopPlays > 1);
+    const eventBudget = Number.isFinite(expiresInMs) ? Math.max(0, expiresInMs) : 0;
+    const startedAt = Date.now();
     if (volume <= 0 && !shouldLoop) return false;
     const mp3 = typeof sound.url === "string" && (sound.url.endsWith(".mp3") || sound.url.startsWith("data:audio/mpeg;base64,"));
     const byteLimit = mp3 ? MAX_MP3_BYTES : 500_000;
@@ -222,6 +249,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     }
     const mine = ++generation;
     pending = true;
+    pendingPlaybackDeadline = startedAt + eventBudget;
     try {
       if (hosted) {
         const controller = new AbortController();
@@ -266,13 +294,29 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
       source.connect(gain); gain.connect(context.destination);
       activeNodes.push(source, gain);
       activeUploadGain = gain;
-      const playSeconds = Math.min(15, buffer.duration);
-      if (shouldLoop) source.start(0);
-      else source.start(0, 0, playSeconds);
-      if (!shouldLoop) cleanupTimer = setTimeout(releaseNodes, Math.ceil(playSeconds * 1000) + 80);
+      const playSeconds = Math.min(sound.playSeconds ?? buffer.duration, buffer.duration);
+      const legacyTrainLoop = fullTrack && loop === true;
+      const plannedMs = counted ? playSeconds * loopPlays * 1000 : eventLoop ? Infinity : playSeconds * 1000;
+      const stopAfterMs = Math.min(Math.max(0, pendingPlaybackDeadline - Date.now()), plannedMs);
+      if (stopAfterMs <= 0) { releaseNodes(); return false; }
+      if (fullTrack && loop === true) {
+        source.loop = true;
+        source.start(0);
+      } else if (shouldLoop) {
+        source.loop = true;
+        source.loopStart = 0;
+        source.loopEnd = playSeconds;
+        source.start(0);
+      } else source.start(0, 0, playSeconds);
+      if (!legacyTrainLoop) {
+        activeUploadRenewable = true;
+        activeUploadDeadline = Date.now() + stopAfterMs;
+        activeUploadStopAt = counted ? Date.now() + playSeconds * loopPlays * 1000 : eventLoop ? Infinity : Date.now() + playSeconds * 1000;
+        cleanupTimer = setTimeout(releaseNodes, Math.ceil(stopAfterMs) + 30);
+      }
       return true;
     } catch { if (mine === generation) releaseNodes(); return false; }
-    finally { if (mine === generation) pending = false; }
+    finally { if (mine === generation) { pending = false; pendingPlaybackDeadline = 0; } }
   }
 
   async function dispose() {
@@ -286,7 +330,7 @@ export function createCelebrationPlayer(AudioContextCtor, fetcher = globalThis.f
     }
   }
 
-  return Object.freeze({ unlock, play, playSound, setVolume, setEventVolume, stop, dispose });
+  return Object.freeze({ unlock, play, playSound, renewPlayback, setVolume, setEventVolume, stop, dispose });
 }
 
 export const CELEBRATION_SOUND_PRESETS = Object.freeze(Object.keys(TONES));

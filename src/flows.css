@@ -108,3 +108,8 @@
 
 .flow-transfer-guide{flex-basis:100%;width:100%;border-top:1px solid var(--flow-line);padding-top:12px;color:var(--flow-text)}.flow-transfer-guide h4{font-size:17px;margin:4px 0}.flow-transfer-guide li{margin:10px 0;line-height:1.5;font-size:14px}.flow-transfer-guide p{font-size:13px;color:var(--flow-muted)}
 .director.flow-first .automation-editor-tabs,.director.flow-first .paste-design{display:none}
+
+/* Level-specific audio is a full-width setup section, not a narrow sound-picker cell. */
+.flow-celebration-sound > .flow-event-picker{grid-column:1/-1;min-width:0}
+.flow-celebration-sound > .flow-event-picker .flow-slide{margin-top:12px}
+

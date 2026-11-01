@@ -15,22 +15,51 @@ function mp3File() {
   return { type: "audio/mpeg", size: bytes.length, name: "Full song.mp3", bytes, async arrayBuffer() { return bytes.buffer.slice(0); } };
 }
 
-test("preparation decodes, downmixes and trims to a canonical 15 second WAV", async () => {
+test("preparation preserves the full WAV duration within the canonical upload limit", async () => {
   let closed = 0, decoded = 0;
   const previous = globalThis.AudioContext;
   globalThis.AudioContext = class {
-    async decodeAudioData() { decoded++; return { sampleRate: 8000, length: 160000, numberOfChannels: 2, getChannelData(index) { return new Float32Array(160000).fill(index ? -0.5 : 0.5); } }; }
+    async decodeAudioData() { decoded++; return { sampleRate: 8000, length: 80000, numberOfChannels: 2, getChannelData(index) { return new Float32Array(80000).fill(index ? -0.5 : 0.5); } }; }
     async close() { closed++; }
   };
   try {
     const result = await prepareSound(sampleFile());
     const bytes = localSoundBytes(result.url);
-    assert.equal(result.durationSeconds, 15);
-    assert.equal(result.trimmed, true);
-    assert.equal(bytes.length, 480044);
+    assert.equal(result.durationSeconds, 10);
+    assert.equal(result.trimmed, false);
+    assert.equal(bytes.length, 320044);
     assert.deepEqual([...bytes.slice(44, 48)], [0, 0, 0, 0]);
     assert.equal(decoded, 1);
     assert.equal(closed, 1);
+  } finally { globalThis.AudioContext = previous; }
+});
+
+test("WAV beyond the current canonical duration limit is rejected, not trimmed", async () => {
+  const previous = globalThis.AudioContext;
+  globalThis.AudioContext = class { async decodeAudioData() { return { sampleRate: 16000, length: 16 * 16000, numberOfChannels: 1, getChannelData() { return new Float32Array(16 * 16000); } }; } async close() {} };
+  try {
+    await assert.rejects(prepareSound(sampleFile()), /longer than the current 15 second upload limit.*Convert it to MP3/);
+  } finally { globalThis.AudioContext = previous; }
+});
+
+test("full MP3 upload retains the complete validated source bytes and reports decoded length", async () => {
+  const previous = globalThis.AudioContext;
+  globalThis.AudioContext = class { async decodeAudioData() { return { sampleRate: 44100, length: 44100 * 2, numberOfChannels: 2 }; } async close() {} };
+  try {
+    const file = mp3File(), result = await prepareSound(file);
+    assert.equal(result.durationSeconds, 2);
+    assert.equal(result.format, "mp3");
+    assert.deepEqual(localSoundBytes(result.url), file.bytes);
+  } finally { globalThis.AudioContext = previous; }
+});
+
+test("short WAV uploads retain their full available duration", async () => {
+  const previous = globalThis.AudioContext;
+  globalThis.AudioContext = class { async decodeAudioData() { return { sampleRate: 16000, length: 8000, numberOfChannels: 1, getChannelData() { return new Float32Array(8000); } }; } async close() {} };
+  try {
+    const short = await prepareSound(sampleFile());
+    assert.equal(short.durationSeconds, 0.5);
+    assert.equal(localSoundBytes(short.url).length, 44 + 8000 * 2);
   } finally { globalThis.AudioContext = previous; }
 });
 
@@ -102,6 +131,19 @@ test("full-track publishing uses MPEG content type and preserves loop metadata",
   const sound = { preset: "upload", url, name: "Full song", volume: 75, playback: "hype-loop" };
   const output = await publishSound(sound, { token: "jwt", channelId: "123" }, async (endpoint, options) => {
     assert.equal(endpoint, `${IMAGE_ORIGIN}/sounds/123`);
+    assert.equal(options.headers["Content-Type"], "audio/mpeg");
+    assert.deepEqual(options.body, file.bytes);
+    return { ok: true, async json() { return { path: `/sounds/123/${hash}.mp3` }; } };
+  });
+  assert.deepEqual(output, { ...sound, url: `${IMAGE_ORIGIN}/sounds/123/${hash}.mp3` });
+});
+
+test("publication preserves selected duration and counted-loop metadata", async () => {
+  const file = mp3File();
+  const url = `data:audio/mpeg;base64,${Buffer.from(file.bytes).toString("base64")}`;
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", file.bytes)), byte => byte.toString(16).padStart(2, "0")).join("");
+  const sound = { preset: "upload", url, name: "Full song", volume: 75, playback: "loop-count", loops: 4, playSeconds: 20, durationSeconds: 30 };
+  const output = await publishSound(sound, { token: "jwt", channelId: "123" }, async (endpoint, options) => {
     assert.equal(options.headers["Content-Type"], "audio/mpeg");
     assert.deepEqual(options.body, file.bytes);
     return { ok: true, async json() { return { path: `/sounds/123/${hash}.mp3` }; } };

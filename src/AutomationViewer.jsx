@@ -12,6 +12,7 @@ import { hypeAudio } from "./hype-audio.mjs";
 export default function AutomationViewer({ helper, auth, creator, viewMode = "overlay", brandImage }) {
   const [active, setActive] = useState(null), [slideIndex, setSlideIndex] = useState(0);
   const [hype, setHype] = useState(null), [hiddenTrain, setHiddenTrain] = useState(null);
+  const lastObservedHype = useRef(null);
   const [connection, setConnection] = useState({ state: "loading", message: "Loading live moments…" });
   const [retry, setRetry] = useState(0);
   const container = useRef(null);
@@ -37,11 +38,23 @@ export default function AutomationViewer({ helper, auth, creator, viewMode = "ov
     const advance = setInterval(() => setSlideIndex(index => index + 1), 5000);
     return () => { clearTimeout(dismiss); clearInterval(advance); };
   }, [active]);
-  useEffect(() => { if (!hype) return; const timer = setTimeout(() => setHype(null), Math.max(0, hype.expires - Date.now())); return () => clearTimeout(timer); }, [hype]);
   const visibleHype = hype && hype.hype.id !== hiddenTrain ? hype : null;
+  const hiddenHype = hype && hype.hype.id === hiddenTrain;
+  useEffect(() => { if (!hype) return; const timer = setTimeout(() => setHype(null), Math.max(0, hype.expires - Date.now())); return () => clearTimeout(timer); }, [hype]);
   const hypeView = visibleHype && <div className={`ss-hype-live${viewMode === "mobile" ? " ss-hype-mobile" : ""}`}><HypeTrain event={visibleHype} onDismiss={() => setHiddenTrain(visibleHype.hype.id)}/></div>;
-  const soundEvent = visibleHype || active?.event;
-  const audio = visibleHype ? hypeAudio(visibleHype) : { eventId: active?.event.eventId, sound: soundEvent?.effect.appearance?.sound, expires: soundEvent?.expires, loop: false };
+  const soundEvent = visibleHype || (hiddenHype ? null : active?.event);
+  const previousLevel = visibleHype && lastObservedHype.current?.trainId === visibleHype.hype.id ? lastObservedHype.current.level : undefined;
+  const keepCurrentOverlay = Boolean(visibleHype && lastObservedHype.current?.trainId === visibleHype.hype.id && lastObservedHype.current.level === visibleHype.hype.level && lastObservedHype.current.cueLevel === visibleHype.hype.level);
+  const calculatedAudio = visibleHype ? hypeAudio(visibleHype, previousLevel, keepCurrentOverlay, lastObservedHype.current?.cueExpires) : null;
+  const audio = calculatedAudio ? { ...calculatedAudio, overlayExpires: keepCurrentOverlay ? lastObservedHype.current.cueExpires : calculatedAudio.overlayExpires } : { eventId: hiddenHype ? null : active?.event.eventId, sound: soundEvent?.effect.appearance?.sound, expires: soundEvent?.expires, loop: false };
+  useEffect(() => {
+    if (!visibleHype) return;
+    const previous = lastObservedHype.current;
+    const sameCue = previous?.trainId === visibleHype.hype.id && previous.level === visibleHype.hype.level && previous.cueLevel === visibleHype.hype.level;
+    const cueLevel = audio.overlayEventId ? visibleHype.hype.level : sameCue ? previous.cueLevel : null;
+    const cueExpires = audio.overlayEventId ? (sameCue ? previous.cueExpires : audio.overlayExpires) : sameCue ? previous.cueExpires : 0;
+    lastObservedHype.current = { trainId: visibleHype.hype.id, level: visibleHype.hype.level, cueLevel, cueExpires };
+  }, [visibleHype?.hype.id, visibleHype?.hype.level, audio.overlayEventId]);
   const soundControls = <div style={viewMode === "mobile" ? { position: "relative", zIndex: 1100 } : { position: "fixed", right: "3%", bottom: "8%", zIndex: 1100, pointerEvents: "none", maxWidth: "94%" }}><CelebrationAudio key={auth?.channelId || "disconnected"} {...audio} /></div>;
   if (!active || !creator?.login) return <>{hypeView}{soundControls}{viewMode === "mobile" && !visibleHype ? <section className="mobile-live-status" aria-label="Live moments connection">
     <p role="status">{connection.message}</p>

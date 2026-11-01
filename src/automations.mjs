@@ -1,7 +1,7 @@
 // Local-preview data and evaluation only. No chat subscription, timers, storage,
 // network requests, publishing, or effect rendering happen in this module.
 import { bytes, validateScene } from "./scene.mjs";
-import { validateCelebrationSound } from "./sound-contract.mjs";
+import { validateCelebrationSound, validateHypeLevelAudio } from "./sound-contract.mjs";
 import { normalizeShoutoutTrigger, normalizeShoutoutEffect, safeShoutoutProfile } from "./shoutout-contract.mjs";
 
 export const AUTOMATION_LIMITS = Object.freeze({
@@ -48,6 +48,10 @@ function celebrationEffect(value, label = "Celebration") {
     if (Object.hasOwn(appearance, "hypeLifecycle")) {
       if (appearance.hypeLifecycle !== true || appearance.style !== "hype-train") throw new Error("Hype lifecycle requires a Hype Train celebration.");
       cleanAppearance.hypeLifecycle = true;
+    }
+    if (Object.hasOwn(appearance, "hypeLevelAudio")) {
+      if (appearance.hypeLifecycle !== true || appearance.style !== "hype-train") throw new Error("Level-up audio requires a Hype Train celebration.");
+      cleanAppearance.hypeLevelAudio = validateHypeLevelAudio(appearance.hypeLevelAudio);
     }
     effect.appearance = cleanAppearance;
   }

@@ -1,9 +1,9 @@
 import { IMAGE_ORIGIN } from "./image-address.mjs";
 import { hostedSound } from "./sound-address.mjs";
-import { isCanonicalSoundWav, inspectSoundMp3, MAX_MP3_BYTES, validateCelebrationSound } from "./sound-contract.mjs";
+import { isCanonicalSoundWav, inspectSoundMp3, MAX_MP3_BYTES, MAX_SOUND_BYTES, validateCelebrationSound } from "./sound-contract.mjs";
 
 const MAX_INPUT = 10_000_000;
-const MAX_OUTPUT = 500_000;
+const MAX_OUTPUT = MAX_SOUND_BYTES;
 const RATE = 16_000;
 const SECONDS = 15;
 const ERROR = "Choose a playable MP3 or WAV under 10 MB.";
@@ -35,7 +35,7 @@ function wav(samples) {
   return bytes;
 }
 
-/** Decode locally, downmix and convert the first fifteen seconds to canonical mono PCM. */
+/** Preserve validated MP3s; decode short WAVs to canonical mono PCM without trimming. */
 export async function prepareSound(file, { fullTrack = false } = {}) {
   if (!file || typeof file.arrayBuffer !== "function" || !Number.isFinite(file.size) || file.size <= 0 || file.size > (fullTrack ? MAX_MP3_BYTES : MAX_INPUT)) throw Error(fullTrack ? "Choose an MP3 under 1.5 MB for the full Hype Train track." : ERROR);
   // File.type is advisory and may be empty or OS-specific. Validate bytes and decode instead.
@@ -45,8 +45,8 @@ export async function prepareSound(file, { fullTrack = false } = {}) {
   const isMp3 = input.length >= 4 && (String.fromCharCode(...input.slice(0, 3)) === "ID3" || (input[0] === 0xff && (input[1] & 0xe0) === 0xe0));
   if (fullTrack && !isMp3) throw Error("Choose an MP3 for the full Hype Train track. Convert a WAV to MP3 first.");
   if (!(isWave || isMp3)) throw Error("This file is not a playable MP3 or WAV.");
-  const mp3Details = fullTrack ? inspectSoundMp3(input) : null;
-  if (fullTrack && !mp3Details) throw Error("This MP3 has invalid or incomplete audio frames.");
+  const mp3Details = isMp3 ? inspectSoundMp3(input) : null;
+  if (isMp3 && !mp3Details) throw Error(fullTrack ? "This MP3 has invalid or incomplete audio frames." : "Choose a valid MP3 under 1.5 MB and 5 minutes.");
   const Ctor = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!Ctor) throw Error("This browser cannot prepare sound uploads.");
   const context = new Ctor();
@@ -57,14 +57,16 @@ export async function prepareSound(file, { fullTrack = false } = {}) {
   finally { try { await context.close(); } catch { /* Release best effort. */ } }
   if (!decoded || !Number.isFinite(decoded.sampleRate) || decoded.sampleRate <= 0 || !Number.isInteger(decoded.numberOfChannels) || decoded.numberOfChannels < 1 || decoded.numberOfChannels > 32 || !Number.isInteger(decoded.length) || decoded.length < 1) throw Error("This sound has no playable audio.");
   const name = (typeof file.name === "string" ? file.name : "Sound").replace(/[\x00-\x1f\x7f]/g, " ").trim().slice(0, 80) || "Sound";
-  if (fullTrack) {
+  if (fullTrack || isMp3) {
     const durationSeconds = decoded.length / decoded.sampleRate;
     if (durationSeconds > 300 || mp3Details.durationSeconds > 300) throw Error("Choose an MP3 no longer than 5 minutes.");
     let binary = "";
     for (let i = 0; i < input.length; i += 8192) binary += String.fromCharCode(...input.subarray(i, i + 8192));
-    return { url: `data:audio/mpeg;base64,${btoa(binary)}`, name, durationSeconds, trimmed: false };
+    return { url: `data:audio/mpeg;base64,${btoa(binary)}`, name, durationSeconds, trimmed: false, format: "mp3" };
   }
-  const sampleCount = Math.min(RATE * SECONDS, Math.ceil(decoded.length * RATE / decoded.sampleRate));
+  const sourceDuration = decoded.length / decoded.sampleRate;
+  const sampleCount = Math.ceil(sourceDuration * RATE);
+  if (sampleCount > RATE * SECONDS || sampleCount * 2 + 44 > MAX_OUTPUT) throw Error("This WAV is longer than the current 15 second upload limit. Convert it to MP3, then choose the song length here.");
   const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i));
   const samples = new Float32Array(sampleCount);
   for (let i = 0; i < sampleCount; i++) {
@@ -78,16 +80,17 @@ export async function prepareSound(file, { fullTrack = false } = {}) {
   if (output.length > MAX_OUTPUT) throw Error("This sound could not be prepared within the upload limit.");
   let binary = "";
   for (let i = 0; i < output.length; i += 8192) binary += String.fromCharCode(...output.subarray(i, i + 8192));
-  return { url: `data:audio/wav;base64,${btoa(binary)}`, name, durationSeconds: sampleCount / RATE, trimmed: decoded.length / decoded.sampleRate > SECONDS };
+  return { url: `data:audio/wav;base64,${btoa(binary)}`, name, durationSeconds: sampleCount / RATE, trimmed: false, format: "wav" };
 }
 
 export async function publishSound(sound, auth, fetcher = fetch) {
   if (!sound || sound.preset !== "upload") throw Error("Choose an uploaded sound.");
   const channel = auth?.channelId;
   if (!auth?.token || typeof channel !== "string" || !/^[1-9][0-9]{0,19}$/.test(channel)) throw Error("Connect your Twitch identity to upload sounds.");
-  const clean = url => validateCelebrationSound({ preset: "upload", url, name: sound.name, volume: sound.volume, ...(sound.playback === "hype-loop" ? { playback: "hype-loop" } : {}) }, { channel });
+  const soundMeta = Object.fromEntries(["playback", "loops", "playSeconds", "durationSeconds"].filter(key => Object.hasOwn(sound, key)).map(key => [key, sound[key]]));
+  const clean = url => validateCelebrationSound({ preset: "upload", url, name: sound.name, volume: sound.volume, ...soundMeta }, { channel });
   if (hostedSound(sound.url, channel)) return clean(sound.url);
-  if (sound.playback !== undefined && sound.playback !== "hype-loop") throw Error("Choose a valid Hype Train playback mode.");
+  if (sound.playback !== undefined && !["hype-loop", "loop-count", "until-end"].includes(sound.playback)) throw Error("Choose a valid sound playback mode.");
   const bytes = localSoundBytes(sound.url);
   const mp3 = sound.url.startsWith("data:audio/mpeg;base64,");
   const digest = new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", bytes));

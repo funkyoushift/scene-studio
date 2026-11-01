@@ -49,6 +49,7 @@ const encode = bytes => btoa(String.fromCharCode(...bytes)).replace(/=/g, "").re
 const decode = text => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
 const SCOPE = "moderation:read";
 export const TRIGGER_SCOPES = Object.freeze(["moderation:read", "user:read:chat", "user:bot", "channel:bot"]);
+export const PRESENCE_SCOPES = Object.freeze(["moderation:read", "moderator:read:chatters"]);
 export const ACTIVITY_SCOPES = Object.freeze(["channel:read:subscriptions", "channel:read:hype_train"]);
 const STATE_TTL = 10 * 60_000;
 
@@ -112,6 +113,7 @@ function retainedOptionalAccess(tokens, scopes) {
     moderationEnabled:hadModeration && scopes.includes(SCOPE),
     triggerEnabled:tokens.triggerEnabled===true && TRIGGER_SCOPES.every(scope=>scopes.includes(scope)),
     activityEnabled:tokens.activityEnabled===true && ACTIVITY_SCOPES.every(scope=>scopes.includes(scope)),
+    presenceEnabled:tokens.presenceEnabled===true && PRESENCE_SCOPES.every(scope=>scopes.includes(scope)),
   };
 }
 const hasModerationAccess = tokens => typeof tokens.moderationEnabled === "boolean" ? tokens.moderationEnabled : tokens.scopes?.includes(SCOPE)===true;
@@ -158,11 +160,12 @@ async function validate(env, channel, token, fetcher, required = []) {
   return claims;
 }
 
-function beginConnect(env, channel, origin, verifiedClaims, now, requestTriggerAccess, requestActivityAccess = false, requestModerationAccess = true) {
+function beginConnect(env, channel, origin, verifiedClaims, now, requestTriggerAccess, requestActivityAccess = false, requestModerationAccess = true, requestPresenceAccess = false) {
   return safe(async () => {
     ownChannel(env,channel,origin,verifiedClaims);
     if (requestTriggerAccess && env.CHAT_TRIGGERS_ENABLED !== "true") fail(503,"not_configured","Chat keyword triggers are not enabled yet.");
     if (requestActivityAccess && env.TWITCH_ACTIVITY_ENABLED !== "true") fail(503,"not_configured","Twitch activity access is not available yet.");
+    if (requestPresenceAccess && env.TWITCH_PRESENCE_ENABLED !== "true") fail(503,"not_configured","Optional chat presence is not available yet.");
     const {client,callback} = settings(env);
     // Verify encryption is usable before asking the broadcaster to consent.
     await encryptionKey(env,channel);
@@ -171,13 +174,14 @@ function beginConnect(env, channel, origin, verifiedClaims, now, requestTriggerA
       fail(503,"connection_limit","The free chat prototype has reached its channel limit. Please try again later.");
     // Reauthorization for one optional feature must retain previously approved
     // feature scopes, while never adding chat scopes to an activity-only grant.
-    let triggerAccess = requestTriggerAccess, activityAccess = requestActivityAccess;
+    let triggerAccess = requestTriggerAccess, activityAccess = requestActivityAccess, presenceAccess = requestPresenceAccess;
     let moderationAccess = requestModerationAccess || triggerAccess;
     const existing = await statement(env,"SELECT * FROM chat_oauth_grants WHERE channel=?1 AND invalidated=0",channel).first();
     if (existing) {
       const saved = await decrypt(env,existing);
       triggerAccess ||= saved.triggerEnabled === true && TRIGGER_SCOPES.every(scope=>saved.scopes?.includes(scope));
       activityAccess ||= saved.activityEnabled === true && ACTIVITY_SCOPES.every(scope=>saved.scopes?.includes(scope));
+      presenceAccess ||= saved.presenceEnabled === true && PRESENCE_SCOPES.every(scope=>saved.scopes?.includes(scope));
       moderationAccess ||= hasModerationAccess(saved);
     }
     const state = encode(crypto.getRandomValues(new Uint8Array(32))), expiresAt = now + STATE_TTL;
@@ -191,9 +195,9 @@ function beginConnect(env, channel, origin, verifiedClaims, now, requestTriggerA
       ON CONFLICT(channel) DO UPDATE SET state_hash=excluded.state_hash,trigger_access=excluded.trigger_access,expires=excluded.expires`,channel,await hash(state),triggerAccess?1:0).run();
     await statement(env,`INSERT INTO twitch_activity_oauth_intents(channel,state_hash,activity_access,expires)
       SELECT channel,state_hash,?3,expires FROM chat_oauth_states WHERE channel=?1 AND state_hash=?2
-      ON CONFLICT(channel) DO UPDATE SET state_hash=excluded.state_hash,activity_access=excluded.activity_access,expires=excluded.expires`,channel,await hash(state),(activityAccess?1:0)|(moderationAccess?2:0)).run();
+      ON CONFLICT(channel) DO UPDATE SET state_hash=excluded.state_hash,activity_access=excluded.activity_access,expires=excluded.expires`,channel,await hash(state),(activityAccess?1:0)|(moderationAccess?2:0)|(presenceAccess?4:0)).run();
     const url = new URL("https://id.twitch.tv/oauth2/authorize");
-    const scopes = [...new Set([...(moderationAccess?[SCOPE]:[]),...(triggerAccess?TRIGGER_SCOPES:[]),...(activityAccess?ACTIVITY_SCOPES:[])])];
+    const scopes = [...new Set([...(moderationAccess?[SCOPE]:[]),...(triggerAccess?TRIGGER_SCOPES:[]),...(activityAccess?ACTIVITY_SCOPES:[]),...(presenceAccess?PRESENCE_SCOPES:[])])];
     url.search = new URLSearchParams({client_id:client,redirect_uri:callback,response_type:"code",scope:scopes.join(" "),state,force_verify:"true"}).toString();
     return {authorizeUrl:url.href,expiresAt};
   });
@@ -207,6 +211,10 @@ export function startTriggerConnect(env,channel,origin,verifiedClaims,now=Date.n
 }
 export function startActivityConnect(env,channel,origin,verifiedClaims,now=Date.now()) {
   return beginConnect(env,channel,origin,verifiedClaims,now,false,true,false);
+}
+
+export function startPresenceConnect(env,channel,origin,verifiedClaims,now=Date.now()) {
+  return beginConnect(env,channel,origin,verifiedClaims,now,false,false,false,true);
 }
 
 export function completeConnect(env, callbackUrl, fetcher = fetch, now = Date.now()) {
@@ -228,16 +236,20 @@ export function completeConnect(env, callbackUrl, fetcher = fetch, now = Date.no
     const triggerAccess = intent?.trigger_access === 1;
     const activityBits = activityIntent?.activity_access;
     const activityAccess = Number.isInteger(activityBits) && (activityBits & 1) === 1;
+    // Bits: activity=1, moderation=2, presence=4. The existing integer column
+    // keeps pending consent server-bound without an additional schema migration.
+    const presenceAccess = Number.isInteger(activityBits) && (activityBits & 4) === 4;
     // A missing activity-intent row is a pre-migration pending chat flow, whose
     // original moderation requirement remains authoritative.
     const moderationAccess = !activityIntent || (activityBits & 2) === 2 || triggerAccess;
     if(triggerAccess && env.CHAT_TRIGGERS_ENABLED !== "true") fail(503,"not_configured","Chat keyword triggers are not enabled yet.");
     if(activityAccess && env.TWITCH_ACTIVITY_ENABLED !== "true") fail(503,"not_configured","Twitch activity access is not available yet.");
+    if(presenceAccess && env.TWITCH_PRESENCE_ENABLED !== "true") fail(503,"not_configured","Optional chat presence is not available yet.");
     if (url.searchParams.has("error")) fail(400,"authorization_declined","Chat authorization was not completed. You can connect again when ready.");
     const code = url.searchParams.get("code");
     if (!validToken(code)) fail(400,"invalid_callback","Start a fresh chat connection from the extension’s configuration.");
     const tokens = await tokenExchange(env,{grant_type:"authorization_code",code,redirect_uri:callback},fetcher);
-    const requiredScopes = [...(moderationAccess?[SCOPE]:[]),...(triggerAccess?TRIGGER_SCOPES:[]),...(activityAccess?ACTIVITY_SCOPES:[])];
+    const requiredScopes = [...(moderationAccess?[SCOPE]:[]),...(triggerAccess?TRIGGER_SCOPES:[]),...(activityAccess?ACTIVITY_SCOPES:[]),...(presenceAccess?PRESENCE_SCOPES:[])];
     const claims = await validate(env,pending.channel,tokens.access_token,fetcher,requiredScopes);
     if (!claims) fail(409,"reconnect_required","Twitch could not validate this connection. Please connect again.");
     const result = await statement(env,`INSERT INTO chat_oauth_grants(channel,encrypted_tokens,revision,expires,invalidated,refresh_lock,refresh_until)
@@ -245,8 +257,8 @@ export function completeConnect(env, callbackUrl, fetcher = fetch, now = Date.no
       AND (EXISTS(SELECT 1 FROM chat_oauth_grants WHERE channel=?1) OR (SELECT count(*) FROM chat_oauth_grants) < ${CHAT_MAX_CONNECTIONS})
       ON CONFLICT(channel) DO UPDATE SET encrypted_tokens=excluded.encrypted_tokens,revision=excluded.revision,
       expires=excluded.expires,invalidated=0,refresh_lock=NULL,refresh_until=0`,
-      pending.channel,stateHash,await encrypt(env,pending.channel,{...tokens,scopes:claims.scopes,moderationEnabled:moderationAccess,triggerEnabled:triggerAccess,activityEnabled:activityAccess,
-        ...(triggerAccess?{triggerEpoch:crypto.randomUUID()}:{}),...(activityAccess?{activityEpoch:crypto.randomUUID()}:{})}),crypto.randomUUID(),now + claims.expires_in*1000,now).run();
+      pending.channel,stateHash,await encrypt(env,pending.channel,{...tokens,scopes:claims.scopes,moderationEnabled:moderationAccess,triggerEnabled:triggerAccess,activityEnabled:activityAccess,presenceEnabled:presenceAccess,
+        ...(presenceAccess?{presenceEpoch:crypto.randomUUID()}:{}),...(triggerAccess?{triggerEpoch:crypto.randomUUID()}:{}),...(activityAccess?{activityEpoch:crypto.randomUUID()}:{})}),crypto.randomUUID(),now + claims.expires_in*1000,now).run();
     if (!result.meta.changes) {
       const capacity = await statement(env,"SELECT count(*) AS total, coalesce(sum(channel=?1),0) AS own FROM chat_oauth_grants",pending.channel).first();
       if (capacity.total >= CHAT_MAX_CONNECTIONS && !capacity.own)
@@ -256,7 +268,7 @@ export function completeConnect(env, callbackUrl, fetcher = fetch, now = Date.no
     await statement(env,"DELETE FROM chat_oauth_states WHERE channel=?1 AND state_hash=?2",pending.channel,stateHash).run();
     await statement(env,"DELETE FROM chat_oauth_intents WHERE channel=?1 AND state_hash=?2",pending.channel,stateHash).run();
     await statement(env,"DELETE FROM twitch_activity_oauth_intents WHERE channel=?1 AND state_hash=?2",pending.channel,stateHash).run();
-    return {connected:true,channel:pending.channel,...(triggerAccess?{triggerAccess:true}:{}),...(activityAccess?{activityAccess:true}:{})};
+    return {connected:true,channel:pending.channel,...(triggerAccess?{triggerAccess:true}:{}),...(activityAccess?{activityAccess:true}:{}),...(presenceAccess?{presenceAccess:true}:{})};
   });
 }
 
@@ -299,30 +311,52 @@ async function refreshGrant(env, row, fetcher, now) {
 }
 
 export function checkViewerModeration(env,channel,userId,fetcher = fetch,now = Date.now()) {
+  return checkModeration(env,channel,userId,fetcher,now,false);
+}
+
+// Presence filtering uses its own explicit consent without enabling party chat.
+export function checkPresenceModeration(env,channel,userId,fetcher = fetch,now = Date.now()) {
+  return checkModeration(env,channel,userId,fetcher,now,true);
+}
+
+function checkModeration(env,channel,userId,fetcher,now,presenceOnly) {
   return safe(async () => {
     settings(env);
     if (!validId(channel) || !validId(userId)) fail(400,"invalid_identity","A linked Twitch identity is required.");
     let row = await loadGrant(env,channel), tokens = await decrypt(env,row), refreshed = false;
-    if(!hasModerationAccess(tokens)) fail(409,"reconnect_required","The streamer needs to connect chat moderation.");
+    const requireAccess=()=>{
+      if(presenceOnly) {
+        if(env.TWITCH_PRESENCE_ENABLED!=="true" || tokens.presenceEnabled!==true || !Array.isArray(tokens.scopes) || !PRESENCE_SCOPES.every(scope=>tokens.scopes.includes(scope)))
+          fail(409,"presence_connection_required","Connect optional chat presence first.");
+      } else if(!hasModerationAccess(tokens)) fail(409,"reconnect_required","The streamer needs to connect chat moderation.");
+    };
+    requireAccess();
     // Validate on every action, including after Worker restarts. No long-lived
     // OAuth session is exposed without a fresh validation and ban check.
     let verified;
-    try { verified = await validate(env,channel,tokens.access_token,fetcher,[SCOPE]); }
+    try { verified = await validate(env,channel,tokens.access_token,fetcher,presenceOnly?[]:[SCOPE]); }
     catch (error) {
       if (error instanceof ChatAuthorizationError && error.code === "wrong_authorization")
         await statement(env,"UPDATE chat_oauth_grants SET invalidated=1,encrypted_tokens='' WHERE channel=?1 AND revision=?2",channel,row.revision).run();
       throw error;
     }
+    if(presenceOnly && verified && !PRESENCE_SCOPES.every(scope=>verified.scopes.includes(scope))) {
+      await statement(env,"UPDATE chat_oauth_grants SET encrypted_tokens=?3 WHERE channel=?1 AND revision=?2 AND invalidated=0",channel,row.revision,await encrypt(env,channel,retainedOptionalAccess(tokens,verified.scopes))).run();
+      fail(409,"presence_connection_required","Reconnect optional chat presence.");
+    }
     if (!verified) {
       row = await refreshGrant(env,row,fetcher,now); tokens = await decrypt(env,row); refreshed = true;
+      requireAccess();
     } else if((tokens.triggerEnabled && !TRIGGER_SCOPES.every(scope=>verified.scopes.includes(scope))) ||
-              (tokens.activityEnabled && !ACTIVITY_SCOPES.every(scope=>verified.scopes.includes(scope)))) {
+              (tokens.activityEnabled && !ACTIVITY_SCOPES.every(scope=>verified.scopes.includes(scope))) ||
+              (tokens.presenceEnabled && !PRESENCE_SCOPES.every(scope=>verified.scopes.includes(scope)))) {
       await statement(env,"UPDATE chat_oauth_grants SET encrypted_tokens=?3 WHERE channel=?1 AND revision=?2 AND invalidated=0",channel,row.revision,await encrypt(env,channel,retainedOptionalAccess(tokens,verified.scopes))).run();
     }
     async function get(url) {
       let response = await call(fetcher,url,{headers:{Authorization:`Bearer ${tokens.access_token}`,"Client-Id":env.TWITCH_CHAT_CLIENT_ID}});
       if (response.status === 401 && !refreshed) {
         row = await refreshGrant(env,row,fetcher,now); tokens = await decrypt(env,row); refreshed = true;
+        requireAccess();
         response = await call(fetcher,url,{headers:{Authorization:`Bearer ${tokens.access_token}`,"Client-Id":env.TWITCH_CHAT_CLIENT_ID}});
       }
       if (response.status === 401) {
@@ -400,6 +434,33 @@ export function getActivityAuthorization(env,channel,{fetcher=fetch,now=Date.now
   });
 }
 
+// Trusted server use only. The access token must never be returned from a public
+// route. Presence consent remains separate from moderation, activity, and chat.
+export function getPresenceAuthorization(env,channel,{fetcher=fetch,now=Date.now(),verify=false}={}) {
+  return safe(async()=>{
+    settings(env);
+    if(env.TWITCH_PRESENCE_ENABLED!=="true" || !validId(channel)) fail(409,"presence_connection_required","Connect optional chat presence first.");
+    let row=await loadGrant(env,channel),tokens=await decrypt(env,row);
+    const enabled=()=>tokens.presenceEnabled===true && Array.isArray(tokens.scopes) && PRESENCE_SCOPES.every(scope=>tokens.scopes.includes(scope));
+    if(!enabled()) fail(409,"presence_connection_required","Connect optional chat presence first.");
+    if(verify) {
+      let claims=await validate(env,channel,tokens.access_token,fetcher);
+      if(!claims) {
+        row=await refreshGrant(env,row,fetcher,now);tokens=await decrypt(env,row);
+        claims=await validate(env,channel,tokens.access_token,fetcher);
+      }
+      if(!claims) fail(409,"reconnect_required","Reconnect optional chat presence.");
+      if(!enabled() || !PRESENCE_SCOPES.every(scope=>claims.scopes.includes(scope))) {
+        await statement(env,"UPDATE chat_oauth_grants SET encrypted_tokens=?3 WHERE channel=?1 AND revision=?2 AND invalidated=0",channel,row.revision,await encrypt(env,channel,retainedOptionalAccess(tokens,claims.scopes))).run();
+        fail(409,"presence_connection_required","Reconnect optional chat presence.");
+      }
+      const current=await loadGrant(env,channel);
+      if(current.revision!==row.revision) fail(409,"connection_changed","The connection changed. Try again.");
+    }
+    return {channel,revision:row.revision,grantId:tokens.presenceEpoch||row.revision,authorized:true,accessToken:tokens.access_token};
+  });
+}
+
 // Invoke once per minute from the Worker's scheduled handler. At most five
 // grants are processed per call, including refreshes, to bound free-tier work.
 // Persistent due times drain subsequent batches fairly across isolates. With
@@ -431,7 +492,8 @@ export function validateIdleChatGrants(env,{limit=CHAT_VALIDATION_BATCH_LIMIT,fe
         const verified=await validate(env,row.channel,tokens.access_token,fetcher,hasModerationAccess(tokens)?[SCOPE]:[]);
         if (!verified) row = await refreshGrant(env,row,fetcher,now);
         else if((tokens.triggerEnabled && !TRIGGER_SCOPES.every(scope=>verified.scopes.includes(scope))) ||
-                (tokens.activityEnabled && !ACTIVITY_SCOPES.every(scope=>verified.scopes.includes(scope))))
+                (tokens.activityEnabled && !ACTIVITY_SCOPES.every(scope=>verified.scopes.includes(scope))) ||
+              (tokens.presenceEnabled && !PRESENCE_SCOPES.every(scope=>verified.scopes.includes(scope))))
           await statement(env,"UPDATE chat_oauth_grants SET encrypted_tokens=?3 WHERE channel=?1 AND revision=?2 AND invalidated=0",row.channel,row.revision,await encrypt(env,row.channel,retainedOptionalAccess(tokens,verified.scopes))).run();
         const saved = await statement(env,`UPDATE chat_oauth_validation SET revision=?3,next_check=?4,checked_at=?5
           WHERE channel=?1 AND revision=?2 AND EXISTS(SELECT 1 FROM chat_oauth_grants WHERE channel=?1 AND revision=?3 AND invalidated=0)`,
@@ -461,6 +523,8 @@ export function disconnectChat(env,channel,origin,verifiedClaims,fetcher = fetch
     await statement(env,"DELETE FROM twitch_activity_oauth_intents WHERE channel=?1",channel).run();
     const row = await statement(env,"DELETE FROM chat_oauth_grants WHERE channel=?1 RETURNING *",channel).first();
     await statement(env,"DELETE FROM chat_oauth_validation WHERE channel=?1",channel).run();
+    if (env.TWITCH_PRESENCE_ENABLED === "true")
+      await statement(env,"DELETE FROM shoutout_presence WHERE channel=?1",channel).run();
     let accessRevoked = !row;
     if (row) {
       try {

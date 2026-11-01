@@ -1,6 +1,7 @@
 const LOGIN = /^[a-z0-9_]{1,25}$/;
 const TYPES = ["affiliate", "partner", "regular"];
 const MODES = ["both", "automatic", "command"];
+const ARRIVALS = ["chat", "presence"];
 
 function logins(value, label) {
   if (!Array.isArray(value) || value.length > 50) throw Error(`${label} must contain up to 50 Twitch logins.`);
@@ -17,9 +18,12 @@ export function normalizeShoutoutTrigger(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || value.type !== "shoutout" || !MODES.includes(value.mode)) throw Error("Choose a valid shoutout trigger mode.");
   const users = logins(value.users, "Shoutout users");
   const exclusions = logins(value.exclusions, "Shoutout exclusions");
+  const arrival = value.arrival === undefined ? "chat" : value.arrival;
+  if (!ARRIVALS.includes(arrival)) throw Error("Choose a valid shoutout arrival trigger.");
   if (!Array.isArray(value.types) || value.types.length > 3 || value.types.some(type => !TYPES.includes(type)) || new Set(value.types).size !== value.types.length) throw Error("Choose unique shoutout account types.");
   if (users.some(user => exclusions.includes(user))) throw Error("A shoutout user cannot also be excluded.");
-  return { type: "shoutout", mode: value.mode, users, types: [...value.types], exclusions };
+  return { type: "shoutout", mode: value.mode, users, types: [...value.types], exclusions,
+    ...(arrival === "presence" ? { arrival } : {}) };
 }
 
 export function normalizeShoutoutEffect(value) {

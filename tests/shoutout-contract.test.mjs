@@ -7,6 +7,9 @@ const profile = () => ({ id: "123", login: "guest_1", displayName: "Guest One", 
 
 test("shoutout trigger normalizes logins and rejects duplicates and invalid modes", () => {
   assert.deepEqual(normalizeShoutoutTrigger(trigger()), { ...trigger(), users: ["guest_1"] });
+  assert.deepEqual(normalizeShoutoutTrigger({ ...trigger(), arrival: "chat" }), { ...trigger(), users: ["guest_1"] });
+  assert.deepEqual(normalizeShoutoutTrigger({ ...trigger(), arrival: "presence" }), { ...trigger(), users: ["guest_1"], arrival: "presence" });
+  assert.throws(() => normalizeShoutoutTrigger({ ...trigger(), arrival: "follow" }), /arrival/);
   assert.throws(() => normalizeShoutoutTrigger({ ...trigger(), users: ["Guest_1", "guest_1"] }), /repeat/);
   assert.throws(() => normalizeShoutoutTrigger({ ...trigger(), mode: "viewer" }), /mode/);
   assert.throws(() => normalizeShoutoutTrigger({ ...trigger(), types: ["moderator"] }), /types/);

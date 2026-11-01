@@ -205,7 +205,7 @@ test("Hype music loops only with explicit permission and stops at lifecycle end"
   await player.unlock();
   assert.equal(await player.playSound(file, 100), true);
   assert.equal(sources[0].loop, false);
-  assert.deepEqual(sources[0].started, [0, 0, 15]);
+  assert.deepEqual(sources[0].started, [0, 0, 168], "legacy Hype full-track audio is not duration-capped");
   player.stop();
   assert.equal(await player.playSound(file, 100, { loop: true }), true);
   assert.equal(sources[1].loop, true);
@@ -233,6 +233,33 @@ test("Hype music loops only with explicit permission and stops at lifecycle end"
   assert.equal(sources[1].stopped, true);
   assert.equal(await player.playSound(file, 70, { loop: true }), true, "re-enabling after mute may play the same Hype sound again");
   assert.equal(sources[2].loop, true);
+  await player.dispose();
+});
+
+test("uploaded counted playback repeats the selected segment and event-end looping hard-stops", async () => {
+  const { Context } = mockContext("running");
+  const sources = [];
+  Context.prototype.decodeAudioData = async () => ({ duration: 2 });
+  Context.prototype.createBufferSource = () => {
+    const source = { connect() {}, disconnect() {}, start(...args) { this.started = args; }, stop() { this.stopped = true; } };
+    sources.push(source); return source;
+  };
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"a".repeat(64)}.mp3`, name: "Loop", volume: 100, playback: "loop-count", loops: 3, durationSeconds: 2, playSeconds: 1 };
+  const fetcher = async () => ({ ok: true, headers: { get: () => "4" }, async arrayBuffer() { return new Uint8Array([1, 2, 3, 4]).buffer; } });
+  const player = createCelebrationPlayer(Context, fetcher); await player.unlock();
+  assert.equal(await player.playSound(sound, 100, { expiresInMs: 5000 }), true);
+  assert.equal(sources[0].loop, true);
+  assert.equal(sources[0].loopEnd, 1);
+  assert.deepEqual(sources[0].started, [0]);
+  player.stop();
+  assert.equal(sources[0].stopped, true);
+  assert.equal(await player.playSound({ ...sound, playback: "until-end", loops: undefined }, 100, { expiresInMs: 40 }), true);
+  assert.equal(sources[1].loop, true);
+  assert.equal(player.renewPlayback(150), true, "a renewed Hype snapshot extends this train's audio deadline");
+  await new Promise(resolve => setTimeout(resolve, 80));
+  assert.equal(sources[1].stopped, undefined, "progress renewal does not interrupt an active loop");
+  await new Promise(resolve => setTimeout(resolve, 100));
+  assert.equal(sources[1].stopped, true, "event expiry releases looping playback even while enabled");
   await player.dispose();
 });
 

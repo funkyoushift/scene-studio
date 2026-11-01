@@ -237,6 +237,21 @@ test("shared sound contract accepts own hosted or bounded inline URLs only", () 
     assert.throws(() => validateCelebrationSound(bad, { channel }));
 });
 
+test("sound playback metadata supports bounded counted loops and event-end looping, preserving legacy defaults", () => {
+  const url = `${SOUND_ORIGIN}/sounds/123/${"e".repeat(64)}.mp3`;
+  const old = { preset: "upload", url, name: "Old sound", volume: 70 };
+  assert.deepEqual(validateCelebrationSound(old, { channel: "123" }), old);
+  const counted = { ...old, playback: "loop-count", loops: 20, durationSeconds: 80, playSeconds: 30 };
+  assert.deepEqual(validateCelebrationSound(counted, { channel: "123" }), counted);
+  const until = { ...old, playback: "until-end", durationSeconds: 120, playSeconds: 120 };
+  assert.deepEqual(validateCelebrationSound(until, { channel: "123" }), until);
+  for (const bad of [
+    { ...counted, loops: 0 }, { ...counted, loops: 21 }, { ...counted, loops: 1.5 },
+    { ...counted, playback: "until-end" }, { ...until, loops: 2 },
+    { ...until, playSeconds: 121 }, { ...until, durationSeconds: 301 },
+  ]) assert.throws(() => validateCelebrationSound(bad, { channel: "123" }));
+});
+
 
 test("event sound boost up to 300 percent round-trips and invalid levels are rejected", () => {
   for (const volume of [0, 100, 150, 300]) {

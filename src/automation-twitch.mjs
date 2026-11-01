@@ -2,7 +2,7 @@ import { AUTOMATION_DESIGN_BYTES, CELEBRATION_STYLES, validateAutomations } from
 import { IMAGE_ORIGIN, hostedImage } from "./image-address.mjs";
 import { prepareImage } from "./images.mjs";
 import { safeHypeState } from "./hype-state.mjs";
-import { validateCelebrationSound } from "./sound-contract.mjs";
+import { validateCelebrationSound, validateHypeLevelAudio } from "./sound-contract.mjs";
 import { publishSound } from "./sounds.mjs";
 import { SOUND_ORIGIN } from "./sound-address.mjs";
 import { normalizeShoutoutEffect, safeShoutoutProfile } from "./shoutout-contract.mjs";
@@ -32,19 +32,29 @@ function matchesSavedCelebration(effect, option, channelId) {
       !Number.isInteger(appearance.durationSeconds) || appearance.durationSeconds < 4 || appearance.durationSeconds > 20) return false;
   const hasSound = Object.hasOwn(appearance, "sound");
   const hasLifecycle = Object.hasOwn(appearance, "hypeLifecycle");
+  const hasLevelAudio = Object.hasOwn(appearance, "hypeLevelAudio");
   if (hasLifecycle && appearance.hypeLifecycle !== true) return false;
   if (hasLifecycle !== Object.hasOwn(option.appearance ?? {}, "hypeLifecycle")) return false;
-  if (Object.keys(appearance).length !== 3 + Number(hasSound) + Number(hasLifecycle)) return false;
+  if (hasLevelAudio && !hasLifecycle) return false;
+  if (Object.keys(appearance).length !== 3 + Number(hasSound) + Number(hasLifecycle) + Number(hasLevelAudio)) return false;
   let sound;
   if (hasSound) {
     try { sound = validateCelebrationSound(appearance.sound, { allowInline: false, channel: channelId }); }
     catch { return false; }
   }
   if (hasSound !== Object.hasOwn(option.appearance ?? {}, "sound")) return false;
+  let levelAudio;
+  if (hasLevelAudio) {
+    try { levelAudio = validateHypeLevelAudio(appearance.hypeLevelAudio, { allowInline: false, channel: channelId }); }
+    catch { return false; }
+  }
+  if (hasLevelAudio !== Object.hasOwn(option.appearance ?? {}, "hypeLevelAudio")) return false;
+  const soundMatches = !hasSound || (option.appearance.sound.preset === sound.preset && option.appearance.sound.volume === sound.volume &&
+    (sound.preset !== "upload" || (option.appearance.sound.url === sound.url && option.appearance.sound.name === sound.name &&
+      ["playback", "loops", "playSeconds", "durationSeconds"].every(key => (option.appearance.sound[key] ?? null) === (sound[key] ?? null)))));
   return option.appearance?.style === appearance.style && option.appearance?.color === appearance.color &&
-    option.appearance?.durationSeconds === appearance.durationSeconds &&
-    (!hasSound || (option.appearance.sound.preset === sound.preset && option.appearance.sound.volume === sound.volume &&
-      (sound.preset !== "upload" || (option.appearance.sound.url === sound.url && option.appearance.sound.name === sound.name && option.appearance.sound.playback === sound.playback))));
+    option.appearance?.durationSeconds === appearance.durationSeconds && soundMatches &&
+    (!hasLevelAudio || JSON.stringify(option.appearance.hypeLevelAudio) === JSON.stringify(levelAudio));
 }
 function matchesSavedShoutout(event, design) {
   const profile = safeShoutoutProfile(event.shoutout);
@@ -64,6 +74,10 @@ function checkSoundChannels(design, channelId, allowInline) {
   for (const effect of celebrationEffects(design)) if (effect.appearance?.sound) {
     try { validateCelebrationSound(effect.appearance.sound, { allowInline, channel: channelId }); }
     catch { throw Error("Replace celebration sounds that belong to another channel or have not been uploaded."); }
+  }
+  for (const effect of celebrationEffects(design)) if (effect.appearance?.hypeLevelAudio) {
+    try { validateHypeLevelAudio(effect.appearance.hypeLevelAudio, { allowInline, channel: channelId }); }
+    catch { throw Error("Replace Hype level sounds that belong to another channel or have not been uploaded."); }
   }
 }
 export function currentAutomationPublisher(expectedAuth, currentAuth, viewer) {
@@ -109,9 +123,16 @@ export function automationPreflight(input, channelId, ownedMerch) {
   return design;
 }
 function estimateSound(effect, channelId) {
-  if (effect.type !== "celebrate" || effect.appearance?.sound?.preset !== "upload" || !effect.appearance.sound.url.startsWith("data:")) return effect;
-  const extension = effect.appearance.sound.url.startsWith("data:audio/mpeg;base64,") ? "mp3" : "wav";
-  return { ...effect, appearance: { ...effect.appearance, sound: { ...effect.appearance.sound, url: `${SOUND_ORIGIN}/sounds/${channelId}/${"0".repeat(64)}.${extension}` } } };
+  if (effect.type !== "celebrate") return effect;
+  const placeholder = sound => {
+    if (sound?.preset !== "upload" || !sound.url.startsWith("data:")) return sound;
+    const extension = sound.url.startsWith("data:audio/mpeg;base64,") ? "mp3" : "wav";
+    return { ...sound, url: `${SOUND_ORIGIN}/sounds/${channelId}/${"0".repeat(64)}.${extension}` };
+  };
+  if (!effect.appearance) return effect;
+  return { ...effect, appearance: { ...effect.appearance,
+    ...(effect.appearance.sound ? { sound: placeholder(effect.appearance.sound) } : {}),
+    ...(effect.appearance.hypeLevelAudio ? { hypeLevelAudio: effect.appearance.hypeLevelAudio.map(entry => ({ ...entry, sound: placeholder(entry.sound) })) } : {}) } };
 }
 export async function publishAutomationImages(input, auth, ownedMerch, fetcher = fetch, prepare = prepareImage) {
   const id = channel(auth), design = automationPreflight(input, id, ownedMerch), uploaded = new Map();
@@ -134,10 +155,11 @@ export async function publishAutomationImages(input, auth, ownedMerch, fetcher =
   }
   const sounds = new Map();
   for (const effect of celebrationEffects(design)) {
-    const sound = effect.appearance?.sound;
-    if (sound?.preset !== "upload" || !sound.url.startsWith("data:")) continue;
-    if (!sounds.has(sound.url)) sounds.set(sound.url, await publishSound(sound, auth, fetcher));
-    effect.appearance.sound = { preset: "upload", url: sounds.get(sound.url).url, name: sound.name, volume: sound.volume, ...(sound.playback === "hype-loop" ? { playback: "hype-loop" } : {}) };
+    const uploads = [effect.appearance?.sound, ...(effect.appearance?.hypeLevelAudio || []).map(entry => entry.sound)].filter(sound => sound?.preset === "upload" && sound.url.startsWith("data:"));
+    for (const sound of uploads) if (!sounds.has(sound.url)) sounds.set(sound.url, await publishSound(sound, auth, fetcher));
+    if (effect.appearance?.sound?.preset === "upload" && sounds.has(effect.appearance.sound.url)) effect.appearance.sound = { ...effect.appearance.sound, url: sounds.get(effect.appearance.sound.url).url };
+    if (effect.appearance?.hypeLevelAudio) effect.appearance.hypeLevelAudio = effect.appearance.hypeLevelAudio.map(entry => entry.sound?.preset === "upload" && sounds.has(entry.sound.url)
+      ? { ...entry, sound: { ...entry.sound, url: sounds.get(entry.sound.url).url } } : entry);
   }
   return design;
 }

@@ -2,13 +2,14 @@
 // EXTENSION_SECRET (base64 secret), EXTENSION_ORIGIN,
 // and TEST_CHANNELS (comma-separated numeric channel IDs). Empty allowlist denies writes.
 import { partyRequest } from "./party-service.mjs";
-import { startConnect, startTriggerConnect, startActivityConnect, completeConnect, getChatConnection, disconnectChat, validateIdleChatGrants, ChatAuthorizationError } from "./chat-authorization.mjs";
+import { startConnect, startTriggerConnect, startActivityConnect, startPresenceConnect, completeConnect, getChatConnection, disconnectChat, validateIdleChatGrants, ChatAuthorizationError } from "./chat-authorization.mjs";
 import { publicPage } from "./public-pages.mjs";
 import { developerRequest } from "./developer-service.mjs";
 import { automationRequest, tickAutomations, processAutomationInput, hasMatchingKeywordRule } from "./automation-service.mjs";
 import { soundRequest } from "./sound-service.mjs";
 import { getTriggerConnection, ensureTriggerSubscription, disconnectTriggerSubscription, handleChatWebhook, cleanupChatTriggerReceipts } from "./chat-triggers.mjs";
 import { hasShoutoutCandidate } from "./shoutout-service.mjs";
+import { tickArrivals, getArrivalStatus } from "./presence-service.mjs";
 import { getActivityConnection, ensureActivitySubscriptions, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "./twitch-events.mjs";
 const MAX_IMAGE = 200_000;
 export const MAX_IMAGES = 48;
@@ -158,6 +159,8 @@ export default {
     })().catch(() => console.warn("Chat validation deferred; provider unavailable.")));
     if (env.AUTOMATIONS_ENABLED === "true")
       ctx.waitUntil(tickAutomations(env,{limit:2}).catch(() => console.warn("Scheduled overlay effects unavailable.")));
+    if (env.TWITCH_PRESENCE_ENABLED === "true")
+      ctx.waitUntil(tickArrivals(env,{processInput:processAutomationInput}).catch(() => console.warn("Chat arrival checks unavailable.")));
   },
   async fetch(request, env, ctx) {
     const origin = request.headers.get("origin");
@@ -235,11 +238,12 @@ export default {
             const trigger = await getTriggerConnection(env,connected.channel);
             message = trigger.connected ? "Chat triggers are connected. Return to Scene Studio and choose Check connection." : "Chat access is connected. Return to Scene Studio and choose Check connection to confirm Twitch has enabled the chat listener.";
           }
+          if (connected.presenceAccess) message = "Chat arrival access is connected. Return to Scene Studio, refresh arrival status and publish a joins-chat shoutout rule. The first check quietly records who is already present.";
         }
         catch { message = "Chat could not be connected. Return to Scene Studio and start Connect chat again."; status = 400; }
         return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Scene Studio chat</title><h1>Scene Studio</h1><p>${message}</p></html>`, {status, headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; frame-ancestors 'none'","X-Content-Type-Options":"nosniff"}});
       }
-      const chat = url.pathname.match(/^\/v1\/chat\/([1-9][0-9]{0,19})\/(connection|connect|triggers|trigger-connect|activity|activity-connect)$/);
+      const chat = url.pathname.match(/^\/v1\/chat\/([1-9][0-9]{0,19})\/(connection|connect|triggers|trigger-connect|activity|activity-connect|presence|presence-connect)$/);
       if (chat) {
         if (!env.EXTENSION_ORIGIN || origin !== env.EXTENSION_ORIGIN) return json({error:"Open this channel’s configuration on Twitch."},403);
         if (request.method === "OPTIONS") {
@@ -248,6 +252,8 @@ export default {
           return new Response(null,{status:204,headers});
         }
         const claims = await broadcaster(request, env.EXTENSION_SECRET, chat[1]);
+        if (chat[2] === "presence-connect" && request.method === "POST") return json(await startPresenceConnect(env,chat[1],origin,claims));
+        if (chat[2] === "presence" && request.method === "GET") return json(await getArrivalStatus(env,chat[1]));
         if (chat[2] === "activity-connect" && request.method === "POST") return json(await startActivityConnect(env,chat[1],origin,claims));
         if (chat[2] === "activity" && request.method === "GET") return json(await getActivityConnection(env,chat[1]));
         if (chat[2] === "activity" && request.method === "POST") return json(await ensureActivitySubscriptions(env,chat[1]));

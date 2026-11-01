@@ -18,12 +18,18 @@ export function ShoutoutTriggerControls({ trigger, onChange }) {
   return <div className="flow-fields flow-shoutout-controls">
     <label>WHEN TO SHOUT OUT<select value={trigger.mode} onChange={event => onChange({ mode: event.target.value })}>
       <option value="both">Automatically + moderator command</option>
-      <option value="automatic">Automatically on first chat message</option>
+      <option value="automatic">Automatically</option>
       <option value="command">Only on moderator command</option>
     </select></label>
     {trigger.mode !== "automatic" && <p><b>!so @username</b> — you or a moderator can type this in chat. It does not send a separate chat message.</p>}
     {automatic && <>
-      <p>During a live stream, show the card when a matching person first speaks in chat. Simply opening the stream does not trigger a shoutout.</p>
+      <label>WHEN THEY ARRIVE<select value={trigger.arrival || "chat"} onChange={event => onChange({ arrival: event.target.value })}>
+        <option value="chat">When they first send a message</option>
+        <option value="presence">When they join chat (may be delayed)</option>
+      </select></label>
+      {trigger.arrival === "presence"
+        ? <p>Choose Connect chat arrivals in Channel connections to grant Twitch's chat-list permission. Scene Studio runs this for you; no API or server setup is needed. Twitch may report arrivals late.</p>
+        : <p>During a live stream, show the card when a matching person first sends a chat message.</p>}
       <fieldset><legend>AUTOMATICALLY INCLUDE</legend>{[["partner", "Twitch Partners"], ["affiliate", "Twitch Affiliates"], ["regular", "Other Twitch users"]].map(([type, label]) => <label className="flow-option-check" key={type}><input type="checkbox" checked={trigger.types.includes(type)} onChange={event => onChange({ types: event.target.checked ? [...trigger.types, type] : trigger.types.filter(item => item !== type) })}/>{label}</label>)}</fieldset>
       <ChannelList label="ALSO INCLUDE THESE CHANNELS" value={trigger.users} onChange={users => onChange({ users })} help="These people qualify even if their account type is not selected above."/>
       {!trigger.types.length && !trigger.users.length && <p role="status">Choose an account type or add a channel to enable automatic matches.</p>}

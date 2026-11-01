@@ -88,7 +88,8 @@ test("config read accepts channel viewer proof; mutations require own broadcaste
 
 test("Hype lifecycle persists signed snapshots through cooldown and closes with a bounded thank-you", async t => {
   const s = fixture(t);
-  const appearance = { style: "hype-train", color: "#FF33AA", durationSeconds: 8, hypeLifecycle: true };
+  const levelSounds = [{ level: 2, mode: "overlay", sound: { preset: "train", volume: 60 } }];
+  const appearance = { style: "hype-train", color: "#FF33AA", durationSeconds: 8, hypeLifecycle: true, hypeLevelAudio: levelSounds };
   const candidate = { version: 1, carousels: [], rules: [
     { id: "begin", name: "Train", enabled: true, trigger: { type: "twitch", event: "hype_begin" }, effect: { type: "celebrate", message: "Train rolling", appearance }, cooldownSeconds: 60 },
     { id: "progress", name: "Progress", enabled: true, trigger: { type: "twitch", event: "hype_progress" }, effect: { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Keep going", appearance }] }, cooldownSeconds: 60 },
@@ -106,6 +107,7 @@ test("Hype lifecycle persists signed snapshots through cooldown and closes with 
   assert.equal(progress.status, "cooldown");
   assert.equal((await s.call("hype", { at: now + 1001 })).body.event.hype.progress, 55);
   assert.equal((await s.call("hype", { at: now + 1001 })).body.event.effect.message, "Keep going");
+  assert.deepEqual((await s.call("hype", { at: now + 1001 })).body.event.effect.appearance.hypeLevelAudio, levelSounds);
   assert.equal(s.sent.length, 1, "cooldown bounds broadcasts, not persisted progress");
   const retainedExpiry = (await s.call("hype", { at: now + 1001 })).body.event.expires;
   assert.equal((await processAutomationInput(s.env, "123", input("progress", "missing_expiry", now + 1200, { expiresAt: undefined, total: 160 }), { now: now + 1200, fetcher: s.fetcher })).status, "no_match");
@@ -243,6 +245,16 @@ test("hosted celebration publication keeps own uploaded sound and rejects unsave
     const request = { eventId: crypto.randomUUID(), type: "celebrate", message: "The party is here", appearance: { ...appearance, sound: altered } };
     assert.equal((await s.call("fire", { method: "POST", input: request, at: now + 9000 })).status, 409);
   }
+  const countedSound = { ...sound, playback: "loop-count", loops: 4, playSeconds: 18, durationSeconds: 90 };
+  const countedDesign = structuredClone(candidate); countedDesign.rules[0].effect.appearance.sound = countedSound;
+  const countedSaved = await s.call("config", { method: "PUT", input: { design: countedDesign, expectedRevision: 1 }, at: now + 10000 });
+  assert.equal(countedSaved.status, 200);
+  assert.deepEqual((await s.call("config", { at: now + 10000 })).body.design.rules[0].effect.appearance.sound, countedSound);
+  const countedAppearance = { ...appearance, sound: countedSound };
+  const countedFire = await s.call("fire", { method: "POST", input: { eventId: crypto.randomUUID(), type: "celebrate", message: "The party is here", appearance: countedAppearance }, at: now + 10000 });
+  assert.equal(countedFire.status, 200);
+  assert.deepEqual(countedFire.body.event.effect.appearance.sound, countedSound);
+  assert.deepEqual((await s.call("active", { at: now + 11000 })).body.event.effect.appearance.sound, countedSound);
 });
 
 test("verified shoutout input broadcasts a saved card and active catch-up binds its rule and profile", async t => {

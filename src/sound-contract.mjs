@@ -96,17 +96,38 @@ export function validateCelebrationSound(value, { allowInline = true, channel } 
     throw new Error("Celebration sound volume must be a whole number from 0 to 300.");
   if (isUploadedSound(value)) {
     const hasPlayback = Object.hasOwn(value, "playback");
-    if (Object.keys(value).length !== (hasPlayback ? 5 : 4) ||
+    const hasLoops = Object.hasOwn(value, "loops"), hasPlaySeconds = Object.hasOwn(value, "playSeconds"), hasDuration = Object.hasOwn(value, "durationSeconds");
+    const allowed = new Set(["preset", "url", "name", "volume", "playback", "loops", "playSeconds", "durationSeconds"]);
+    if (Object.keys(value).some(key => !allowed.has(key)) ||
         !["preset", "url", "name", "volume"].every(key => Object.hasOwn(value, key)) ||
-        (hasPlayback && value.playback !== "hype-loop") ||
+        (hasPlayback && !["hype-loop", "loop-count", "until-end"].includes(value.playback)) ||
+        (hasLoops !== (value.playback === "loop-count")) ||
+        (hasLoops && (!Number.isInteger(value.loops) || value.loops < 1 || value.loops > 20)) ||
+        (hasPlaySeconds && (!Number.isFinite(value.playSeconds) || value.playSeconds <= 0 || value.playSeconds > 300 ||
+          (hasDuration && value.playSeconds > value.durationSeconds))) ||
+        (hasDuration && (!Number.isFinite(value.durationSeconds) || value.durationSeconds <= 0 || value.durationSeconds > 300)) ||
         typeof value.name !== "string" || !value.name.trim() || value.name.length > 80 ||
         !(hostedSound(value.url, channel) || (allowInline && inlineSound(value.url))))
       throw new Error("Choose a valid uploaded celebration sound for this channel.");
     return { preset: "upload", url: value.url, name: value.name, volume: value.volume,
-      ...(hasPlayback ? { playback: "hype-loop" } : {}) };
+      ...(hasPlayback ? { playback: value.playback } : {}), ...(hasLoops ? { loops: value.loops } : {}),
+      ...(hasPlaySeconds ? { playSeconds: value.playSeconds } : {}), ...(hasDuration ? { durationSeconds: value.durationSeconds } : {}) };
   }
   if (Object.keys(value).length !== 2 || !Object.hasOwn(value, "preset") || !Object.hasOwn(value, "volume") ||
       !PRESETS.includes(value.preset))
     throw new Error("Celebration sound must use a supported preset.");
   return { preset: value.preset, volume: value.volume };
+}
+
+export function validateHypeLevelAudio(value, options = {}) {
+  if (!Array.isArray(value) || value.length > 10) throw new Error("Hype level audio can contain up to 10 level choices.");
+  const levels = new Set();
+  return value.map(entry => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry) ||
+        Object.keys(entry).length !== 3 || !Object.hasOwn(entry, "level") || !Object.hasOwn(entry, "mode") || !Object.hasOwn(entry, "sound") ||
+        !Number.isInteger(entry.level) || entry.level < 2 || entry.level > 10000 || levels.has(entry.level) ||
+        !["overlay", "replace"].includes(entry.mode)) throw new Error("Choose up to 10 unique Hype levels from 2 to 10,000 with valid audio actions.");
+    levels.add(entry.level);
+    return { level: entry.level, mode: entry.mode, sound: validateCelebrationSound(entry.sound, options) };
+  });
 }

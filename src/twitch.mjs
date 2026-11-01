@@ -44,9 +44,11 @@ export async function startChatConnection(auth, fetcher = fetch) {
   let url;
   try { url = new URL(result.authorizeUrl); } catch { throw new Error("Twitch authorization could not be prepared."); }
   const required = ["response_type", "scope", "redirect_uri", "state", "client_id"];
+  const scopes = url.searchParams.get("scope")?.split(" ") ?? [];
+  const allowedScopes = ["moderation:read", "moderator:read:chatters", "user:read:chat", "user:bot", "channel:bot", "channel:read:subscriptions", "channel:read:hype_train"];
   if (url.origin !== "https://id.twitch.tv" || url.pathname !== "/oauth2/authorize" || url.username || url.password || url.href.includes("#") ||
       required.some(key => url.searchParams.getAll(key).length !== 1) ||
-      url.searchParams.get("response_type") !== "code" || url.searchParams.get("scope") !== "moderation:read" ||
+      url.searchParams.get("response_type") !== "code" || !scopes.includes("moderation:read") || new Set(scopes).size !== scopes.length || scopes.some(scope => !allowedScopes.includes(scope)) ||
       url.searchParams.get("redirect_uri") !== `${IMAGE_ORIGIN}/chat/callback` ||
       !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get("state") ?? "") || !url.searchParams.get("client_id")?.trim() ||
       !Number.isFinite(result.expiresAt) || result.expiresAt <= Date.now())

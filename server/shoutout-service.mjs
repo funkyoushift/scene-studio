@@ -40,6 +40,7 @@ export async function hasShoutoutCandidate(env, channel, mode, login = null) {
   return existing.some(rule => {
     const trigger = rule.trigger;
     if (!rule.enabled || trigger.type !== "shoutout" || !supportsMode(trigger, mode)) return false;
+    if (mode === "automatic" && trigger.arrival === "presence") return false;
     if (login && trigger.exclusions.includes(login)) return false;
     if (mode === "command") return true;
     return trigger.types.length > 0 || (login ? trigger.users.includes(login) : trigger.users.length > 0);
@@ -130,6 +131,12 @@ async function liveStreamId(env, channel, token, fetcher, now) {
   return id;
 }
 
+// Server-only lookup shared by the scheduled arrival detector.
+export async function getShoutoutStream(env, channel, { fetcher = fetch, now = Date.now() } = {}) {
+  if (!ID.test(channel)) return null;
+  return liveStreamId(env, channel, await appToken(env, fetcher, now), fetcher, now);
+}
+
 // Cheap local duplicate check precedes moderation/provider calls. A new stream
 // is resolved after the five-second cache window, so stale IDs are short-lived.
 export async function mayAttemptShoutout(env, channel, mode, chatterId, now = Date.now()) {
@@ -173,7 +180,8 @@ export async function processShoutoutChat(env, channel, input, {
   if (mode === "command" && !LOGIN.test(input.targetLogin ?? "")) return { status: "no_match" };
   const saved = await rules(env, channel);
   const candidates = saved.filter(rule => rule.enabled && rule.trigger.type === "shoutout" &&
-    supportsMode(rule.trigger, mode));
+    supportsMode(rule.trigger, mode) &&
+    (mode === "command" || (rule.trigger.arrival === "presence") === (input.source === "presence")));
   if (!candidates.length) return { status: "no_match" };
   const token = await appToken(env, fetcher, now);
   let streamId = null;

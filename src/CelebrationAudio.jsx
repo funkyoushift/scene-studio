@@ -13,34 +13,43 @@ function expiryTime(value) {
   return 0;
 }
 
-export default function CelebrationAudio({ eventId, sound, expires, preview = false, loop = false }) {
-  const configured = Boolean(sound && (
+export default function CelebrationAudio({ eventId, sound, expires, preview = false, loop = false, overlaySound, overlayEventId, overlayExpires }) {
+  const configuredBase = Boolean(sound && (
     CELEBRATION_SOUND_PRESETS.includes(sound.preset) ||
     (sound.preset === "upload" && (
       hostedSound(sound.url) ||
       (typeof sound.url === "string" && (sound.url.startsWith("data:audio/wav;base64,") || sound.url.startsWith("data:audio/mpeg;base64,")))
     ))
   ));
+  const configuredOverlay = Boolean(overlaySound && overlaySound.preset && (CELEBRATION_SOUND_PRESETS.includes(overlaySound.preset) || overlaySound.preset === "upload"));
+  const configured = configuredBase || configuredOverlay;
   const [enabled, setEnabled] = useState(false);
   const [volume, setVolume] = useState(70);
   const [status, setStatus] = useState("");
   const playerRef = useRef(null);
+  const overlayPlayerRef = useRef(null);
   const playedEventRef = useRef(null);
   const activeEventRef = useRef(null);
   const activeLoopRef = useRef(false);
+  const playedOverlayRef = useRef(null);
+  const activeOverlayRef = useRef(null);
   const soundRef = useRef(sound);
   const volumeRef = useRef(volume);
   soundRef.current = sound;
   volumeRef.current = volume;
-  const soundIdentity = JSON.stringify([sound?.preset, sound?.url, sound?.name, sound?.volume, sound?.playback]);
+  const soundIdentity = JSON.stringify([sound?.preset, sound?.url, sound?.name, sound?.volume, sound?.playback, sound?.loops, sound?.playSeconds, sound?.durationSeconds]);
   const loopingUpload = loop && sound?.preset === "upload" && sound.playback === "hype-loop";
 
   useEffect(() => {
     const player = createCelebrationPlayer();
+    const overlayPlayer = createCelebrationPlayer();
     playerRef.current = player;
+    overlayPlayerRef.current = overlayPlayer;
     return () => {
       playerRef.current = null;
+      overlayPlayerRef.current = null;
       void player.dispose();
+      void overlayPlayer.dispose();
     };
   }, []);
 
@@ -72,21 +81,41 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
         const player = playerRef.current;
         const stillCurrent = () => playerRef.current === player && activeEventRef.current === key && activeLoopRef.current && playedEventRef.current === key;
         if (loop) setStatus("Background music is loading…");
-        void player.playSound(currentSound, volumeRef.current, { loop }).then(started => {
+        void player.playSound(currentSound, volumeRef.current, { loop, expiresInMs: Math.max(0, expiration - Date.now()) }).then(started => {
           if (loop && stillCurrent()) setStatus(started ? "Background music is playing." : "Background music could not play. Mute and enable sound to try again.");
         }).catch(() => {
           if (loop && stillCurrent()) setStatus("Background music could not play. Mute and enable sound to try again.");
         });
       }
-    }
+    } else playerRef.current?.renewPlayback?.(Math.max(0, expiration - Date.now()));
     const timeout = setTimeout(() => playerRef.current?.stop(), Math.max(0, expiration - Date.now()));
     return () => clearTimeout(timeout);
   }, [enabled, configured, eventId, expires, soundIdentity, loop]);
 
+  const overlayIdentity = JSON.stringify([overlaySound?.preset, overlaySound?.url, overlaySound?.name, overlaySound?.volume, overlaySound?.playSeconds, overlaySound?.durationSeconds]);
+  useEffect(() => {
+    const player = overlayPlayerRef.current;
+    if (!enabled || !configuredOverlay || !overlayEventId || !player) {
+      player?.stop(); activeOverlayRef.current = null; return;
+    }
+    const expiration = expiryTime(overlayExpires);
+    const key = `${String(overlayEventId)}|${overlayIdentity}`;
+    if (!expiration || expiration <= Date.now()) { player.stop(); activeOverlayRef.current = null; return; }
+    if (activeOverlayRef.current !== key) player.stop();
+    activeOverlayRef.current = key;
+    if (playedOverlayRef.current !== key) {
+      playedOverlayRef.current = key;
+      const oneShot = { ...overlaySound }; delete oneShot.playback; delete oneShot.loops;
+      void player.playSound(oneShot, volumeRef.current, { expiresInMs: Math.max(0, expiration - Date.now()) });
+    } else player.renewPlayback?.(Math.max(0, expiration - Date.now()));
+    const timeout = setTimeout(() => player.stop(), Math.max(0, expiration - Date.now()));
+    return () => clearTimeout(timeout);
+  }, [enabled, configuredOverlay, overlayEventId, overlayExpires, overlayIdentity]);
+
   async function enableSound() {
     setStatus("");
     try {
-      await playerRef.current?.unlock();
+      await Promise.all([playerRef.current?.unlock(), overlayPlayerRef.current?.unlock()]);
       setEnabled(true);
       setStatus("Celebration sound enabled for this viewer.");
     } catch (error) {
@@ -97,8 +126,11 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
 
   function muteSound() {
     playerRef.current?.stop();
+    overlayPlayerRef.current?.stop();
     playedEventRef.current = null;
+    playedOverlayRef.current = null;
     activeEventRef.current = null;
+    activeOverlayRef.current = null;
     activeLoopRef.current = false;
     setEnabled(false);
     setStatus("Celebration sound muted.");
@@ -118,7 +150,7 @@ export default function CelebrationAudio({ eventId, sound, expires, preview = fa
     `}</style>
     {!enabled ? <button type="button" onClick={enableSound}>Enable celebration sound</button> : <div className="ss-ca-controls">
       <span className="ss-ca-label">Sound on</span>
-      <label className="ss-ca-volume"><span>Volume</span><input type="range" min="0" max="100" value={volume} aria-label="Celebration sound volume" onChange={event => { const next = Number(event.target.value); playerRef.current?.setVolume(next); setVolume(next); }} /></label>
+      <label className="ss-ca-volume"><span>Volume</span><input type="range" min="0" max="100" value={volume} aria-label="Celebration sound volume" onChange={event => { const next = Number(event.target.value); playerRef.current?.setVolume(next); overlayPlayerRef.current?.setVolume(next); setVolume(next); }} /></label>
       {preview && <button className="ss-ca-preview" type="button" disabled={!configured || loopingUpload} onClick={previewSound}>Play sample</button>}
       <button type="button" onClick={muteSound}>Mute</button>
     </div>}

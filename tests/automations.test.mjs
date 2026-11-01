@@ -163,6 +163,23 @@ test("uploaded sound keeps its bounded metadata through direct and chosen celebr
   assert.throws(() => validateAutomations(direct), /valid uploaded/);
 });
 
+test("Hype level audio is bounded, channel-safe metadata and requires a Hype lifecycle", () => {
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"b".repeat(64)}.mp3`, name: "Song", volume: 80, playback: "until-end", durationSeconds: 60, playSeconds: 45 };
+  const levels = [{ level: 3, mode: "overlay", sound: { preset: "train", volume: 60 } }, { level: 6, mode: "replace", sound }];
+  const input = fixture();
+  input.rules[0].trigger = { type: "twitch", event: "hype_begin" };
+  input.rules[0].effect.appearance = { style: "hype-train", color: "#123456", durationSeconds: 8, hypeLifecycle: true, hypeLevelAudio: levels };
+  assert.deepEqual(validateAutomations(input).rules[0].effect.appearance.hypeLevelAudio, levels);
+  for (const bad of [
+    [{ level: 1, mode: "overlay", sound: levels[0].sound }],
+    [{ level: 3, mode: "overlay", sound: levels[0].sound }, { level: 3, mode: "replace", sound }],
+    [{ level: 3, mode: "unknown", sound: levels[0].sound }],
+    Array.from({ length: 11 }, (_, index) => ({ level: index + 2, mode: "overlay", sound: levels[0].sound })),
+  ]) { input.rules[0].effect.appearance.hypeLevelAudio = bad; assert.throws(() => validateAutomations(input)); }
+  input.rules[0].effect.appearance = { style: "hype-train", color: "#123456", durationSeconds: 8, hypeLevelAudio: levels };
+  assert.throws(() => validateAutomations(input), /requires a Hype Train/);
+});
+
 function maximumAutomationCounts() {
   const base = fixture();
   return {

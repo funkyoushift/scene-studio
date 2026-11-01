@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 import {
   CHAT_AUTH_SCHEMA, ChatAuthorizationError, startConnect, completeConnect,
-  checkViewerModeration, getChatConnection, disconnectChat, validateIdleChatGrants, CHAT_MAX_CONNECTIONS,
+  PRESENCE_SCOPES, ACTIVITY_SCOPES, TRIGGER_SCOPES, startPresenceConnect, getPresenceAuthorization,
+  startActivityConnect, getActivityAuthorization, startTriggerConnect, getTriggerAuthorization,
+  checkViewerModeration, checkPresenceModeration, getChatConnection, disconnectChat, validateIdleChatGrants, CHAT_MAX_CONNECTIONS,
 } from "../server/chat-authorization.mjs";
 
 const now = Date.now(), origin = "https://example.ext-twitch.tv";
@@ -11,6 +14,7 @@ const broadcaster = channel => ({role:"broadcaster",user_id:channel,channel_id:c
 const expectedError = code => error => error instanceof ChatAuthorizationError && error.code === code;
 function fixture() {
   const db = new DatabaseSync(":memory:"); db.exec(CHAT_AUTH_SCHEMA);
+  db.exec(readFileSync(new URL("../server/presence-schema.sql",import.meta.url),"utf8"));
   const env = {
     EXTENSION_ORIGIN:origin, EXTENSION_SECRET:Buffer.alloc(32,7).toString("base64"),
     TWITCH_CHAT_CLIENT_ID:"testclient", TWITCH_CHAT_CLIENT_SECRET:"test-client-secret",
@@ -241,4 +245,150 @@ test("connection capacity is enforced atomically at callback while existing chan
   s.options.channel="1000";
   assert.equal((await completeConnect(s.env,await s.begin("1000"),s.fetcher,now)).connected,true);
   assert.equal(s.db.prepare("SELECT count(*) AS n FROM chat_oauth_grants").get().n,CHAT_MAX_CONNECTIONS);
+});
+
+async function optionalConnect(s,start) {
+  const {authorizeUrl}=await start(s.env,"123",origin,broadcaster("123"),now);
+  const url=new URL(authorizeUrl);
+  const scopes=url.searchParams.get("scope").split(" ");
+  s.options.validation={scopes};
+  const result=await completeConnect(s.env,`${s.env.PUBLIC_SERVICE_URL}/chat/callback?state=${url.searchParams.get("state")}&code=test-code`,s.fetcher,now);
+  return {scopes,result};
+}
+
+test("presence consent requires its own feature gate, origin and broadcaster identity",async t=>{
+  const s=fixture();t.after(()=>s.db.close());
+  await assert.rejects(startPresenceConnect(s.env,"123",origin,broadcaster("123"),now),expectedError("not_configured"));
+  s.env.TWITCH_PRESENCE_ENABLED="true";
+  for(const [from,claims] of [["https://evil.example",broadcaster("123")],[origin,broadcaster("789")],[origin,{...broadcaster("123"),role:"viewer"}]])
+    await assert.rejects(startPresenceConnect(s.env,"123",from,claims,now),expectedError("broadcaster_required"));
+  const {scopes,result}=await optionalConnect(s,startPresenceConnect);
+  assert.deepEqual(scopes,PRESENCE_SCOPES);
+  assert.deepEqual(result,{connected:true,channel:"123",presenceAccess:true});
+  assert.equal((await getChatConnection(s.env,"123",origin,broadcaster("123"))).connected,false);
+  s.env.CHAT_TRIGGERS_ENABLED="true";s.env.TWITCH_ACTIVITY_ENABLED="true";
+  await assert.rejects(getTriggerAuthorization(s.env,"123"),expectedError("trigger_connection_required"));
+  await assert.rejects(getActivityAuthorization(s.env,"123"),expectedError("activity_connection_required"));
+  const auth=await getPresenceAuthorization(s.env,"123",{fetcher:s.fetcher,now,verify:true});
+  assert.equal(auth.authorized,true);assert.equal(auth.accessToken,"old-access-token");assert.ok(auth.grantId);assert.ok(auth.revision);
+  assert.equal(JSON.stringify(s.db.prepare("SELECT * FROM chat_oauth_grants").get()).includes(auth.accessToken),false);
+});
+
+test("provider scopes alone never imply presence consent and incomplete presence callback preserves the grant",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.env.TWITCH_PRESENCE_ENABLED="true";
+  s.options.validation={scopes:[...PRESENCE_SCOPES]};
+  await s.connect();
+  await assert.rejects(getPresenceAuthorization(s.env,"123"),expectedError("presence_connection_required"));
+  const saved=s.db.prepare("SELECT encrypted_tokens FROM chat_oauth_grants").get().encrypted_tokens;
+  const {authorizeUrl}=await startPresenceConnect(s.env,"123",origin,broadcaster("123"),now);
+  s.options.validation={scopes:["moderation:read"]};
+  await assert.rejects(completeConnect(s.env,`${s.env.PUBLIC_SERVICE_URL}/chat/callback?state=${new URL(authorizeUrl).searchParams.get("state")}&code=test-code`,s.fetcher,now),expectedError("wrong_authorization"));
+  assert.equal(s.db.prepare("SELECT encrypted_tokens FROM chat_oauth_grants").get().encrypted_tokens,saved);
+});
+
+test("connecting each optional feature preserves all previous explicit grants and token refresh preserves presence grant identity",async t=>{
+  const s=fixture();t.after(()=>s.db.close());
+  s.env.TWITCH_PRESENCE_ENABLED="true";s.env.CHAT_TRIGGERS_ENABLED="true";s.env.TWITCH_ACTIVITY_ENABLED="true";
+  await optionalConnect(s,startPresenceConnect);
+  const activity=await optionalConnect(s,startActivityConnect);
+  assert.deepEqual(new Set(activity.scopes),new Set([...PRESENCE_SCOPES,...ACTIVITY_SCOPES]));
+  assert.equal((await getChatConnection(s.env,"123",origin,broadcaster("123"))).connected,false);
+  const trigger=await optionalConnect(s,startTriggerConnect);
+  assert.deepEqual(new Set(trigger.scopes),new Set([...PRESENCE_SCOPES,...ACTIVITY_SCOPES,...TRIGGER_SCOPES]));
+  const moderation=await optionalConnect(s,startConnect);
+  assert.deepEqual(new Set(moderation.scopes),new Set(trigger.scopes));
+  const before=await getPresenceAuthorization(s.env,"123");
+  s.options.expired=true;
+  const after=await getPresenceAuthorization(s.env,"123",{fetcher:s.fetcher,now,verify:true});
+  assert.equal(after.accessToken,"new-access-token");assert.equal(after.grantId,before.grantId);assert.notEqual(after.revision,before.revision);
+  assert.equal((await getTriggerAuthorization(s.env,"123")).authorized,true);
+  assert.equal((await getActivityAuthorization(s.env,"123")).authorized,true);
+});
+
+test("presence live scope revocation permanently clears optional consent until reconnect",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.env.TWITCH_PRESENCE_ENABLED="true";
+  await optionalConnect(s,startPresenceConnect);
+  s.options.validation={scopes:["moderation:read"]};
+  await assert.rejects(getPresenceAuthorization(s.env,"123",{fetcher:s.fetcher,now,verify:true}),expectedError("presence_connection_required"));
+  // Scope reappearance alone does not restore the explicit opt-in.
+  s.options.validation={scopes:[...PRESENCE_SCOPES]};
+  await assert.rejects(getPresenceAuthorization(s.env,"123"),expectedError("presence_connection_required"));
+  await optionalConnect(s,startPresenceConnect);
+  s.options.expired=true;s.options.validation={scopes:["moderation:read"]};
+  await assert.rejects(getPresenceAuthorization(s.env,"123",{fetcher:s.fetcher,now,verify:true}),expectedError("presence_connection_required"));
+  await assert.rejects(getPresenceAuthorization(s.env,"123"),expectedError("presence_connection_required"));
+});
+
+test("idle validation clears revoked presence scope while retaining activity consent",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.env.TWITCH_PRESENCE_ENABLED="true";s.env.TWITCH_ACTIVITY_ENABLED="true";
+  await optionalConnect(s,startActivityConnect);await optionalConnect(s,startPresenceConnect);
+  s.options.validation={scopes:[...ACTIVITY_SCOPES]};
+  assert.equal((await validateIdleChatGrants(s.env,{fetcher:s.fetcher,now})).valid,1);
+  await assert.rejects(getPresenceAuthorization(s.env,"123"),expectedError("presence_connection_required"));
+  assert.equal((await getActivityAuthorization(s.env,"123")).authorized,true);
+});
+
+test("presence verification rejects token revocation and concurrent disconnect",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.env.TWITCH_PRESENCE_ENABLED="true";
+  await optionalConnect(s,startPresenceConnect);
+  const revoked=async()=>new Response(null,{status:401});
+  await assert.rejects(getPresenceAuthorization(s.env,"123",{fetcher:revoked,now,verify:true}),expectedError("reconnect_required"));
+  assert.equal(s.db.prepare("SELECT invalidated FROM chat_oauth_grants").get().invalidated,1);
+  await optionalConnect(s,startPresenceConnect);
+  let release,reached;const waiting=new Promise(resolve=>{reached=resolve;});const gate=new Promise(resolve=>{release=resolve;});
+  const paused=async(url,init)=>{reached();await gate;return s.fetcher(url,init);};
+  const pending=getPresenceAuthorization(s.env,"123",{fetcher:paused,now,verify:true});await waiting;
+  await disconnectChat(s.env,"123",origin,broadcaster("123"),s.fetcher);release();
+  await assert.rejects(pending,expectedError("reconnect_required"));
+});
+
+test("presence-only consent can filter banned arrivals without authorizing party chat",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.env.TWITCH_PRESENCE_ENABLED="true";
+  await optionalConnect(s,startPresenceConnect);
+  await assert.rejects(checkViewerModeration(s.env,"123","456",s.fetcher,now),expectedError("reconnect_required"));
+  assert.equal((await getChatConnection(s.env,"123",origin,broadcaster("123"))).connected,false);
+  s.options.banned=[{user_id:"456",expires_at:""}];
+  assert.deepEqual(await checkPresenceModeration(s.env,"123","456",s.fetcher,now),{allowed:false,reason:"banned"});
+  s.options.banned=[{user_id:"456",expires_at:new Date(now+60000).toISOString()}];
+  assert.deepEqual(await checkPresenceModeration(s.env,"123","456",s.fetcher,now),{allowed:false,reason:"timed_out"});
+  s.options.banned=[];
+  assert.deepEqual(await checkPresenceModeration(s.env,"123","456",s.fetcher,now),{allowed:true,actor:"actual_viewer"});
+  s.options.expired=true;
+  assert.equal((await checkPresenceModeration(s.env,"123","456",s.fetcher,now)).allowed,true);
+  assert.equal(s.options.refreshes,1);
+});
+
+test("presence ban filtering fails closed for revoked scope and cannot use ordinary moderation consent",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.env.TWITCH_PRESENCE_ENABLED="true";
+  await s.connect();
+  await assert.rejects(checkPresenceModeration(s.env,"123","456",s.fetcher,now),expectedError("presence_connection_required"));
+  await optionalConnect(s,startPresenceConnect);
+  const before=s.calls.filter(call=>call.url.includes("/helix/")).length;
+  s.options.validation={scopes:["moderation:read"]};
+  await assert.rejects(checkPresenceModeration(s.env,"123","456",s.fetcher,now),expectedError("presence_connection_required"));
+  assert.equal(s.calls.filter(call=>call.url.includes("/helix/")).length,before);
+  await assert.rejects(getPresenceAuthorization(s.env,"123"),expectedError("presence_connection_required"));
+  assert.equal((await checkViewerModeration(s.env,"123","456",s.fetcher,now)).allowed,true);
+  await optionalConnect(s,startPresenceConnect);
+  s.options.expired=true;s.options.validation={scopes:["moderation:read"]};
+  await assert.rejects(checkPresenceModeration(s.env,"123","456",s.fetcher,now),expectedError("presence_connection_required"));
+});
+
+test("full OAuth disconnect deletes presence snapshot and pending arrivals even when provider revocation fails",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.env.TWITCH_PRESENCE_ENABLED="true";
+  await optionalConnect(s,startPresenceConnect);
+  s.db.prepare("INSERT INTO shoutout_presence(channel,members,pending) VALUES(?,?,?)").run("123",'["456"]','[{"id":"456","at":1}]');
+  s.db.prepare("INSERT INTO shoutout_presence(channel,members) VALUES(?,?)").run("789",'["456"]');
+  s.options.failPath="/oauth2/revoke";
+  assert.deepEqual(await disconnectChat(s.env,"123",origin,broadcaster("123"),s.fetcher),{connected:false,accessRevoked:false});
+  assert.equal(s.db.prepare("SELECT channel FROM shoutout_presence WHERE channel='123'").get(),undefined);
+  assert.ok(s.db.prepare("SELECT channel FROM shoutout_presence WHERE channel='789'").get());
+  assert.deepEqual(await disconnectChat(s.env,"123",origin,broadcaster("123"),s.fetcher),{connected:false,accessRevoked:true});
+});
+
+test("presence disconnect requires its schema when enabled and preserves compatibility when disabled",async t=>{
+  const s=fixture();t.after(()=>s.db.close());s.db.exec("DROP TABLE shoutout_presence");
+  assert.equal((await disconnectChat(s.env,"123",origin,broadcaster("123"),s.fetcher)).connected,false);
+  s.env.TWITCH_PRESENCE_ENABLED="true";
+  await assert.rejects(disconnectChat(s.env,"123",origin,broadcaster("123"),s.fetcher),expectedError("unavailable"));
 });

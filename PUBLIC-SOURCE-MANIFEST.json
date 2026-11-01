@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "createdUtc": "2026-10-26T19:30:38.237Z",
-  "snapshot": "Current source including browser prototypes; separate from submitted Twitch version 0.1.0.",
+  "createdUtc": "2026-11-01T01:01:23.277Z",
+  "snapshot": "Current 0.5 development source; separate from the queued Twitch 0.4.0 package. Portal status last verified October 27, 2026.",
   "generated": [
     "wrangler.jsonc",
     ".gitignore",
@@ -126,8 +126,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 12707,
-      "sha256": "1acb372b584284d4a6aca2a2b832a042f46d35ca16a56f322bc0181a44e7543c"
+      "bytes": 13775,
+      "sha256": "dd0d1e146eab90d986e6f66c8a4bf58d75d5a301ec3c1b1bf23e23556b9ca768"
     },
     {
       "path": "scripts/build-pages.mjs",
@@ -151,8 +151,8 @@
     },
     {
       "path": "scripts/export-public.mjs",
-      "bytes": 25897,
-      "sha256": "b12224ec77f515aa5e136028540133c59c6f5cfaf5d058367cb8db6becbdec1a"
+      "bytes": 27176,
+      "sha256": "3fc3faacff29a9ab9e1c4c16390dc26abce56d9afd9d88de9b1b8e8aa68c28c6"
     },
     {
       "path": "scripts/import-trivia-bank.py",
@@ -186,13 +186,13 @@
     },
     {
       "path": "server/automation-service.mjs",
-      "bytes": 34529,
-      "sha256": "50c251b9e682e0e41787452cbb5b5760e4c6d911db98495b32bf69473d69bc4a"
+      "bytes": 35001,
+      "sha256": "130dbfc74ec6c79bd40bc50d9054a6b9a3853e3ab3d919ad8978fb04d58c4b7b"
     },
     {
       "path": "server/chat-authorization.mjs",
-      "bytes": 33905,
-      "sha256": "baacd1fc9cb347c02e9381812b8ac2c1f02d1189a4bd536e09e39d9b83bf568b"
+      "bytes": 39231,
+      "sha256": "76dd6f27e6497f09e11a8680bee032eba471a21fc9d85ab638ea27da0425944b"
     },
     {
       "path": "server/chat-triggers-schema.sql",
@@ -221,8 +221,8 @@
     },
     {
       "path": "server/image-worker.mjs",
-      "bytes": 20667,
-      "sha256": "1d3a424a6b28f81d0f30dc567cf3d73e85a78e6f9a666893c38ea361db766e7f"
+      "bytes": 21461,
+      "sha256": "8af1760cf98d3de28040049e1de92ba07d2d877f6e23b18f5ab22a488896841a"
     },
     {
       "path": "server/party-service.mjs",
@@ -230,9 +230,19 @@
       "sha256": "6db3539936920f7af0a3a17d32b54d80a6ef3acde2f586f19aaff4b61d2cbf44"
     },
     {
+      "path": "server/presence-schema.sql",
+      "bytes": 623,
+      "sha256": "0f84f2cf6ef8862f8c02ea6f467e378153fcc50788829fb484dcca5ee6643259"
+    },
+    {
+      "path": "server/presence-service.mjs",
+      "bytes": 9346,
+      "sha256": "9fea305406d42b6b3dece200c53dbc199ef756085fc63ded4d63e7997681496a"
+    },
+    {
       "path": "server/public-pages.mjs",
-      "bytes": 12341,
-      "sha256": "f1ba8a1f609f25566054cb68a62486f53b7f4b9c2e8fbfa798e719f5130ba1bd"
+      "bytes": 13117,
+      "sha256": "c254ef7151adaaf03ff9df56a6c99a74ba67bd2820d87d7cab9e3319823dbfea"
     },
     {
       "path": "server/schema.sql",
@@ -246,8 +256,8 @@
     },
     {
       "path": "server/shoutout-service.mjs",
-      "bytes": 10424,
-      "sha256": "013aa5a4b1e31438bc73715afbdfdad4e75029ece53bfe173a33e34eb71e956a"
+      "bytes": 10896,
+      "sha256": "d4e44578914602eaafe05667009af73f4ab76c58215f0f32de8a61d118efa621"
     },
     {
       "path": "server/sound-schema.sql",
@@ -276,8 +286,8 @@
     },
     {
       "path": "src/automation-twitch.mjs",
-      "bytes": 18486,
-      "sha256": "0527bd694a044e4012bb288c6bf1f626573cdc04a29d96cfbcc5ca644040e391"
+      "bytes": 20169,
+      "sha256": "e23f4ec3aa966a77dae5c5e2f3de271e4d95bb1a89e7038ccaec9cd04cfce728"
     },
     {
       "path": "src/automations.css",
@@ -286,23 +296,23 @@
     },
     {
       "path": "src/automations.mjs",
-      "bytes": 22763,
-      "sha256": "27b06f2b150584a8b7fc63aec9e3c156f623a229cf3a672eb83df776f89c67e8"
+      "bytes": 23094,
+      "sha256": "9db27c3561022eeb68419b9cd82c38e3aba31ca2b30d98038835971fe26e7cf9"
     },
     {
       "path": "src/AutomationStudio.jsx",
-      "bytes": 63653,
-      "sha256": "67d10d451ba36dbc9195ff0c3e60817e6dc6df337eec87431434248a45398d7c"
+      "bytes": 67435,
+      "sha256": "24c98f5a5283720321c13647f79a4756e33ac824702a2c79792cba5a065006ff"
     },
     {
       "path": "src/AutomationViewer.jsx",
-      "bytes": 10979,
-      "sha256": "46f115b8dbc08767d8a724f2d4b38c32ebdee416c2c5782d725c433f0f650830"
+      "bytes": 12460,
+      "sha256": "5b19a795b1bc416e7edc1c023d14e0ef737dca84971c37c793f553918c553549"
     },
     {
       "path": "src/celebration-audio.mjs",
-      "bytes": 12792,
-      "sha256": "15ef2b246387de3be42c21de08a4c0c996f4d8254fa747cc7af8dba6f59d1b2f"
+      "bytes": 14938,
+      "sha256": "5534015ae04aa495f0ef9939622b3455d28827c48bbf4da9ed09f00e4f6c6770"
     },
     {
       "path": "src/celebration.css",
@@ -316,8 +326,8 @@
     },
     {
       "path": "src/CelebrationAudio.jsx",
-      "bytes": 7220,
-      "sha256": "48ebb7b36ad34b5beea5fcbbfbff1e1e6e8345b42b5fb72dd4ffe31420749266"
+      "bytes": 9504,
+      "sha256": "95cbbfd7f1c54180f032996ac1281af55a48bebce4efca18821f2957c89f5c0d"
     },
     {
       "path": "src/DeveloperPanel.jsx",
@@ -356,23 +366,23 @@
     },
     {
       "path": "src/FlowBuilder.jsx",
-      "bytes": 45645,
-      "sha256": "d0ed1539fa52ac0830836720ac83184c7d56c51a5081282404d24693290bb423"
+      "bytes": 55500,
+      "sha256": "896a81a6df01ba8815bb2d70ecb5247e339c746d63513314958d05a28396eff5"
     },
     {
       "path": "src/flows.css",
-      "bytes": 27771,
-      "sha256": "06f54bf80980f61156d508c8b88aae0ca6c43474c3217cd4e0aea9b395baae7d"
+      "bytes": 28013,
+      "sha256": "abe2f143c9bef5f2136059fbc4a722f479536348bb28cbdfcc166b59db02953d"
     },
     {
       "path": "src/hype-audio.mjs",
-      "bytes": 587,
-      "sha256": "f0ea21b0fe71d0f547eec13ea817bb362c85d9f15cfbd8018e082dca957f75ea"
+      "bytes": 2205,
+      "sha256": "b215ce66470a9167e72bb844331e882c8112d96af15d49c67cbb7c64424ad9c5"
     },
     {
       "path": "src/hype-state.mjs",
-      "bytes": 2803,
-      "sha256": "749b8be36975a8638b7340fdacd6469b9593a205cccc2dc0b3e29b480c993419"
+      "bytes": 3053,
+      "sha256": "0a12764951b7ffd68a1c5e597bcc7bc53f98f71c2b93ade1189ae803c1f8e0c4"
     },
     {
       "path": "src/hype-train.css",
@@ -381,8 +391,8 @@
     },
     {
       "path": "src/HypeTrain.jsx",
-      "bytes": 4384,
-      "sha256": "c7ff008e7d7ef8cd033698f56717a3f46ee842b19c5362472f050e75bfc6fe4b"
+      "bytes": 5580,
+      "sha256": "f4d7859ab70027f7ea80390606bfecbc012a98263a404237823d869f057bdadf"
     },
     {
       "path": "src/image-address.mjs",
@@ -451,8 +461,8 @@
     },
     {
       "path": "src/shoutout-contract.mjs",
-      "bytes": 3287,
-      "sha256": "d436b74cc697439f182c7010da6c5430de04266faf17c14989b34508fb10033e"
+      "bytes": 3542,
+      "sha256": "97f1730a92a86b9ec7e3ec0c5d0b21f931d284222c2a329693b900b18c52665c"
     },
     {
       "path": "src/shoutout.css",
@@ -466,8 +476,8 @@
     },
     {
       "path": "src/ShoutoutControls.jsx",
-      "bytes": 4100,
-      "sha256": "72dd6fa435d9ba35085e96f1a9e03711bd7492e26754acd5343ae66f9c9ea628"
+      "bytes": 4592,
+      "sha256": "a0742e162fec2ac6a6828c1f49d398d7de978312648a06c24fd17de768ddda2e"
     },
     {
       "path": "src/sound-address.mjs",
@@ -476,13 +486,13 @@
     },
     {
       "path": "src/sound-contract.mjs",
-      "bytes": 6516,
-      "sha256": "cb2d25774cb503200d049c21206907845a9962dda80c0cf8ad6ef1d51a5dfaff"
+      "bytes": 8387,
+      "sha256": "c9b5e50e82c27eabb8380fb7c5ec15ce1488d94e79a29a160a5de8d57c320964"
     },
     {
       "path": "src/sounds.mjs",
-      "bytes": 7945,
-      "sha256": "4555eb577d8e5328a2de8a18ab625da60976cf3be9c9c9792ecb5a20441d6237"
+      "bytes": 8385,
+      "sha256": "7a40b16b6a49b764a0a8a7f956a1762e617c155e90038bef740e8ef86b7f2e76"
     },
     {
       "path": "src/starter-library.css",
@@ -526,8 +536,8 @@
     },
     {
       "path": "src/twitch.mjs",
-      "bytes": 8050,
-      "sha256": "c8089d0ce33125a79eefab85f2a735a7e5feb0b5a83a9bfc1948ab38140f7a85"
+      "bytes": 8372,
+      "sha256": "5db35933bd24073491ec78ab5ccaf2ec38a50c5429ccd9194a6fc7fa7b22c58f"
     },
     {
       "path": "src/widgets.css",
@@ -546,28 +556,28 @@
     },
     {
       "path": "tests/automation-service.test.mjs",
-      "bytes": 45304,
-      "sha256": "8c227bf99dd4364f8ce858c29178cf1f28d93bccef5f2ff0f48bf48ee7aa6807"
+      "bytes": 46600,
+      "sha256": "21d5cebed217f0b2cb6f71ba573cf9c60f64cfef796005179b99bf315136baf8"
     },
     {
       "path": "tests/automation-twitch.test.mjs",
-      "bytes": 26999,
-      "sha256": "4c6ef4cc8e8b52001a619f13d5f7a538e8675bf501d88ac4073a5fc7cf497c87"
+      "bytes": 27934,
+      "sha256": "bfbf4a1fb80818856bb4710ecf84c5083507b41a504f9f276fb97e5963e12c05"
     },
     {
       "path": "tests/automations.test.mjs",
-      "bytes": 32325,
-      "sha256": "a2436402cd9296fed043b7a75985679308d7338b0822b97241193e5064360798"
+      "bytes": 33811,
+      "sha256": "957ff4009a7e64c2196fdc51423f0d0f8c5e9c7b0663fd2633de1f04b0ded58f"
     },
     {
       "path": "tests/celebration-audio.test.mjs",
-      "bytes": 13515,
-      "sha256": "a91dd846dd9190d94f47551effdff01704105f0bce0c6b9c259c36e71301ccbc"
+      "bytes": 15403,
+      "sha256": "ec11e2fdc7d15508d9fb197855eadc8395736b1466670d7de04e219ec3fcf6d8"
     },
     {
       "path": "tests/chat-authorization.test.mjs",
-      "bytes": 17009,
-      "sha256": "2f00708470c2a273fbedb504b47ac285113221d742fcbeec5e4670eacdf2e732"
+      "bytes": 28567,
+      "sha256": "63e6e53d1fcd1837f4f31399c247ab0bc25d212bdd4052ae2d15fc71e93d7ff4"
     },
     {
       "path": "tests/chat-triggers.test.mjs",
@@ -576,8 +586,8 @@
     },
     {
       "path": "tests/chat-ui.test.mjs",
-      "bytes": 6699,
-      "sha256": "2209674b737ceeae3ba1d32a4c99e5d7889ed5e1edb781ce408ba4152255d94d"
+      "bytes": 7326,
+      "sha256": "f4bfc2a6fc4f569655e2b287393203ed87550d9ab06fdd9fc94caf48de29559c"
     },
     {
       "path": "tests/developer-bridge.test.mjs",
@@ -626,13 +636,13 @@
     },
     {
       "path": "tests/hype-audio.test.mjs",
-      "bytes": 911,
-      "sha256": "a7118a4ce00161fa032677dadd57d43c98d11b2a4a5e156daa0ed74a6676f544"
+      "bytes": 3886,
+      "sha256": "7f503d185d22913ed1d32a8a0ec7de6f1a2e0da4768571ee2e788c68c3319e81"
     },
     {
       "path": "tests/hype-state.test.mjs",
-      "bytes": 3029,
-      "sha256": "9d632a232574ee6f2ac37600668538c099439239911bb1549d9305d9f6cd8048"
+      "bytes": 4085,
+      "sha256": "993f5427df33b1b34215de3808e61a8653513b6cd8f030a60a14b539e1731686"
     },
     {
       "path": "tests/image-client.test.mjs",
@@ -651,8 +661,8 @@
     },
     {
       "path": "tests/mobile-mounted.test.mjs",
-      "bytes": 5001,
-      "sha256": "23c730df7f0195a995a411ca889ee46fa9b4c4b6f125e0760a53622b70b5ea62"
+      "bytes": 5133,
+      "sha256": "f3bda7ed514556c66773b4659e7db91aaf9a76918d5303bace0a9cdb03aaa003"
     },
     {
       "path": "tests/mobile-viewer.test.mjs",
@@ -665,29 +675,34 @@
       "sha256": "b62c1d7871d76623129e53c0c60ee104fda9ab30180f667a748451462c5cc235"
     },
     {
+      "path": "tests/presence-service.test.mjs",
+      "bytes": 9290,
+      "sha256": "bb66d4a2a1ab04fb8bbf823f210413432cff85b7414b281fe52afbe7ec9eae15"
+    },
+    {
       "path": "tests/scene.test.mjs",
       "bytes": 12109,
       "sha256": "c4c036efdbd096174a33ea30d262a66b3dec8d675c6640d71f45751a121b4ff1"
     },
     {
       "path": "tests/shoutout-contract.test.mjs",
-      "bytes": 2143,
-      "sha256": "96e7a68d7f800460be050522fdf55cbabff3f27b613533922e73455c37b660af"
+      "bytes": 2503,
+      "sha256": "dfbb27d3c6f0c1decb02a4b5c52e9f59fd47fb6bfe964dfc2af85c24aa20a326"
     },
     {
       "path": "tests/shoutout-service.test.mjs",
-      "bytes": 7514,
-      "sha256": "c818a34c0a09a2c575a44ed60bc6d4ae7505acdf4cdf284d789d76b90c65797f"
+      "bytes": 8586,
+      "sha256": "045d8a4ac8d9cb87369419fd4de2a1fe93843158b9af42c723167460de2e2d05"
     },
     {
       "path": "tests/sound-service.test.mjs",
-      "bytes": 14713,
-      "sha256": "b85709a8db4274428eb1ebf2b67c3962d1eabb9b8906b851e39390c326274f00"
+      "bytes": 15749,
+      "sha256": "5fcf2f15d48b1294c1156fed77a41f233106e136a0a29962075970d7024e0de1"
     },
     {
       "path": "tests/sounds.test.mjs",
-      "bytes": 6643,
-      "sha256": "a5221ef32b52fd5d7a17d7219c770b0a6b53e94129cde27d807198e47f9b26a7"
+      "bytes": 9273,
+      "sha256": "2cb08f080c7ea1c4351013b46ab6ada65ac6c1e26205e76b3723551fa5cf8ab1"
     },
     {
       "path": "tests/templates.test.mjs",
@@ -721,8 +736,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 1409,
-      "sha256": "73317c8a7540fd4950f2e8aba6fb39d0aaac8d087b5d596f3572408148b98435"
+      "bytes": 1455,
+      "sha256": "dd0a59029effa1758ee92cb5fb05755b0551be0a003dc3085f89023b8a30e948"
     }
   ],
   "scan": {

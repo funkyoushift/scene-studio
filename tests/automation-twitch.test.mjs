@@ -148,7 +148,10 @@ test("automation image publication uses bounded PNG upload once per unique image
 test("uploaded sounds are deduplicated across direct and chosen celebrations and kept out of the draft", async () => {
   const source = design(), { bytes, url } = uploadSound();
   const sound = { preset: "upload", url, name: "Cheer", volume: 60 };
-  source.rules[0].effect.appearance = { style: "confetti", color: "#123456", durationSeconds: 8, sound };
+  const levelSound = { ...sound, name: "Level cheer", playback: "until-end", durationSeconds: 14, playSeconds: 9 };
+  source.rules[0].trigger = { type: "twitch", event: "hype_begin" };
+  source.rules[0].effect.appearance = { style: "hype-train", color: "#123456", durationSeconds: 8, hypeLifecycle: true, sound,
+    hypeLevelAudio: [{ level: 3, mode: "replace", sound: levelSound }] };
   source.rules.push({ ...structuredClone(source.rules[0]), id: "chosen", effect: { type: "choose", mode: "rotate", options: [{ type: "celebrate", message: "Hooray", appearance: { style: "hearts", color: "#123456", durationSeconds: 8, sound: { ...sound, volume: 30 } } }] } });
   const hash = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), byte => byte.toString(16).padStart(2, "0")).join("");
   const calls = [];
@@ -158,6 +161,8 @@ test("uploaded sounds are deduplicated across direct and chosen celebrations and
   assert.equal(calls[0].options.headers["Content-Type"], "audio/wav");
   assert.deepEqual(calls[0].options.body, bytes);
   assert.equal(output.rules[0].effect.appearance.sound.url, `${IMAGE_ORIGIN}/sounds/123/${hash}.wav`);
+  assert.equal(output.rules[0].effect.appearance.hypeLevelAudio[0].sound.url, `${IMAGE_ORIGIN}/sounds/123/${hash}.wav`);
+  assert.equal(output.rules[0].effect.appearance.hypeLevelAudio[0].sound.playSeconds, 9);
   assert.equal(output.rules[1].effect.options[0].appearance.sound.volume, 30);
   assert.equal(source.rules[0].effect.appearance.sound.url, url);
   assert.throws(() => automationPreflight({ ...source, rules: [{ ...source.rules[0], effect: { ...source.rules[0].effect, appearance: { ...source.rules[0].effect.appearance, sound: { ...sound, url: `${IMAGE_ORIGIN}/sounds/999/${hash}.wav` } } } }] }, "123", false), /another channel/);
@@ -180,13 +185,15 @@ test("viewer requires the saved uploaded sound URL and name", async () => {
 
 test("viewer requires saved Hype music playback mode as well as MP3 address", async () => {
   const sound = { preset: "upload", url: `${IMAGE_ORIGIN}/sounds/123/${"c".repeat(64)}.mp3`, name: "Train music", volume: 70, playback: "hype-loop" };
-  const saved = config(); saved.design.rules[0].effect.appearance = { style: "hype-train", color: "#123456", durationSeconds: 8, sound };
+  const levelAudio = [{ level: 2, mode: "overlay", sound: { preset: "train", volume: 60 } }];
+  const saved = config(); saved.design.rules[0].trigger = { type: "twitch", event: "hype_begin" }; saved.design.rules[0].effect.appearance = { style: "hype-train", color: "#123456", durationSeconds: 8, hypeLifecycle: true, sound, hypeLevelAudio: levelAudio };
   const shown = [], h = helper();
   const stop = watchAutomationEvents(h, auth, () => {}, value => shown.push(value), () => {}, async () => reply(saved), () => 2000);
   await flush();
   const appearance = saved.design.rules[0].effect.appearance;
   await send(h, event({ eventId: "music-ok", effect: { type: "celebrate", message: "Hooray", appearance } }));
   await send(h, event({ eventId: "music-mode-removed", effect: { type: "celebrate", message: "Hooray", appearance: { ...appearance, sound: { preset: "upload", url: sound.url, name: sound.name, volume: sound.volume } } } }));
+  await send(h, event({ eventId: "level-audio-changed", effect: { type: "celebrate", message: "Hooray", appearance: { ...appearance, hypeLevelAudio: [{ ...levelAudio[0], sound: { preset: "chime", volume: 60 } }] } } }));
   assert.deepEqual(shown.map(value => value.eventId), ["music-ok"]);
   stop();
 });

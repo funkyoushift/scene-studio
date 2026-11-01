@@ -51,3 +51,15 @@ test("hype snapshots preserve own-channel full MP3 playback metadata", () => {
   candidate.effect.appearance.sound = sound;
   assert.deepEqual(safeHypeState(candidate)?.effect.appearance.sound, sound);
 });
+
+test("hype snapshots retain validated level audio and reject foreign or duplicate entries", () => {
+  const sound = { preset: "upload", url: `https://scene-studio-images.scene-studio-free-prototype.workers.dev/sounds/123/${"f".repeat(64)}.mp3`, name: "Level theme", volume: 75, playback: "until-end", playSeconds: 45, durationSeconds: 90 };
+  const levels = [{ level: 3, mode: "overlay", sound: { ...sound, playback: undefined } }, { level: 5, mode: "replace", sound }];
+  delete levels[0].sound.playback;
+  const candidate = event(); candidate.effect.appearance.hypeLevelAudio = levels;
+  assert.deepEqual(safeHypeState(candidate)?.effect.appearance.hypeLevelAudio, levels);
+  const foreign = event(); foreign.effect.appearance.hypeLevelAudio = [{ level: 3, mode: "replace", sound: { ...sound, url: sound.url.replace("/123/", "/456/") } }];
+  assert.equal(safeHypeState(foreign), null);
+  const duplicate = event(); duplicate.effect.appearance.hypeLevelAudio = [levels[0], { ...levels[1], level: 3 }];
+  assert.equal(safeHypeState(duplicate), null);
+});

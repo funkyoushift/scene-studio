@@ -107,3 +107,18 @@ test("command bypasses automatic filters but honors exclusions and final grant r
   assert.equal((await s.run({ mode: "command", messageId: "cmd-3", targetLogin: "selected" }, { recheck: async () => false })).status, "denied");
   assert.equal(s.state.sent.length, 1);
 });
+
+test("arrival rules do not fire on first messages; manual and presence share safe deduplication", async t => {
+  const s = fixture(t, { type: "shoutout", mode: "both", arrival: "presence", users: [], types: ["affiliate", "partner"], exclusions: [] });
+  assert.equal(await hasShoutoutCandidate(s.env, "123", "automatic", "selected"), false);
+  assert.equal(await hasShoutoutCandidate(s.env, "123", "command", "selected"), true);
+  const input = { mode: "automatic", messageId: "arrive-1", chatterId: "456" };
+  assert.equal((await s.run(input)).status, "no_match");
+  assert.equal(s.state.calls.length, 0);
+  assert.equal((await s.run({ ...input, source: "presence" })).status, "sent");
+  assert.equal((await s.run({ ...input, source: "presence", messageId: "arrive-2" })).status, "duplicate");
+  assert.equal((await s.run({ mode: "command", messageId: "cmd-arrive", targetLogin: "other" })).status, "sent");
+  const chat = fixture(t);
+  assert.equal((await chat.run({ ...input, source: "presence" })).status, "no_match");
+  assert.equal(chat.state.calls.length, 0);
+});

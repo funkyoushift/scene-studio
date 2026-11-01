@@ -1,6 +1,6 @@
 import { AUTOMATION_DESIGN_BYTES, validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
-import { validateCelebrationSound } from "../src/sound-contract.mjs";
+import { validateCelebrationSound, validateHypeLevelAudio } from "../src/sound-contract.mjs";
 import { normalizeShoutoutEffect, safeShoutoutProfile } from "../src/shoutout-contract.mjs";
 import { signPartyToken } from "./party-service.mjs";
 import { safeLiveContext, ruleEffects } from "../src/live-context.mjs";
@@ -29,6 +29,11 @@ function cleanCelebrationAppearance(value, channel) {
   if (Object.hasOwn(value, "hypeLifecycle")) {
     if (value.hypeLifecycle !== true || value.style !== "hype-train") return null;
     appearance.hypeLifecycle = true;
+  }
+  if (Object.hasOwn(value, "hypeLevelAudio")) {
+    if (value.hypeLifecycle !== true || value.style !== "hype-train") return null;
+    try { appearance.hypeLevelAudio = validateHypeLevelAudio(value.hypeLevelAudio, { allowInline: false, channel }); }
+    catch { return null; }
   }
   return appearance;
 }
@@ -195,7 +200,8 @@ function sameLifecycleEffect(left, right) {
     left.appearance?.style === right.appearance?.style && left.appearance?.color === right.appearance?.color &&
     left.appearance?.durationSeconds === right.appearance?.durationSeconds &&
     left.appearance?.hypeLifecycle === right.appearance?.hypeLifecycle &&
-    (["preset", "volume", "url", "name", "playback"].every(key => (leftSound?.[key] ?? null) === (rightSound?.[key] ?? null)));
+    JSON.stringify(left.appearance?.hypeLevelAudio ?? null) === JSON.stringify(right.appearance?.hypeLevelAudio ?? null) &&
+    (["preset", "volume", "url", "name", "playback", "loops", "playSeconds", "durationSeconds"].every(key => (leftSound?.[key] ?? null) === (rightSound?.[key] ?? null)));
 }
 async function hypeMoment(env, channel, currentTime) {
   const result = { channelId: channel, revision: 0, event: null };

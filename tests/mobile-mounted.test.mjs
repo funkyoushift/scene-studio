@@ -9,7 +9,7 @@ import { createServer } from "vite";
 test("mounted mobile actions, live carousel, reconnect and visibility work without randomUUID", { skip: process.env.SCENE_MOBILE_BROWSER_TEST !== "1", timeout: 30000 }, async t => {
   const require = createRequire(import.meta.url);
   const { chromium } = require(process.env.SCENE_PLAYWRIGHT_MODULE || "playwright");
-  const server = await createServer({ configFile: false, server: { host: "127.0.0.1", port: 0 }, logLevel: "silent" });
+  const server = await createServer({ configFile: false, optimizeDeps: { entries: ["tests/fixtures/mobile-mounted.html"] }, server: { host: "127.0.0.1", port: 0 }, logLevel: "silent" });
   t.after(() => server.close());
   await server.listen();
   const browser = await chromium.launch({ headless: true, ...(process.env.SCENE_BROWSER_EXECUTABLE ? { executablePath: process.env.SCENE_BROWSER_EXECUTABLE } : {}) });
