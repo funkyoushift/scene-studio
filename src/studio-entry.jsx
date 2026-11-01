@@ -9,8 +9,26 @@ function Welcome({message=''}) {
   return <main className="studio-welcome"><small>SCENE STUDIO</small><h1>Your stream. Your ideas.</h1><p>Build interactive scenes, games and live moments. Publish them to your Twitch player from here.</p><button disabled={busy} onClick={async()=>{setBusy(true);try{await startStudioSignIn();}catch(e){setStatus(e.message);setBusy(false);}}}>Sign in with Twitch</button><button onClick={()=>{sessionStorage.setItem('studio-preview','true');location.reload();}}>Explore the builder</button><p role="status">{status}</p><p className="studio-note">Sign in as the channel owner to publish. During Hosted Test, viewers still need access to the test extension.</p></main>;
 }
 function AccountBar({auth}) {
-  const [history,setHistory]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
-  return <div className="studio-account"><strong>Studio Â· @{auth.profile.login}</strong><span>Changes go to your Twitch player</span><button disabled={busy} onClick={async()=>{try{setHistory((await loadPublishHistory(auth)).history);}catch(e){setMessage(e.message);}}}>Published history</button><button onClick={()=>window.dispatchEvent(new Event('studio-recover'))}>Recover local draft</button><button disabled={busy} onClick={async()=>{try{await signOutStudio(auth);}catch(e){setMessage(e.message);}}}>Sign out</button>{message && <p role="status">{message}</p>}{history && <div className="studio-history"><h2>Published designs</h2><p>Restoring changes your live overlay. Export any unsaved editor work before continuing.</p>{history.map((item,i)=><div key={item.revision}>Revision {item.revision} Â· {item.name} {i===0 ? '(current)' : <button disabled={busy} onClick={async()=>{if(!confirm(`Restore revision ${item.revision} to your live player and reload the editor? Unsaved edits will be lost.`))return;setBusy(true);try{await restorePublishedScene(auth,history[0].revision,item.revision);location.reload();}catch(e){setMessage(e.message);setBusy(false);}}}>Restore</button>}</div>)}<button onClick={()=>setHistory(null)}>Close history</button></div>}</div>;
+  const [history,setHistory]=useState(null),[target,setTarget]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+  async function restore() {
+    if(busy || !target || !history?.length)return;
+    setBusy(true);setMessage('Restoring published design…');
+    try {await restorePublishedScene(auth,history[0].revision,target);location.reload();}
+    catch(e){setMessage(e.message);setBusy(false);setTarget(null);}
+  }
+  return <div className="studio-account">
+    <strong>Studio · @{auth.profile.login}</strong><span>Changes go to your Twitch player</span>
+    <button disabled={busy} onClick={async()=>{try{setHistory((await loadPublishHistory(auth)).history);setTarget(null);}catch(e){setMessage(e.message);}}}>Published history</button>
+    <button onClick={()=>window.dispatchEvent(new Event('studio-recover'))}>Recover local draft</button>
+    <button disabled={busy} onClick={async()=>{try{await signOutStudio(auth);}catch(e){setMessage(e.message);}}}>Sign out</button>
+    {message && <p role="status">{message}</p>}
+    {history && <section className="studio-history" aria-label="Published designs">
+      <h2>Published designs</h2><p>Restoring changes your live overlay. Export any unsaved editor work before continuing.</p>
+      {history.map((item,i)=><div key={item.revision}>Revision {item.revision} · {item.name} {i===0 ? '(current)' : <button disabled={busy} onClick={()=>setTarget(item.revision)}>Restore revision {item.revision}</button>}</div>)}
+      {target && <section aria-label="Confirm restore"><p>Restore revision {target} to your live player and reload the editor? Unsaved edits will be lost.</p><button disabled={busy} onClick={restore}>Confirm restore</button><button disabled={busy} onClick={()=>setTarget(null)}>Cancel restore</button></section>}
+      <button disabled={busy} onClick={()=>{setHistory(null);setTarget(null);}}>Close history</button>
+    </section>}
+  </div>;
 }
 async function start() {
   root.render(<main className="studio-welcome"><h1>Opening your studioâ€¦</h1></main>);
