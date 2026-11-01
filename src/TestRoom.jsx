@@ -35,14 +35,15 @@ function RoomPlayer({auth,onExpired}){
     <footer>Website test player · Twitch’s native extension still requires tester access. Local celebration buttons do not send chat messages. Guest session expires {new Date(auth.expiresAt).toLocaleString()}.</footer></main>;
 }
 export default function TestRoom(){
-  const [invite]=useState(()=>new URLSearchParams(location.hash.slice(1)).get('room')||'');
+  const [invite,setInvite]=useState(()=>new URLSearchParams(location.hash.slice(1)).get('room')||'');
   const [auth,setAuth]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+  useEffect(()=>{const change=()=>{setInvite(new URLSearchParams(location.hash.slice(1)).get('room')||'');setAuth(null);setMessage('');setBusy(false);};window.addEventListener('hashchange',change);return()=>window.removeEventListener('hashchange',change);},[]);
   const expired=useCallback((text='This room is no longer available. Rejoin or ask the streamer for a new link.')=>{sessionStorage.removeItem(`test-room-${invite}`);setAuth(null);setMessage(text);},[invite]);
   async function join(){setBusy(true);setMessage('');try{
     if(!/^tr_[A-Za-z0-9_-]{43}$/.test(invite))throw Error('Open the complete invitation link from your streamer.');
     const key=`test-room-${invite}`;let next;
     try{const saved=JSON.parse(sessionStorage.getItem(key));if(saved?.expiresAt>Date.now()){await roomRequest('play/scene',saved.token);next=saved;}}catch(e){if(e.status&&!([401,403,410].includes(e.status)))throw e;}
-    next||=await roomRequest('join',invite,{method:'POST'});sessionStorage.setItem(key,JSON.stringify(next));setAuth(next);
+    next||=await roomRequest('join',invite,{method:'POST'});sessionStorage.setItem(key,JSON.stringify(next));if(new URLSearchParams(location.hash.slice(1)).get('room')===invite)setAuth(next);
   }catch(e){setMessage(e.message);}finally{setBusy(false);}}
   if(auth)return <RoomPlayer auth={auth} onExpired={expired}/>;
   return <main className="test-room-welcome"><small>SCENE STUDIO</small><h1>You’re invited to play.</h1><p>Try your streamer’s interactive scene, puzzles and card games. Open this link in your browser—there’s nothing to install.</p><button disabled={busy||!invite} onClick={join}>{busy?'Joining…':'Join as a guest'}</button><p role="status">{message||(!invite?'Ask your streamer for their viewer test-room link.':'No Twitch tester signup needed. The streamer controls when this room is open.')}</p><p>Guest card actions join the streamer’s current table. Twitch chat and purchases remain on Twitch.</p></main>;
