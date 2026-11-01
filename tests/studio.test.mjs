@@ -6,6 +6,7 @@ import {studioAuth,studioGateway,digest,channelSceneRequest,publishedScene,studi
 import {extensionClaims} from '../server/image-worker.mjs';
 import {starterScene} from '../src/scene.mjs';
 import {pollPublishedScene} from '../src/player-channel.mjs';
+import {signOutStudio} from '../src/studio-client.mjs';
 const host={role:'broadcaster',user_id:'123',channel_id:'123'};
 const scene={...starterScene(),objects:[]};
 const json=(data,status=200)=>Response.json(data,{status});
@@ -73,4 +74,14 @@ test('same player accepts new revisions, keeps valid scene after bad data and ig
   answer={schema:1,revision:3,scene:{evil:true}};await next();assert.equal(seen.length,2);
   answer={schema:2,revision:4,scene};await next();assert.equal(seen.length,2);
   stop();answer={schema:1,revision:5,scene};await next();assert.equal(seen.length,2);
+});
+test('expired studio session can sign out; service outages keep the recoverable session',async()=>{
+  const originalFetch=globalThis.fetch;let removed=0,reloaded=0;
+  globalThis.sessionStorage={removeItem(){removed++;}};globalThis.location={reload(){reloaded++;}};
+  try {
+    globalThis.fetch=async()=>Response.json({error:'Expired'},{status:401});
+    await signOutStudio({token:'fixture'});assert.equal(removed,1);assert.equal(reloaded,1);
+    globalThis.fetch=async()=>Response.json({error:'Unavailable'},{status:503});
+    await assert.rejects(()=>signOutStudio({token:'fixture'}),/Unavailable/);assert.equal(removed,1);
+  } finally {globalThis.fetch=originalFetch;delete globalThis.sessionStorage;delete globalThis.location;}
 });

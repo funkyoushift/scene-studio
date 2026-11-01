@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-11-01T18:11:30.619Z",
+  "createdUtc": "2026-11-01T18:14:04.900Z",
   "snapshot": "Current 0.5 development source; separate from the queued Twitch 0.4.0 package. Portal status last verified October 27, 2026.",
   "generated": [
     "wrangler.jsonc",
@@ -616,8 +616,8 @@
     },
     {
       "path": "src/studio-client.mjs",
-      "bytes": 3666,
-      "sha256": "f6cdd49c9fa5ed2ec7ec865bbe22028701da70f69f50ca998c5202cb847c4da3"
+      "bytes": 3718,
+      "sha256": "75b853565facffd66a9ff5696afbdc9d561937df0f8abbecf1bdc5bb7c2133da"
     },
     {
       "path": "src/studio-entry.jsx",
@@ -881,8 +881,8 @@
     },
     {
       "path": "tests/studio.test.mjs",
-      "bytes": 7702,
-      "sha256": "5e02d60ad27864f0727f1162feb8a08e29e94bdc8b8e6f59f08680a07286e5f0"
+      "bytes": 8494,
+      "sha256": "68898a1ba3f5f36a8e8ab2d08bb2f0cefc278edaecfb5f0ea68729f2cab9c024"
     },
     {
       "path": "tests/templates.test.mjs",

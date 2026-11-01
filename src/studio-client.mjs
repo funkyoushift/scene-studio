@@ -39,7 +39,8 @@ export async function loadStudioSession() {
   } catch(e) { if(e.status===401 || e.status===403) {sessionStorage.removeItem(KEY);return null;} throw e; }
 }
 export async function signOutStudio(auth) {
-  await request('/studio/auth/session',auth,null,'DELETE');
+  try { await request('/studio/auth/session',auth,null,'DELETE'); }
+  catch(e) { if(e.status!==401) throw e; }
   sessionStorage.removeItem(KEY); location.reload();
 }
 export function studioHelper(auth, initial) {
