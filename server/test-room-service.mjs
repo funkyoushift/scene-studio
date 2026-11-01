@@ -9,6 +9,12 @@ const random=()=>btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Arr
 const bearer=request=>request.headers.get('authorization')?.slice(7) || '';
 async function body(request){try{return JSON.parse(new TextDecoder().decode(await readExperienceBody(request,4096)));}catch(e){fail(e.status||400,'Invalid test-room request.');}}
 const enabled=(env,channel)=>(env.TEST_CHANNELS||'').split(',').includes(channel);
+// Rooms are explicitly revoked, or retired with the production release switch.
+// Guest credentials retain their separate eight-hour lifetime.
+export const TEST_ROOM_OPEN_ENDED = Number.MAX_SAFE_INTEGER;
+export async function extendOpenTestRooms(env,now=Date.now()){
+  return env.IMAGES.prepare("UPDATE studio_auth SET expires=?1 WHERE kind='test_room' AND expires>?2 AND expires<?1").bind(TEST_ROOM_OPEN_ENDED,now).run();
+}
 async function save(env,token,kind,proof,identity,expires){
   const result=await env.IMAGES.prepare("INSERT INTO studio_auth(hash,kind,proof,identity,expires) SELECT ?1,?2,?3,?4,?5 WHERE (SELECT count(*) FROM studio_auth)<10000 AND (?2!='test_room' OR NOT EXISTS(SELECT 1 FROM studio_auth WHERE kind='test_room' AND proof=?3)) AND (?2!='test_viewer' OR (SELECT count(*) FROM studio_auth WHERE kind='test_viewer' AND proof=?3)<1000)")
     .bind(await digest(token),kind,proof,JSON.stringify(identity),expires).run();
@@ -34,20 +40,21 @@ export async function testRoomRequest(request,env,{now=Date.now()}={}){
     if(env.STUDIO_ENABLED!=='true')fail(404,'Test rooms are not enabled.');
     if(!cors)fail(403,'Open the official Scene Studio test page.');
     if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{'Access-Control-Allow-Origin':cors,Vary:'Origin','Access-Control-Allow-Methods':'GET, POST, DELETE','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
+    if(env.TEST_ROOMS_RELEASED==='true' && !(path==='/test-room/manage' && request.method==='DELETE'))fail(410,'The testing period has ended. Use the released Scene Studio extension on Twitch.');
     if(path==='/test-room/manage'){
       const identity=await studioSession(request,env,now);
       env=await testChannelEnv(env,identity.channelId);
       if(!['GET','POST','DELETE'].includes(request.method))fail(405,'Method not allowed.');
       const current=await env.IMAGES.prepare("SELECT hash,expires FROM studio_auth WHERE kind='test_room' AND proof=?1 AND expires>?2 ORDER BY expires DESC LIMIT 1").bind(identity.channelId,now).first();
-      if(request.method==='GET')return json({open:!!current,roomId:current?.hash||null,expiresAt:current?.expires||null});
+      if(request.method==='GET')return json({open:!!current,roomId:current?.hash||null,expiresAt:current?.expires===TEST_ROOM_OPEN_ENDED?null:current?.expires||null,lifetime:'until-release'});
       // Creating an invite never silently disconnects an existing room.
       if(request.method==='POST' && current)fail(409,'A room is already open. Use your saved link, or close it before creating a replacement.');
       await env.IMAGES.prepare("DELETE FROM studio_auth WHERE kind='test_room' AND proof=?1 AND (?2='DELETE' OR expires<=?3)").bind(identity.channelId,request.method,now).run();
       if(request.method==='DELETE')return json({open:false});
       await env.IMAGES.prepare('DELETE FROM studio_auth WHERE expires<=?1').bind(now).run();
-      const invite=`tr_${random()}`,expiresAt=now+86400000;
-      await save(env,invite,'test_room',identity.channelId,identity,expiresAt);
-      return json({open:true,invite,roomId:await digest(invite),expiresAt,url:`${new URL('test-room.html',env.STUDIO_URL).href}#room=${invite}`});
+      const invite=`tr_${random()}`;
+      await save(env,invite,'test_room',identity.channelId,identity,TEST_ROOM_OPEN_ENDED);
+      return json({open:true,invite,roomId:await digest(invite),expiresAt:null,lifetime:'until-release',url:`${new URL('test-room.html',env.STUDIO_URL).href}#room=${invite}`});
     }
     if(path==='/test-room/join'){
       if(request.method!=='POST')fail(405,'Method not allowed.');

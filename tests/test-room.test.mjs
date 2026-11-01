@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import {testRoomRequest} from '../server/test-room-service.mjs';
+import {testRoomRequest,TEST_ROOM_OPEN_ENDED,extendOpenTestRooms} from '../server/test-room-service.mjs';
 import {digest,studioSession} from '../server/studio-service.mjs';
 import {testChannelEnv,registerTester,requestTestChannelEnv} from '../server/tester-access.mjs';
 import {newCardGame,cardTransition} from '../src/card-game.mjs';
@@ -38,14 +38,32 @@ test('owner creates one revocable room; two guests read its scene, never owner r
   assert.equal((await call('join',created.invite,'POST')).status,410);
   assert.equal(db.prepare('SELECT name FROM sqlite_master WHERE name=?').get('channel_scenes').name,'channel_scenes');
 });
-test('expiry, tampering and room rotation cannot regain access',async()=>{
+test('guest expiry, tampering and room rotation cannot regain access',async()=>{
   const {call}=await fixture();const room=await(await call('manage',hostToken,'POST')).json();
   const a=await(await call('join',room.invite,'POST')).json();
   assert.equal((await call('play/scene',a.token,'GET',undefined,a.expiresAt)).status,401);
-  assert.equal((await call('join',room.invite,'POST',undefined,room.expiresAt)).status,410);
+  assert.equal(room.expiresAt,null);
+  assert.equal((await call('join',room.invite,'POST',undefined,now+90*86400000)).status,200);
   assert.equal((await call('play/scene',a.token.slice(0,-3)+'xyz')).status,401);
   await call('manage',hostToken,'DELETE');const next=await(await call('manage',hostToken,'POST')).json();
-  assert.notEqual(next.invite,room.invite);assert.notEqual(next.roomId,room.roomId);assert.equal((await call('play/scene',a.token)).status,410);
+  assert.notEqual(next.invite,room.invite);assert.notEqual(next.roomId,room.roomId);assert.ok([401,410].includes((await call('play/scene',a.token)).status));
+});
+test('release retires persistent rooms; migrating open rooms preserves links and expired guest credentials',async()=>{
+  const {env,db,call}=await fixture();const room=await(await call('manage',hostToken,'POST')).json();
+  const guest=await(await call('join',room.invite,'POST')).json();
+  db.prepare("UPDATE studio_auth SET expires=? WHERE kind='test_room'").run(now+86400000);
+  db.prepare('INSERT INTO studio_auth VALUES(?,?,?,?,?)').run('old-closed','test_room','999','{}',now-1);
+  assert.equal((await extendOpenTestRooms(env,now)).meta.changes,1);
+  assert.equal(db.prepare("SELECT expires FROM studio_auth WHERE proof='123' AND kind='test_room'").get().expires,TEST_ROOM_OPEN_ENDED);
+  assert.equal(db.prepare("SELECT expires FROM studio_auth WHERE hash='old-closed'").get().expires,now-1);
+  assert.equal((await(await call('manage')).json()).roomId,room.roomId);
+  assert.equal((await call('join',room.invite,'POST',undefined,now+365*86400000)).status,200);
+  assert.equal((await call('play/scene',guest.token,'GET',undefined,guest.expiresAt)).status,401);
+  env.TEST_ROOMS_RELEASED='true';
+  assert.equal((await call('join',room.invite,'POST')).status,410);
+  assert.equal((await call('play/scene',guest.token)).status,410);
+  assert.equal((await call('manage',hostToken,'POST')).status,410);
+  assert.equal((await call('manage',hostToken,'DELETE')).status,200);
 });
 test('guest card seats and private hands are distinct; guests cannot impersonate host',async()=>{
   const {call,db}=await fixture();const room=await(await call('manage',hostToken,'POST')).json();

@@ -21,7 +21,7 @@
     ]
   },
   "vars": {
-    "STUDIO_ENABLED": "false",
+    "STUDIO_ENABLED": "false", "TEST_ROOMS_RELEASED": "false",
     "STUDIO_ORIGIN": "https://YOUR_GITHUB_PAGES_HOST",
     "STUDIO_URL": "https://YOUR_GITHUB_PAGES_HOST/scene-studio/",
     "CARD_GAMES_ENABLED": "false",
