@@ -22,6 +22,7 @@ test('owner creates one revocable room; two guests read its scene, never owner r
   const {call,db}=await fixture();
   const created=await(await call('manage',hostToken,'POST')).json();
   assert.match(created.invite,/^tr_/);assert.match(created.url,/test-room.html#room=tr_/);
+  assert.equal((await(await call('manage')).json()).roomId,created.roomId);
   assert.equal((await call('manage',hostToken,'POST')).status,409);
   const a=await(await call('join',created.invite,'POST')).json(),b=await(await call('join',created.invite,'POST')).json();
   assert.notEqual(a.token,b.token);assert.equal(a.profile.login,'tester');assert.equal(a.user_id,undefined);
@@ -44,7 +45,7 @@ test('expiry, tampering and room rotation cannot regain access',async()=>{
   assert.equal((await call('join',room.invite,'POST',undefined,room.expiresAt)).status,410);
   assert.equal((await call('play/scene',a.token.slice(0,-3)+'xyz')).status,401);
   await call('manage',hostToken,'DELETE');const next=await(await call('manage',hostToken,'POST')).json();
-  assert.notEqual(next.invite,room.invite);assert.equal((await call('play/scene',a.token)).status,410);
+  assert.notEqual(next.invite,room.invite);assert.notEqual(next.roomId,room.roomId);assert.equal((await call('play/scene',a.token)).status,410);
 });
 test('guest card seats and private hands are distinct; guests cannot impersonate host',async()=>{
   const {call,db}=await fixture();const room=await(await call('manage',hostToken,'POST')).json();

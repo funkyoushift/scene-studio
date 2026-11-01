@@ -38,8 +38,8 @@ export async function testRoomRequest(request,env,{now=Date.now()}={}){
       const identity=await studioSession(request,env,now);
       env=await testChannelEnv(env,identity.channelId);
       if(!['GET','POST','DELETE'].includes(request.method))fail(405,'Method not allowed.');
-      const current=await env.IMAGES.prepare("SELECT expires FROM studio_auth WHERE kind='test_room' AND proof=?1 AND expires>?2 ORDER BY expires DESC LIMIT 1").bind(identity.channelId,now).first();
-      if(request.method==='GET')return json({open:!!current,expiresAt:current?.expires||null});
+      const current=await env.IMAGES.prepare("SELECT hash,expires FROM studio_auth WHERE kind='test_room' AND proof=?1 AND expires>?2 ORDER BY expires DESC LIMIT 1").bind(identity.channelId,now).first();
+      if(request.method==='GET')return json({open:!!current,roomId:current?.hash||null,expiresAt:current?.expires||null});
       // Creating an invite never silently disconnects an existing room.
       if(request.method==='POST' && current)fail(409,'A room is already open. Use your saved link, or close it before creating a replacement.');
       await env.IMAGES.prepare("DELETE FROM studio_auth WHERE kind='test_room' AND proof=?1 AND (?2='DELETE' OR expires<=?3)").bind(identity.channelId,request.method,now).run();
@@ -47,7 +47,7 @@ export async function testRoomRequest(request,env,{now=Date.now()}={}){
       await env.IMAGES.prepare('DELETE FROM studio_auth WHERE expires<=?1').bind(now).run();
       const invite=`tr_${random()}`,expiresAt=now+86400000;
       await save(env,invite,'test_room',identity.channelId,identity,expiresAt);
-      return json({open:true,invite,expiresAt,url:`${new URL('test-room.html',env.STUDIO_URL).href}#room=${invite}`});
+      return json({open:true,invite,roomId:await digest(invite),expiresAt,url:`${new URL('test-room.html',env.STUDIO_URL).href}#room=${invite}`});
     }
     if(path==='/test-room/join'){
       if(request.method!=='POST')fail(405,'Method not allowed.');

@@ -19,6 +19,7 @@ const output = path.join(outputs, folder);
 if (path.dirname(output) !== outputs) throw new Error("Export must stay inside outputs.");
 
 const required = [
+  'test-room.html','src/TestRoom.jsx','src/TestRoomControls.jsx','src/test-room-entry.jsx','src/test-room-client.mjs','src/test-room.css','server/test-room-service.mjs','server/tester-access.mjs','tests/test-room.test.mjs',
   // Reviewed external studio and stable player sources. No outputs or credentials.
   "server/card-catalog.mjs",
   "server/card-game-schema.sql",
@@ -141,7 +142,7 @@ if (packageJson.scripts?.["build:pages"] !== "node scripts/build-pages.mjs") {
 
 const config = JSON.parse(await readFile(path.join(root, "wrangler.jsonc"), "utf8"));
 const configKeys = new Set(["$schema", "name", "main", "account_id", "compatibility_date", "workers_dev", "preview_urls", "observability", "triggers", "vars", "d1_databases", "assets", "r2_buckets"]);
-const varKeys = new Set(["STUDIO_ENABLED", "STUDIO_ORIGIN", "STUDIO_URL", "CARD_GAMES_ENABLED", "EXPERIENCES_ENABLED", "PUBLIC_EXPERIENCES", "PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "TWITCH_ACTIVITY_ENABLED", "TWITCH_PRESENCE_ENABLED", "MERCH_TEST_STORES", "POPUP_TEST_LINKS"]);
+const varKeys = new Set(["STUDIO_ENABLED", "STUDIO_ORIGIN", "STUDIO_URL", "CARD_GAMES_ENABLED", "EXPERIENCES_ENABLED", "PUBLIC_EXPERIENCES", "PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "TEST_STREAMER_LOGINS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "TWITCH_ACTIVITY_ENABLED", "TWITCH_PRESENCE_ENABLED", "MERCH_TEST_STORES", "POPUP_TEST_LINKS"]);
 for (const key of Object.keys(config)) {
   if (!configKeys.has(key)) throw new Error(`Wrangler setting needs explicit export approval: ${key}`);
 }
@@ -164,7 +165,7 @@ Object.assign(config.vars, {
   EXTENSION_OWNER: "REPLACE_WITH_YOUR_TWITCH_USER_ID",
   EXTENSION_ORIGIN: "https://REPLACE_WITH_YOUR_EXTENSION_CLIENT_ID.ext-twitch.tv",
   PUBLIC_SERVICE_URL: "https://REPLACE_WITH_YOUR_WORKER_HOST.workers.dev",
-  TEST_CHANNELS: "", PARTY_CHANNELS: "", PARTY_TEST_VIEWERS: "{}",
+  TEST_CHANNELS: "", TEST_STREAMER_LOGINS: "", PARTY_CHANNELS: "", PARTY_TEST_VIEWERS: "{}",
 });
 
 const generated = new Map();
