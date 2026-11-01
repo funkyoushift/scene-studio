@@ -93,7 +93,14 @@ export async function pollArrivalChannel(env, channel, {
           return fresh.grantId === grant.grantId && held?.lease === lease;
         },
       });
-      if (['sent', 'uncertain', 'cooldown', 'denied'].includes(outcome?.status)) return outcome;
+      if (outcome?.status === 'cooldown') {
+        // Nothing was broadcast. Keep the original arrival age and retry on
+        // the next poll, after rechecking membership, authorization and bans.
+        pending.unshift(item);
+        await save('UPDATE shoutout_presence SET pending=?3 WHERE channel=?1 AND lease=?2', JSON.stringify(pending));
+        return outcome;
+      }
+      if (['sent', 'uncertain', 'denied'].includes(outcome?.status)) return outcome;
     }
     return { status: baseline ? 'baseline' : 'watching' };
   } catch (error) {

@@ -1,5 +1,7 @@
 import { IMAGE_ORIGIN, hostedImage } from "./image-address.mjs";
 import { bytes, twitchContent, validateScene } from "./scene.mjs";
+import { hostedExperience, hostedExperienceMedia } from './experience.mjs';
+import { publishExperience } from './experience-media.mjs';
 
 export async function prepareImage(file) {
   if (
@@ -87,8 +89,12 @@ export function preflightPublish(scene, channelId) {
   if (channelId != null && (typeof channelId !== "string" || !/^[1-9][0-9]{0,19}$/.test(channelId)))
     throw new Error("Your Twitch channel identity is not ready.");
   const hasImages = clean.objects.some(object => object.image);
-  const estimated = hasImages && channelId == null;
+  const estimated = (hasImages || !!clean.experience) && channelId == null;
   const channel = channelId ?? "99999999999999999999";
+  if (clean.experience && channelId != null) {
+    if (clean.experience.kind === 'experience-ref' ? !hostedExperience(clean.experience.url, channel) : clean.experience.assets.some(a => !a.source.startsWith('local-media:') && !hostedExperienceMedia(a.source, channel)))
+      throw new Error('Use an experience and media uploaded to your own channel.');
+  }
   if (
     channelId != null &&
     clean.objects.some(
@@ -104,6 +110,7 @@ export function preflightPublish(scene, channelId) {
   // Validate final configuration size/actions before any public uploads.
   const content = twitchContent({
     ...clean,
+    ...(clean.experience ? { experience: { kind: 'experience-ref', name: clean.experience.name, enabled: clean.experience.enabled !== false, url: `${IMAGE_ORIGIN}/experiences/${channel}/${'0'.repeat(64)}.json` } } : {}),
     objects: clean.objects.map((o) => ({
       ...o,
       image: o.image
@@ -117,9 +124,10 @@ export function preflightPublish(scene, channelId) {
 export async function publishImages(scene, auth, fetcher = fetch) {
   const initial = validateScene(scene);
   const hasImages = initial.objects.some(object => object.image);
-  const channel = hasImages ? identity(auth) : undefined;
+  const channel = hasImages || initial.experience ? identity(auth) : undefined;
   const { scene: clean } = preflightPublish(initial, channel);
-  if (!hasImages) return clean;
+  const experience = clean.experience ? await publishExperience(clean.experience, auth, fetcher) : undefined;
+  if (!hasImages) return experience ? { ...clean, experience } : clean;
   const uploaded = new Map(),
     objects = [];
   for (const object of clean.objects) {
@@ -149,7 +157,7 @@ export async function publishImages(scene, auth, fetcher = fetch) {
     }
     objects.push({ ...object, image });
   }
-  const next = { ...clean, objects };
+  const next = { ...clean, objects, ...(experience ? { experience } : {}) };
   twitchContent(next);
   return next;
 }

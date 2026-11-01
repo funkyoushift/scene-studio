@@ -1,0 +1,417 @@
+.experience-studio {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 24px;
+  color: var(--text, #edf0ff);
+  background: var(--surface, #141827);
+  min-height: 100vh;
+  font-family: "DM Sans", sans-serif;
+}
+.experience-studio-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+}
+.experience-studio h1 {
+  font-size: clamp(24px, 3vw, 40px);
+  line-height: 1.1;
+  max-width: 750px;
+}
+.experience-studio h2 {
+  font-size: 18px;
+  margin-top: 24px;
+}
+.experience-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.experience-editor-grid {
+  display: grid;
+  grid-template-columns: 230px minmax(300px, 1fr) 300px;
+  gap: 20px;
+}
+.experience-editor-grid > aside,
+.experience-ai {
+  padding: 16px;
+  border: 1px solid #64748b55;
+  border-radius: 14px;
+  min-width: 0;
+}
+.experience-editor-grid > main {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  align-self: start;
+}
+.experience-studio label {
+  display: block;
+  margin: 10px 0;
+  font-size: 14px;
+}
+.experience-studio input:not([type="checkbox"]),
+.experience-studio select,
+.experience-studio textarea {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 5px;
+  padding: 8px;
+  border: 1px solid #64748b88;
+  border-radius: 7px;
+  background: var(--input, #20263b);
+  color: inherit;
+  font-size: 14px;
+}
+.experience-studio input[type="checkbox"] {
+  display: inline-block;
+  width: auto;
+  margin: 0 8px 0 0;
+  vertical-align: middle;
+  accent-color: #a5b4fc;
+}
+.experience-studio input[type="color"] {
+  height: 38px;
+  padding: 3px;
+}
+.experience-studio button,
+.experience-player button,
+.experience-launcher > button,
+.experience-loading button {
+  font: inherit;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid #818cf866;
+  border-radius: 8px;
+  background: #292f50;
+  color: #fff;
+  cursor: pointer;
+}
+.experience-studio button.primary {
+  background: #5045d6;
+}
+.experience-studio button:disabled,
+.experience-player button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.experience-studio small {
+  display: block;
+  line-height: 1.5;
+  opacity: 0.8;
+}
+.experience-scene-list {
+  display: grid;
+  gap: 6px;
+  max-height: 350px;
+  overflow: auto;
+}
+.experience-scene-list button {
+  text-align: left;
+}
+.experience-scene-list button[aria-pressed="true"] {
+  border: 2px solid #a5b4fc;
+}
+.experience-file {
+  border: 1px dashed #818cf8;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.experience-file input {
+  max-width: 220px;
+  font-size: 12px;
+}
+.experience-asset {
+  border-top: 1px solid #64748b55;
+  padding: 10px 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.experience-asset button {
+  font-size: 12px;
+  margin: 4px 2px;
+}
+.experience-stage {
+  position: relative;
+  aspect-ratio: 16/9;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  container-type: inline-size;
+  isolation: isolate;
+}
+.experience-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+.experience-element {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: pre-wrap;
+  text-align: center;
+  overflow: hidden;
+  line-height: 1.2;
+  z-index: 1;
+}
+.experience-element img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.experience-element:not(button) {
+  pointer-events: none;
+}
+.experience-player button.experience-element {
+  padding: 4px;
+  min-height: 0;
+  border-radius: 6px;
+}
+.experience-player button.experience-hotspot {
+  border: 0;
+  box-shadow: none;
+}
+.experience-hotspot:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: -3px;
+}
+.experience-edit-element {
+  touch-action: none;
+  cursor: move !important;
+  border: 1px dashed #a5b4fc !important;
+  padding: 3px !important;
+  min-height: 0 !important;
+}
+.experience-edit-element.selected {
+  outline: 3px solid #a5b4fc;
+  outline-offset: -3px;
+}
+.experience-position {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.experience-rules {
+  border: 1px solid #64748b55;
+  border-radius: 8px;
+  margin: 16px 0;
+  padding: 10px;
+  min-width: 0;
+}
+.experience-rule {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #64748b55;
+}
+.experience-variable {
+  border-bottom: 1px solid #64748b55;
+  padding-bottom: 10px;
+}
+.experience-error {
+  background: #7f1d1d;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+}
+.experience-notice {
+  min-height: 24px;
+  font-size: 14px;
+}
+.experience-studio details {
+  margin: 20px 0;
+  padding: 12px;
+  border: 1px solid #64748b55;
+  border-radius: 8px;
+}
+.experience-studio summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.experience-player {
+  background: #121629;
+  color: #fff;
+  padding: 12px;
+  border-radius: 12px;
+  font-family: "DM Sans", sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.experience-player-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.experience-player-toolbar strong {
+  margin-right: auto;
+}
+.experience-player h3 {
+  margin: 14px 0 8px;
+}
+.experience-description {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.experience-pause {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #111827eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.experience-launcher {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 30;
+  pointer-events: auto;
+}
+.experience-launcher.is-open {
+  inset: 8px;
+  overflow: auto;
+  background: #121629;
+  max-height: 100%;
+  border-radius: 12px;
+}
+.experience-loading {
+  padding: 24px;
+  color: #fff;
+}
+.experience-choice-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.experience-choice-list button {
+  min-height: 44px;
+}
+.experience-media-error {
+  background: #7f1d1d;
+  color: white;
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 8px;
+}
+.experience-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.mobile-viewer .experience-launcher {
+  position: relative;
+  inset: auto;
+  margin: 12px 0;
+}
+.mobile-viewer .experience-launcher.is-open {
+  max-height: none;
+}
+.experience-edit-stage video {
+  pointer-events: none;
+}
+.experience-studio :focus-visible,
+.experience-player :focus-visible {
+  outline: 3px solid #a5b4fc;
+  outline-offset: 2px;
+}
+@media (max-width: 1100px) {
+  .experience-editor-grid {
+    grid-template-columns: 200px minmax(250px, 1fr);
+  }
+  .experience-editor-grid > aside:last-child {
+    grid-column: 1/-1;
+  }
+  .experience-studio-header {
+    display: block;
+  }
+}
+@media (max-width: 650px) {
+  .experience-studio {
+    padding: 12px;
+  }
+  .experience-editor-grid {
+    display: flex;
+    flex-direction: column;
+  }
+  .experience-editor-grid > main {
+    order: -1;
+  }
+  .experience-studio-header h1 {
+    font-size: 26px;
+  }
+  .experience-player {
+    padding: 8px;
+  }
+  .experience-player-toolbar button {
+    font-size: 12px;
+    padding: 6px;
+  }
+  .experience-choice-list button {
+    flex: 1 1 120px;
+  }
+}
+.experience-video-toggle {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 3;
+}
+.experience-edit-stage .experience-video-toggle {
+  display: none;
+}
+.experience-motion-float {
+  animation: experience-float 3s ease-in-out infinite;
+}
+.experience-motion-pulse {
+  animation: experience-pulse 2s ease-in-out infinite;
+}
+.experience-motion-sway {
+  animation: experience-sway 3s ease-in-out infinite;
+}
+@keyframes experience-float {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+@keyframes experience-pulse {
+  50% {
+    transform: scale(0.94);
+  }
+}
+@keyframes experience-sway {
+  25% {
+    transform: rotate(-3deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .experience-element {
+    animation: none !important;
+  }
+}

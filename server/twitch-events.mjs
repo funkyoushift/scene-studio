@@ -126,7 +126,7 @@ async function deleteSubscription(env,id,token,fetcher) {
 async function ensureOne(env,channel,event,grant,{fetcher,now}) {
   const callback=configuration(env,channel,event);
   const old=await sql(env,"SELECT * FROM twitch_activity_subscriptions WHERE channel=?1 AND event=?2",channel,event).first();
-  if(old?.grant_id===grant.grantId&&(old.status==="enabled"||(old.status==="pending"&&old.updated+ACTIVITY_PENDING_TTL>now)))return;
+  if(old?.grant_id===grant.grantId&&(old.status==="enabled"||(old.status==="pending"&&old.updated+ACTIVITY_PENDING_TTL>now)))return false;
   const nonce=crypto.randomUUID();
   const locked=await sql(env,`INSERT INTO twitch_activity_subscriptions(channel,event,subscription_id,grant_id,nonce,status,updated,lock_until)
     SELECT ?1,?2,'',?3,?4,'registering',?5,?6 WHERE (SELECT count(*) FROM twitch_activity_subscriptions)<600 OR EXISTS(SELECT 1 FROM twitch_activity_subscriptions WHERE channel=?1 AND event=?2)
@@ -147,21 +147,56 @@ async function ensureOne(env,channel,event,grant,{fetcher,now}) {
     const saved=await sql(env,`UPDATE twitch_activity_subscriptions SET subscription_id=?4,status=CASE WHEN status='enabled' THEN 'enabled' ELSE 'pending' END,lock_until=0
       WHERE channel=?1 AND event=?2 AND nonce=?3 AND status IN ('registering','enabled')`,channel,event,nonce,subscription.id).run();
     if(!saved.meta.changes){await deleteSubscription(env,subscription.id,token,fetcher);fail(409,"connection_changed","Twitch activity listening changed while connecting.");}
+    return true;
   }catch(error){
     await sql(env,"UPDATE twitch_activity_subscriptions SET status='uncertain',lock_until=0 WHERE channel=?1 AND event=?2 AND nonce=?3 AND status='registering'",channel,event,nonce).run();
     throw error;
   }
 }
-export function ensureActivitySubscriptions(env,channel,{fetcher=fetch,now=Date.now()}={}) {
+export function ensureActivitySubscriptions(env,channel,{fetcher=fetch,now=Date.now(),maxRegistrations=6}={}) {
   return safe(async()=>{
+    if(!Number.isInteger(maxRegistrations)||maxRegistrations<1||maxRegistrations>6)throw new Error("Invalid registration budget");
     configuration(env,channel,ACTIVITY_EVENTS[0]);
     const grant=await getActivityAuthorization(env,channel,{fetcher,now,verify:true});
     // Disconnected chat grants cannot authorize activity delivery. Reclaim
     // their bounded listener rows before admitting this channel's six slots.
     await sql(env,"DELETE FROM twitch_activity_subscriptions WHERE channel NOT IN (SELECT channel FROM chat_oauth_grants)").run();
-    for(const event of ACTIVITY_EVENTS)await ensureOne(env,channel,event,grant,{fetcher,now});
+    let registered=0;
+    for(const event of ACTIVITY_EVENTS) {
+      if(await ensureOne(env,channel,event,grant,{fetcher,now}))registered++;
+      if(registered>=maxRegistrations)break;
+    }
     return getActivityConnection(env,channel,{now});
   });
+}
+
+// Queue only after explicit OAuth consent. Existing status rows carry the work,
+// so a browser closing or a free-tier request limit cannot lose the remaining events.
+export async function queueActivitySubscriptions(env,channel,{now=Date.now()}={}) {
+  configuration(env,channel,ACTIVITY_EVENTS[0]);
+  const grant=await getActivityAuthorization(env,channel,{now});
+  await sql(env,"DELETE FROM twitch_activity_subscriptions WHERE channel NOT IN (SELECT channel FROM chat_oauth_grants)").run();
+  await sql(env,`INSERT INTO twitch_activity_subscriptions(channel,event,subscription_id,grant_id,nonce,status,updated,lock_until)
+    SELECT ?1,value,'',?2,'','reconnect_pending',?3,0 FROM json_each(?4)
+    WHERE EXISTS(SELECT 1 FROM chat_oauth_grants WHERE channel=?1 AND revision=?5 AND invalidated=0)
+    AND (SELECT count(*) FROM twitch_activity_subscriptions WHERE channel<>?1)<=594
+    ON CONFLICT(channel,event) DO UPDATE SET grant_id=excluded.grant_id,status='reconnect_pending',updated=excluded.updated,lock_until=0
+    WHERE twitch_activity_subscriptions.status<>'disabled' OR twitch_activity_subscriptions.updated<excluded.updated`,
+    channel,grant.grantId,now,JSON.stringify(ACTIVITY_EVENTS),grant.revision).run();
+}
+
+// A separate scheduled invocation keeps this budget independent of overlay and
+// arrival checks. Never resume a channel that was explicitly disconnected.
+export async function tickActivityConnections(env,{fetcher=fetch,now=Date.now()}={}) {
+  if(env.TWITCH_ACTIVITY_ENABLED!=="true")return;
+  const row=await sql(env,`SELECT s.channel FROM twitch_activity_subscriptions s
+    JOIN chat_oauth_grants g ON g.channel=s.channel AND g.invalidated=0
+    GROUP BY s.channel HAVING SUM(s.status='disabled')=0 AND MAX(s.lock_until)<=?1
+    AND (COUNT(DISTINCT s.grant_id)>1 OR SUM(s.status IN ('reconnect_pending','registering','uncertain'))>0
+      OR SUM(s.status='pending' AND s.updated<=?2)>0)
+    ORDER BY MIN(s.updated),s.channel LIMIT 1`,now,now-ACTIVITY_PENDING_TTL).first();
+  if(!row)return;
+  return ensureActivitySubscriptions(env,row.channel,{fetcher,now,maxRegistrations:2});
 }
 
 export function disconnectActivitySubscriptions(env,channel,{fetcher=fetch,now=Date.now()}={}) {

@@ -26,7 +26,7 @@ import {
 } from "./scene.mjs";
 import "./style.css";
 import { PARTY_PRESETS } from "./party.mjs";
-import AutomationViewer from "./AutomationViewer.jsx";
+import Scene from "./Scene.jsx";
 import AutomationStudio from "./AutomationStudio.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import { InteractiveWidget } from "./InteractiveWidgets.jsx";
@@ -34,6 +34,9 @@ import { TRIVIA_CATEGORIES, getTriviaQuestions } from "./trivia-bank.mjs";
 import DeveloperPanel from "./DeveloperPanel.jsx";
 import { TEMPLATE_OPTIONS, INTERACTIVE_PRESET_OPTIONS, createTemplate, createInteractivePreset } from "./templates.mjs";
 import ExperienceHome from "./ExperienceHome.jsx";
+import ExperienceStudio from './ExperienceStudio.jsx';
+
+import CardGame from './CardGame.jsx';
 import { addExperiencePresets } from "./experience-presets.mjs";
 import { AUTOMATION_LIMITS, AUTOMATION_DESIGN_BYTES } from "./automations.mjs";
 import { blankDraftScene, draftSlugFromSearch, sceneDraftStorageKey } from "./draft-workspace.mjs";
@@ -79,8 +82,8 @@ const descriptions = {
   celebrate: "Give viewers a moment of delight.",
   link: "Your world beyond the stream.",
 };
-const isViewer = location.pathname.endsWith("/viewer.html");
-const isConfig = location.pathname.endsWith("/config.html");
+const isViewer = false;
+const isConfig = Boolean(window.SceneStudioHelper) || location.pathname.endsWith("/config.html");
 const draftSlug = draftSlugFromSearch(location.search, { isViewer, isConfig });
 const sceneStorageKey = sceneDraftStorageKey(draftSlug);
 const draftQuery = draftSlug ? `?draft=${encodeURIComponent(draftSlug)}` : "";
@@ -235,253 +238,6 @@ function PreviewViewport({ value, onChange, children, fullscreen = false }) {
   </div>;
 }
 
-function SceneObjectControl({ widget, children, ...props }) {
-  return widget ? <div {...props} role="group">{children}</div> : <button {...props}>{children}</button>;
-}
-
-function Scene({
-  scene,
-  editing = false,
-  selected,
-  onSelect,
-  onChange,
-  backdrop = false,
-  sharedEvent = null,
-  onParty,
-  beforeParty,
-}) {
-  const stage = useRef(null),
-    drag = useRef(null);
-  const [counts, setCounts] = useState({}),
-    [detail, setDetail] = useState(null),
-    [burst, setBurst] = useState(null),
-    [partyNotice, setPartyNotice] = useState("");
-  const seenParties = useRef(new Set()), partyBusy = useRef(false), nextParty = useRef(0);
-  function showParty(event) {
-    if(!event || seenParties.current.has(event.eventId)) return;
-    // HTTP acknowledgments and broadcasts can arrive in either order, even
-    // across multiple parties. Remember both paths without growing forever.
-    seenParties.current.add(event.eventId);
-    if(seenParties.current.size>100) seenParties.current.delete(seenParties.current.values().next().value);
-    const preset=PARTY_PRESETS[event.preset];
-    setBurst({id:event.eventId,text:preset.text,color:preset.color,symbol:preset.symbol,actor:event.actor,preset:event.preset});
-  }
-  useEffect(()=>{showParty(sharedEvent);},[sharedEvent]);
-  useEffect(() => {
-    if (!burst) return;
-    const t = setTimeout(() => setBurst(null), burst.preset ? 4200 : 1600);
-    return () => clearTimeout(t);
-  }, [burst]);
-  async function activate(o) {
-    if (editing) return onSelect(o.id);
-    if (o.action === "reveal") setDetail(o);
-    if (o.action === "counter")
-      setCounts((c) => ({ ...c, [o.id]: (c[o.id] || 0) + 1 }));
-    if (o.action === "celebrate")
-      setBurst({
-        id: id(),
-        text: o.detail || "You made this moment!",
-        color: o.color,
-      });
-    if(o.action === "party") {
-      if(!onParty) {
-        showParty({eventId:id(),preset:o.preset??"ducks",actor:"Preview"});
-        setPartyNotice("Preview only — no chat message sent.");
-        return;
-      }
-      if(partyBusy.current || Date.now()<nextParty.current) {setPartyNotice("Let the confetti settle. Wait a moment before another click.");return;}
-      try {
-        // Identity prompts and disabled chat have not sent anything, so they
-        // must not consume the viewer's cooldown.
-        beforeParty?.();
-        partyBusy.current=true;
-        nextParty.current=Date.now()+20000;
-        setPartyNotice("Sending your celebration…");
-        const event=await onParty(o);showParty(event);setPartyNotice("Posted in chat. Party delivered!");
-      }
-      catch(error){setPartyNotice(error.message||"Result not confirmed. Check chat before another click.");}
-      finally{partyBusy.current=false;}
-    }
-    if (o.action === "link") {
-      try {
-        const url = safeLink(o.url);
-        if (url) window.open(url, "_blank", "noopener,noreferrer");
-        else
-          setDetail({
-            ...o,
-            detail: "This object does not have a website yet.",
-          });
-      } catch {
-        setDetail({ ...o, detail: "This website address is not available." });
-      }
-    }
-  }
-  return (
-    <div
-      className={`stage ${backdrop ? "backdrop" : ""}`}
-      ref={stage}
-      aria-label="Interactive scene"
-    >
-      {backdrop && (
-        <div className="stage-art" aria-hidden="true">
-          <span className="live-dot">TWITCH PLAYER PREVIEW</span>
-          <div className="horizon" />
-          <div className="scene-caption">
-            <small>CLICKABLE OBJECTS OVER YOUR STREAM</small>
-            <strong>
-              Make room
-              <br />
-              for possibility.
-            </strong>
-          </div>
-          <span className="stage-watermark">
-            Sample background · not part of your overlay
-          </span>
-        </div>
-      )}
-      {scene.objects.filter(o=>editing || !o.popupOnly).map((o) => (
-        <div
-          key={o.id}
-          className="scene-object-frame"
-          style={{
-            left: o.x + "%",
-            top: o.y + "%",
-            width: o.width + "%",
-            height: o.height + "%",
-            "--accent": o.color,
-          }}
-        >
-        <div className={`scene-object-motion motion-${!editing && ["float", "pulse", "sway"].includes(o.motion) ? o.motion : "none"}`}>
-        <SceneObjectControl widget={!editing && Boolean(o.quiz || o.goal)}
-          style={objectAppearance(o)}
-          aria-label={editing ? `Edit ${o.title}` : o.title}
-          title={[o.title, o.caption].filter(Boolean).join(" — ")}
-          className={`scene-object ${o.shape} image-fit-${o.imageFit ?? 'cover'} ${selected === o.id && editing ? "selected" : ""} ${o.image ? "has-image" : ""} ${o.quiz || o.goal ? "interactive-object" : ""}`}
-          onClick={() => { if (editing || (!o.quiz && !o.goal)) activate(o); }}
-          onPointerDown={(e) => {
-            if (!editing || e.button !== 0) return;
-            onSelect(o.id);
-            const rect = stage.current.getBoundingClientRect();
-            if (!rect.width || !rect.height) return;
-            drag.current = {
-              id: o.id,
-              offsetX: ((e.clientX - rect.left) / rect.width) * 100 - o.x,
-              offsetY: ((e.clientY - rect.top) / rect.height) * 100 - o.y,
-            };
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }}
-          onPointerMove={(e) => {
-            const d = drag.current;
-            if (!d || d.id !== o.id) return;
-            const rect = stage.current.getBoundingClientRect();
-            if (!rect.width || !rect.height) return;
-            onChange(
-              moveObject(
-                o,
-                ((e.clientX - rect.left) / rect.width) * 100 - d.offsetX,
-                ((e.clientY - rect.top) / rect.height) * 100 - d.offsetY,
-              ),
-              false,
-            );
-          }}
-          onPointerUp={() => {
-            if (drag.current) {
-              drag.current = null;
-              onChange(null, true);
-            }
-          }}
-          onPointerCancel={() => {
-            drag.current = null;
-            onChange?.(null, true);
-          }}
-          onKeyDown={(e) => {
-            if (
-              !editing ||
-              isConfig ||
-              !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
-                e.key,
-              )
-            )
-              return;
-            e.preventDefault();
-            const step = e.shiftKey ? 5 : 1;
-            onChange(
-              moveObject(
-                o,
-                o.x +
-                  (e.key === "ArrowRight"
-                    ? step
-                    : e.key === "ArrowLeft"
-                      ? -step
-                      : 0),
-                o.y +
-                  (e.key === "ArrowDown"
-                    ? step
-                    : e.key === "ArrowUp"
-                      ? -step
-                      : 0),
-              ),
-              true,
-            );
-          }}
-        >
-          {(o.quiz || o.goal) ? <>{o.image && <img src={o.image} alt="" draggable="false" />}{(editing || o.goal) && <span className="object-copy"><strong>{o.title}</strong><span>{o.caption}</span></span>}<InteractiveWidget object={o} count={counts[o.id] || 0} onCount={() => activate(o)} editing={editing} onComplete={() => setBurst({id:id(),text:o.quiz ? "Correct!" : "Challenge complete!",color:o.color})} /></> : <>
-          {o.image && <img src={o.image} alt="" draggable="false" />}
-          <span className="object-icon">{o.customIcon || (o.action === "party" ? PARTY_PRESETS[o.preset??"ducks"].symbol : symbols[o.icon])}</span>
-          <span className="object-copy">
-            <strong>{o.title}</strong>
-            <span>
-              {o.action === "counter" && !editing
-                ? `${counts[o.id] || 0} from you this visit`
-                : o.action === "party" ? "Celebrate together + post in chat" : o.caption}
-            </span>
-            {o.action === "counter" && !editing && counts[o.id] > 0 && (
-              <span>{o.detail}</span>
-            )}
-          </span>
-          {o.shape !== "circle" && (
-            <span className="object-arrow">
-              {o.action === "link" ? "↗" : "+"}
-            </span>
-          )}
-          </>}
-        </SceneObjectControl>
-        </div>
-        </div>
-      ))}
-      {!scene.objects.length && backdrop && (
-        <div className="empty-stage">
-          Your canvas is open.
-          <br />
-          <span>Add your first object from the left.</span>
-        </div>
-      )}
-      {burst && (
-        <div
-          className={`celebration ${burst.preset ? "shared-party " + burst.preset : ""}`}
-          key={burst.id}
-          role="status"
-          style={{ "--accent": burst.color }}
-        >
-          <strong>{burst.text}</strong>
-          {burst.actor && <span className="party-actor">{burst.actor} started this</span>}
-          {Array.from({ length: 22 }, (_, i) => (
-            <i key={i} style={{ "--i": i }}>
-              {burst.symbol || "✦"}
-            </i>
-          ))}
-        </div>
-      )}
-      {partyNotice && <div className="party-notice" role="status">{partyNotice}<button aria-label="Dismiss celebration status" onClick={()=>setPartyNotice("")}>×</button></div>}
-      {detail && (
-        <Modal title={detail.title} onClose={() => setDetail(null)}>
-          <p className="message-body">{detail.detail}</p>
-        </Modal>
-      )}
-    </div>
-  );
-}
-
 function Presentation({scene,onClose,viewport,onViewportChange}) {
   const ref=useRef(null);
   useEffect(()=>{
@@ -499,53 +255,9 @@ function Presentation({scene,onClose,viewport,onViewportChange}) {
   </dialog>;
 }
 
-function Viewer() {
-  const [scene, setScene] = useState(null),
-    [creator, setCreator] = useState(null),
-    [status, setStatus] = useState("Waiting for the channel’s scene…"),
-    [sharedEvent,setSharedEvent]=useState(null),
-    [automationAuth,setAutomationAuth]=useState(null);
-  const partyAuth=useRef(null);
-  useEffect(() => {
-    document.body.classList.add("viewer");
-    if (!helper) {
-      setStatus("Open this viewer through Twitch to load the channel’s scene.");
-      return;
-    }
-    let active = true;
-    helper.onAuthorized((auth) => {
-      if (!active) return;
-      partyAuth.current=auth;
-      setAutomationAuth(auth);
-      setCreator(previous => previous?.id === auth.channelId ? previous : null);
-      channelProfile(auth)
-        .then((profile) => {
-          if (active && partyAuth.current === auth && profile.id === auth.channelId) setCreator(profile);
-        })
-        .catch(() => {if(active && partyAuth.current === auth) setStatus("The channel’s creator could not be confirmed. Refresh to try again.");});
-    });
-    const stop = watchTwitchScene(helper, setScene, setStatus,setSharedEvent);
-    return () => {
-      active = false;
-      stop();
-    };
-  }, []);
-  return <><AutomationViewer helper={helper} auth={automationAuth} creator={creator} brandImage={scene?.objects.find(o=>o.image && o.imageFit==='icon')?.image} />{scene && (creator || scene.objects.length === 0) ? (
-    <>
-      <Scene scene={scene} sharedEvent={sharedEvent} beforeParty={()=>{
-        if(!helper.viewer.isLinked) {helper.actions.requestIdShare();throw new Error("Link your identity, then click again to celebrate and post in chat.");}
-        if(!helper.features?.isChatEnabled) throw new Error("The streamer has not enabled extension chat.");
-      }} onParty={object=>sendParty(partyAuth.current,object)} />
-      {creator && scene.objects.length > 0 && (
-        <span className="creator-credit">Objects by {creator.login}</span>
-      )}
-    </>
-  ) : (
-    <div className="viewer-status">{status || "Confirming the creator of these objects…"}</div>
-  )}</>;
-}
-
 function Editor() {
+  const [cardsOpen,setCardsOpen]=useState(false);
+  const [experienceOpen, setExperienceOpen] = useState(false);
   const bundleApi = useRef(null);
   const [flowDraft, setFlowDraft] = useState(null);
   const [homeOpen, setHomeOpen] = useState(true),
@@ -613,8 +325,9 @@ function Editor() {
   const viewerAction = object?.action === "reveal" ? (object.quiz ? (object.quiz.mode === "bank" ? "Viewers answer random questions, get feedback, and choose Next question. Each viewer has their own score." : "Viewers click the card, choose an answer, and see whether they were right.") : "Viewers click the card to reveal your message.") : object?.action === "counter" ? "Viewers click to add to their own count for this visit and reach the goal." : object?.action === "party" ? "Viewers start a shared celebration and a preset chat message when the channel's chat connection is enabled." : object?.action === "celebrate" ? "Viewers click to start a celebration on their own screen." : object?.action === "link" ? "Viewers click to open your website." : "";
   const websiteLinks = scene.objects.filter(o => o.action === 'link');
   let publishProblem = '';
-  try { preflightPublish(scene, isConfig ? authRef.current?.channelId : undefined); } catch(error) { publishProblem = error.message; }
-  const cannotPublish = busy || Boolean(publishProblem) || (isConfig && (!authorized || !configReady || (scene.objects.length > 0 && (!linked || !profile))));
+  let publishBytes = null;
+  try { publishBytes = preflightPublish(scene, isConfig ? authRef.current?.channelId : undefined).bytes; } catch(error) { publishProblem = error.message; }
+  const cannotPublish = busy || Boolean(publishProblem) || (isConfig && (!authorized || !configReady || ((scene.objects.length > 0 || scene.experience) && (!linked || !profile))));
   useEffect(() => {
     const observer = new ResizeObserver(() => {
       if (publishBarRef.current) setPublishBarHeight(Math.ceil(publishBarRef.current.getBoundingClientRect().height));
@@ -645,6 +358,7 @@ function Editor() {
   },[selected]);
   useEffect(() => {
     if (isConfig) {
+      if(helper?.studio && configReady) { try {localStorage.setItem(`scene-studio-recovery-${authRef.current?.channelId}`,JSON.stringify(scene));} catch {} }
       setSaveStatus(
         !configReady ? "Loading your channel’s overlay…"
           : JSON.stringify(scene) === JSON.stringify(lastSentScene.current) ? "Sent to Twitch"
@@ -893,11 +607,11 @@ function Editor() {
         );
       if (!configReady)
         throw new Error("Wait for your channel’s overlay to finish loading.");
-      if (scene.objects.length && !linked)
+      if ((scene.objects.length || scene.experience) && !linked)
         throw new Error(
           "Choose Connect Twitch identity before publishing your objects.",
         );
-      if (scene.objects.length && !profile)
+      if ((scene.objects.length || scene.experience) && !profile)
         throw new Error(
           "Wait for Twitch to confirm your channel, then save again.",
         );
@@ -906,9 +620,9 @@ function Editor() {
       const snapshot = sceneRef.current;
       const publishingAuth = authRef.current;
       const prepared = await publishImages(snapshot, publishingAuth);
-      if (channelChanged.current || !authRef.current || authRef.current.channelId !== publishingAuth?.channelId || helper.viewer?.role !== "broadcaster" || (prepared.objects.length && !helper.viewer?.isLinked))
+      if (channelChanged.current || !authRef.current || authRef.current.channelId !== publishingAuth?.channelId || helper.viewer?.role !== "broadcaster" || ((prepared.objects.length || prepared.experience) && !helper.viewer?.isLinked))
         throw new Error("Your Twitch channel or permissions changed during upload. Nothing was published; reopen configuration for the intended channel.");
-      const message = sendTwitchScene(helper, prepared);
+      const message = await sendTwitchScene(helper, prepared);
       lastSentScene.current = prepared;
       // Keep edits made during a slow upload; never overwrite a newer draft.
       if (sceneRef.current === snapshot) commit(prepared);
@@ -950,8 +664,13 @@ function Editor() {
   }
   return (
     <>
+    {experienceOpen && <ExperienceStudio draftKey={sceneStorageKey + '-experience-' + (authRef.current?.channelId || 'local')} slot={scene.experience} onClose={() => setExperienceOpen(false)} onSave={experience => { commit({ ...sceneRef.current, experience }); setExperienceOpen(false); setNotice('Experience added to your overlay draft. Open viewer preview to play it. Publish when you are ready.'); }} onRemove={() => { const next = { ...sceneRef.current }; delete next.experience; commit(next); setExperienceOpen(false); setNotice('Experience removed from the draft. Publish to change Twitch.'); }} />}
+    {cardsOpen&&<CardGame auth={authRef.current} helper={helper} host onClose={()=>setCardsOpen(false)}/>}
+    <div hidden={experienceOpen}>
     {homeOpen && draftSlug && <p className="hint" role="status">Local draft “{draftSlug}” · this workspace has its own scene and automation saves.</p>}
     {homeOpen && <ExperienceHome objects={scene.objects} flows={flowPages} channelName={profile?.login} live={isConfig} notice={notice} onDismissNotice={() => setNotice("")}
+      onOpenExperience={() => setExperienceOpen(true)} experienceName={scene.experience?.name}
+      onOpenCards={() => setCardsOpen(true)}
       onChooseWidget={addInteractivePreset}
       onChooseBundle={addLayoutBundle}
       onCheckBundle={checkLayoutBundle}
@@ -969,6 +688,7 @@ function Editor() {
           <sup>EARLY BUILD</sup>
         </a>
         <div className="top-actions">
+          <button onClick={() => setExperienceOpen(true)}>Experience builder</button>
           <button onClick={() => setHomeOpen(true)}>← Your experiences</button>
           <ThemeToggle />
           <span className="save-status">● {saveStatus}</span>
@@ -1526,6 +1246,7 @@ function Editor() {
             instructions, add what you want, then paste its design below. Your
             AI provider’s limits apply.
           </p>
+          <button onClick={() => { setModal(null); setExperienceOpen(true); }}>Build an interactive experience with scenes, rules, images and video →</button>
           <button
             className="primary"
             onClick={async () => {
@@ -1677,8 +1398,8 @@ function Editor() {
             </button>
           )}
           <p className="fine-print">
-            {bytes(JSON.stringify(scene))} / 5,000 bytes for Twitch
-            configuration before image uploads. Counters and personal
+            {publishBytes ?? '—'} / 5,000 bytes for Twitch
+            configuration after media hosting. Experience files are stored separately. Counters and personal
             celebrations stay with each viewer. “Celebrate with chat” sends
             a shared celebration and a preset chat message. The channel must
             connect optional chat, and viewers must share their Twitch identity.
@@ -1691,6 +1412,7 @@ function Editor() {
     <div hidden={!automationOpen || homeOpen}>
       <AutomationStudio bundleApi={bundleApi} onDraftChange={setFlowDraft} session={isConfig ? { auth: automationSession?.auth, viewer: automationSession?.viewer, profile } : undefined} visible={automationOpen && !homeOpen} experienceRequest={flowRequest} onRequestHandled={setFlowRequest} onPagesChange={setFlowPages} onBack={() => { setAutomationOpen(false); setHomeOpen(true); }} />
     </div>
+    </div>
     </>
   );
 }
@@ -1701,4 +1423,4 @@ if (import.meta.hot)
   import.meta.hot.dispose((data) => {
     data.root = root;
   });
-root.render(isViewer ? <Viewer /> : <Editor />);
+root.render(<Editor />);

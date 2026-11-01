@@ -19,6 +19,44 @@ const output = path.join(outputs, folder);
 if (path.dirname(output) !== outputs) throw new Error("Export must stay inside outputs.");
 
 const required = [
+  // Reviewed external studio and stable player sources. No outputs or credentials.
+  "server/card-catalog.mjs",
+  "server/card-game-schema.sql",
+  "server/card-game-service.mjs",
+  "server/experience-schema.sql",
+  "server/experience-service.mjs",
+  "server/studio-schema.sql",
+  "server/studio-service.mjs",
+  "src/CardGame.jsx",
+  "src/CardPlayer.jsx",
+  "src/ExperiencePlayer.jsx",
+  "src/ExperienceStudio.jsx",
+  "src/Scene.jsx",
+  "src/Viewer.jsx",
+  "src/card-decks.mjs",
+  "src/card-game.css",
+  "src/card-game.mjs",
+  "src/config-entry.jsx",
+  "src/experience-builder.css",
+  "src/experience-examples.mjs",
+  "src/experience-media.mjs",
+  "src/experience.mjs",
+  "src/player-channel.mjs",
+  "src/studio-client.mjs",
+  "src/studio-entry.jsx",
+  "src/studio.css",
+  "src/viewer-entry.jsx",
+  "tests/card-game-service.test.mjs",
+  "tests/card-game.test.mjs",
+  "tests/experience-service.test.mjs",
+  "tests/experience.test.mjs",
+  "tests/fixtures/card-game-browser.html",
+  "tests/fixtures/card-game-browser.jsx",
+  "tests/fixtures/experience-browser.html",
+  "tests/fixtures/experience-browser.jsx",
+  "tests/studio.test.mjs",
+  "scripts/sync-card-catalog.mjs",
+
   "server/presence-service.mjs", "server/presence-schema.sql", "tests/presence-service.test.mjs",
   "src/trivia-bank.mjs", "tests/trivia-bank.test.mjs",
   "src/trivia-categories.mjs", "src/trivia-open-data.json", "scripts/import-trivia-bank.py", "assets/trivia/SOURCES.md", "assets/trivia/LICENSE-CC-BY-SA-4.0.txt",
@@ -101,8 +139,8 @@ if (packageJson.scripts?.["build:pages"] !== "node scripts/build-pages.mjs") {
 }
 
 const config = JSON.parse(await readFile(path.join(root, "wrangler.jsonc"), "utf8"));
-const configKeys = new Set(["$schema", "name", "main", "account_id", "compatibility_date", "workers_dev", "preview_urls", "observability", "triggers", "vars", "d1_databases"]);
-const varKeys = new Set(["PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "TWITCH_ACTIVITY_ENABLED", "TWITCH_PRESENCE_ENABLED", "MERCH_TEST_STORES", "POPUP_TEST_LINKS"]);
+const configKeys = new Set(["$schema", "name", "main", "account_id", "compatibility_date", "workers_dev", "preview_urls", "observability", "triggers", "vars", "d1_databases", "assets", "r2_buckets"]);
+const varKeys = new Set(["STUDIO_ENABLED", "STUDIO_ORIGIN", "STUDIO_URL", "CARD_GAMES_ENABLED", "EXPERIENCES_ENABLED", "PUBLIC_EXPERIENCES", "PUBLIC_PAGES", "PUBLIC_IMAGES", "PUBLIC_CHAT", "TWITCH_CHAT_CLIENT_ID", "EXTENSION_ORIGIN", "PUBLIC_SERVICE_URL", "TEST_CHANNELS", "PARTY_CHANNELS", "PARTY_TEST_VIEWERS", "EXTENSION_CLIENT_ID", "EXTENSION_OWNER", "EXTENSION_VERSION", "ALLOWED_EXTENSION_VERSIONS", "DEVELOPER_API_ENABLED", "AUTOMATIONS_ENABLED", "CHAT_TRIGGERS_ENABLED", "TWITCH_ACTIVITY_ENABLED", "TWITCH_PRESENCE_ENABLED", "MERCH_TEST_STORES", "POPUP_TEST_LINKS"]);
 for (const key of Object.keys(config)) {
   if (!configKeys.has(key)) throw new Error(`Wrangler setting needs explicit export approval: ${key}`);
 }
@@ -116,6 +154,8 @@ for (const key of Object.keys(config.d1_databases[0])) {
 config.account_id = "REPLACE_WITH_YOUR_CLOUDFLARE_ACCOUNT_ID";
 config.d1_databases[0].database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID";
 Object.assign(config.vars, {
+  STUDIO_ENABLED: "false", STUDIO_ORIGIN:"https://YOUR_GITHUB_PAGES_HOST", STUDIO_URL:"https://YOUR_GITHUB_PAGES_HOST/scene-studio/",
+  CARD_GAMES_ENABLED:"false", EXPERIENCES_ENABLED:"false", PUBLIC_EXPERIENCES:"false",
   PUBLIC_CHAT: "false", PUBLIC_IMAGES: "false", PUBLIC_PAGES: "false",
   DEVELOPER_API_ENABLED: "false", AUTOMATIONS_ENABLED: "false", CHAT_TRIGGERS_ENABLED: "false", TWITCH_ACTIVITY_ENABLED: "false", TWITCH_PRESENCE_ENABLED: "false", MERCH_TEST_STORES: "{}", POPUP_TEST_LINKS: "{}",
   TWITCH_CHAT_CLIENT_ID: "REPLACE_WITH_YOUR_TWITCH_CHAT_CLIENT_ID",
@@ -132,6 +172,25 @@ generated.set(".gitignore", `node_modules/\ndist/\nsite-dist/\noutputs/\n.wrangl
 generated.set("README.md", `# Scene Studio
 
 One Twitch extension. A different interactive experience for every channel.
+
+## External studio and stable player (November 1, 2026)
+
+Setup, Build with AI, uploads, deck selection and game controls now live on this
+GitHub Pages website. Sign in with the channel owner's Twitch account. The
+Cloudflare service imports the existing saved scene and stores revisioned
+publications with a 20-revision rollback history. The viewer package fetches
+validated channel data; supported scene, media, maze and rule changes do not
+require a new Twitch package. New rendering capabilities still require a package
+update. OAuth credentials never enter this public repository or viewer package.
+
+The next test package is 0.8.0. Historical test notes below are not verification
+of this migration. Hosted Test still requires approved viewer testers.
+
+Build the website with \`npm run build:pages\`; build only the Twitch player and
+small setup link with \`npm run build\`. Server setup additionally requires the
+SQL schemas in server/, private R2 storage, the extension secret and the Twitch
+OAuth client secret. The checked-in Worker config is a disabled template.
+
 
 [Open the hosted builder](https://funkyoushift.github.io/scene-studio/)
 

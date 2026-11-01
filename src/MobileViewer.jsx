@@ -4,6 +4,8 @@ import { PARTY_PRESETS, partyEvent } from "./party.mjs";
 import AutomationViewer from "./AutomationViewer.jsx";
 import { objectAppearance, safeLink } from "./scene.mjs";
 import { InteractiveWidget } from "./InteractiveWidgets.jsx";
+import ExperienceLauncher from './ExperiencePlayer.jsx';
+import CardGame from './CardPlayer.jsx';
 
 const symbols = { spark: "✦", heart: "♡", star: "☆", gift: "◇", info: "i", bolt: "ϟ", message: "☏", link: "↗" };
 
@@ -108,7 +110,7 @@ export default function MobileViewer({ helper = globalThis.window?.Twitch?.ext }
     mounted.current = true;
     if (!helper) return () => { mounted.current = false; controller.current.reset(); };
     let active = true;
-    const stop = watchTwitchScene(helper, next => { if (active) { setScene(next); setDetail(null); setCounts(old => Object.fromEntries(next.objects.filter(item => Object.hasOwn(old, item.id)).map(item => [item.id, old[item.id]]))); } }, message => { if (active) setStatus(message); }, event => { if (active) controller.current.acceptParty(event); });
+    const stop = watchTwitchScene(helper, next => { if (active) { setScene(next); setDetail(null); setCounts(old => Object.fromEntries(next.objects.filter(item => Object.hasOwn(old, item.id)).map(item => [item.id, old[item.id]]))); } }, message => { if (active) setStatus(message); }, event => { if (active) controller.current.acceptParty(event); }, ()=>session.current.auth);
     helper.onAuthorized(next => {
       if (!active) return;
       if (session.current.auth?.channelId !== next.channelId) {
@@ -152,6 +154,8 @@ export default function MobileViewer({ helper = globalThis.window?.Twitch?.ext }
     {status && <p className="mobile-status" role="status">{status}</p>}
     {auth && !ready && <button className="mobile-secondary" onClick={() => setRetry(value => value + 1)}>Retry channel connection</button>}
     {ready && scene?.objects.length > 0 && <MobileObjectCards scene={scene} counts={counts} onActivate={id => void controller.current.activate(id)} />}
+    {visible && ready && scene?.experience && <ExperienceLauncher slot={scene.experience} />}
+    {visible && ready && <CardGame auth={auth} helper={helper}/>}
     {ready && (!scene || !scene.objects.length) && <p className="mobile-empty">No tap-to-play objects are set up yet. Stay here to see new live moments from the streamer.</p>}
     {notice && <div className="mobile-notice" role="status" ref={noticeRef}><p>{notice}</p><button aria-label="Dismiss status" onClick={() => setNotice("")}>Dismiss</button></div>}
     {detail && <section className="mobile-detail" aria-label={detail.title} ref={detailRef} tabIndex={-1}><h2>{detail.title}</h2><p>{detail.text}</p><button onClick={() => setDetail(null)}>Close message</button></section>}

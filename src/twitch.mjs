@@ -1,3 +1,4 @@
+import {pollPublishedScene} from './player-channel.mjs';
 import { parseScene, twitchContent } from "./scene.mjs";
 import { partyEvent } from "./party.mjs";
 import { IMAGE_ORIGIN } from "./image-address.mjs";
@@ -87,6 +88,7 @@ export async function sendParty(auth, object, fetcher=fetch) {
 }
 
 export async function channelProfile(auth, fetcher = fetch) {
+  if(auth?.studio && auth.profile?.id === auth.channelId) return auth.profile;
   if (!/^[1-9][0-9]{0,19}$/.test(auth?.channelId) || !auth?.helixToken)
     throw new Error("Your Twitch channel identity is not ready.");
   const response = await fetcher(
@@ -118,12 +120,14 @@ export function readTwitchScene(raw) {
   return scene;
 }
 
-export function watchTwitchScene(helper, onScene, onStatus, onParty=()=>{}) {
+export function watchTwitchScene(helper, onScene, onStatus, onParty=()=>{},getAuth) {
   let active = true;
   let receivedBroadcast = false;
+  let serverScene = false;
+  const stopServer = getAuth ? pollPublishedScene(getAuth,scene=>{serverScene=true;onScene(scene);onStatus("");}) : ()=>{};
   const seen = new Set();
   function accept(raw, broadcast = false) {
-    if (!active) return;
+    if (!active || serverScene) return;
     try {
       const next = readTwitchScene(raw);
       if (broadcast) receivedBroadcast = true;
@@ -152,6 +156,7 @@ export function watchTwitchScene(helper, onScene, onStatus, onParty=()=>{}) {
   });
   return () => {
     active = false;
+    stopServer();
     helper.unlisten("broadcast", receive);
   };
 }
@@ -161,6 +166,7 @@ export function sendTwitchScene(helper, scene) {
     throw new Error(
       "Open your channel’s configuration page to save your overlay.",
     );
+  if(helper.studio) return helper.publishScene(scene);
   const content = twitchContent(scene);
   helper.configuration.set("broadcaster", "1", content);
   try {

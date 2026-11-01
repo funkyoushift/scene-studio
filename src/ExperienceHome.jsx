@@ -28,7 +28,7 @@ const guidedGoals = [
   { id: "tap-challenge", label: "Add a tap game", key: "tap-challenge", kind: "widget", what: "Give each viewer a personal tapping goal.", need: "A goal number; you can change the starter later." },
 ];
 
-export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onCheckBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, channelName, live = false, notice, onDismissNotice }) {
+export default function ExperienceHome({ objects = [], flows = [], onChooseWidget, onChooseFlow, onChooseBundle, onCheckBundle, onEditObject, onEditFlows, onOpenAdvanced, onOpenCanvas, onOpenAI, onOpenExperience, onOpenCards, experienceName, channelName, live = false, notice, onDismissNotice }) {
   const [layoutPickerOpen, setLayoutPickerOpen] = useState(false);
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [bundleError, setBundleError] = useState("");
@@ -176,9 +176,11 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
     </section>
 
     <nav className="eh-discovery-paths" aria-label="Other ways to start">
+      <button type="button" className="eh-discovery-card" onClick={() => onOpenCards?.()}><span aria-hidden="true">♠</span><b>Host a card game</b><small>Choose expansions, change the rules, and play together with private hands.</small></button>
       <button type="button" className="eh-discovery-card" onClick={revealLibrary}><span aria-hidden="true">⌕</span><b>Browse all ideas</b><small>Find a starter by category or search by name.</small></button>
       <button type="button" className="eh-discovery-card" onClick={() => onOpenCanvas?.()}><span aria-hidden="true">＋</span><b>Create my own</b><small>Add and arrange your own interactive elements.</small></button>
       <button type="button" className="eh-discovery-card" onClick={() => onOpenAI?.()}><span aria-hidden="true">✧</span><b>Build with AI</b><small>Use your AI account to create and review a design.</small></button>
+      <button type="button" className="eh-discovery-card" onClick={() => onOpenExperience?.()}><span aria-hidden="true">▧</span><b>{experienceName ? `Edit · ${experienceName}` : 'Experience builder'}</b><small>Connect scenes, images and video with choices, timers and remembered values.</small></button>
     </nav>
 
     <details className="eh-browse-all" open={browseOpen} onToggle={event => setBrowseOpen(event.currentTarget.open)}>
@@ -220,7 +222,8 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
     </details>
     <section className="eh-section eh-your-work">
       <div className="eh-section-heading"><div><span className="eh-kicker">PICK UP WHERE YOU LEFT OFF</span><h2>Your experiences</h2></div><button className="eh-text-button" type="button" onClick={() => onOpenAdvanced?.()}>Advanced tools <span>↗</span></button></div>
-      {objects.length || flows.length ? <div className="eh-work-list">
+      {objects.length || flows.length || experienceName ? <div className="eh-work-list">
+        {experienceName && <article className="eh-work-item"><span className="eh-work-icon">▧</span><div className="eh-work-copy"><b>{experienceName}</b><span>Saved draft · Interactive experience</span></div><button type="button" onClick={() => onOpenExperience?.()}>Edit {experienceName} <span>↗</span></button></article>}
         {objects.map((object, i) => <article className="eh-work-item" key={object.id || `object-${i}`}><span className="eh-work-icon">{{heart:"♡",spark:"✦",star:"☆",gift:"◇",info:"i",bolt:"ϟ",message:"☏",link:"↗"}[object.icon] || "✦"}</span><div className="eh-work-copy"><b>{object.title || object.name || "Untitled experience"}</b><span>Saved draft · Viewer interaction</span></div><button type="button" onClick={() => onEditObject?.(object.id)}>Set up {object.title || object.name || "this draft"} <span>↗</span></button></article>)}
         {flows.map((flow, i) => <article className="eh-work-item" key={flow.id || `flow-${i}`}><span className="eh-work-icon eh-work-flow">✧</span><div className="eh-work-copy"><b>{flow.name || flow.title || "Live moment"}</b><span>Saved draft · Live moment{Array.isArray(flow.ruleIds) ? ` · ${flow.ruleIds.length} ${flow.ruleIds.length === 1 ? "rule" : "rules"}` : ""}</span></div><button type="button" onClick={() => onEditFlows?.(flow.id)}>Set up {flow.name || flow.title || "this draft"} <span>↗</span></button></article>)}
       </div> : <div className="eh-empty"><span className="eh-empty-icon">✧</span><div><b>Your experiences will show up here</b><p>Choose an idea above and press Set this up to begin.</p></div><button type="button" onClick={() => onOpenCanvas?.()}>Open scene canvas <span>↗</span></button></div>}

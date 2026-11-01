@@ -1,3 +1,4 @@
+import { channelScene } from './studio-service.mjs';
 import { PARTY_PRESETS } from "../src/party.mjs";
 import { parseScene } from "../src/scene.mjs";
 import { checkViewerModeration, ChatAuthorizationError } from "./chat-authorization.mjs";
@@ -111,12 +112,17 @@ export async function partyRequest(request,env,channel,json,fetcher=fetch,now=Da
     // are rejected by the response.ok checks below.
     const call=(url,options={})=>fetcher(url,{...options,headers,redirect:"manual",signal:AbortSignal.timeout(8000)});
     stage="config_fetch";
+    const published = await channelScene(env, channel);
+    let scene;
+    if(published) scene=parseScene(published.scene);
+    else {
     const configResponse=await call(`https://api.twitch.tv/helix/extensions/configurations?extension_id=${env.EXTENSION_CLIENT_ID}&segment=broadcaster&broadcaster_id=${channel}`);
     if(!configResponse.ok) fail(503,"Could not check the streamer's current buttons. Try again later.");
     stage="config_read";
     const configs=await smallJson(configResponse,32000);
     const saved=configs.data?.find(c=>c.segment==="broadcaster"&&c.broadcaster_id===channel);
-    let scene;try{scene=parseScene(saved?.content);}catch{fail(409,"The streamer needs to save this setup first.");}
+    try{scene=parseScene(saved?.content);}catch{fail(409,"The streamer needs to save this setup first.");}
+    }
     if(!scene.objects.some(o=>o.id===input.objectId&&o.action==="party"&&o.preset===input.preset)) fail(409,"This celebration is no longer enabled. Refresh the player.");
     // Only an authorized viewer clicking a currently saved object can consume
     // the shared slot or create a retained receipt. Atomic admission still

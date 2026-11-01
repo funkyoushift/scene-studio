@@ -1,3 +1,4 @@
+import { studioAuth, studioGateway, channelSceneRequest } from './studio-service.mjs';
 // Dedicated Workers Free account. Bind IMAGES (D1),
 // EXTENSION_SECRET (base64 secret), EXTENSION_ORIGIN,
 // and TEST_CHANNELS (comma-separated numeric channel IDs). Empty allowlist denies writes.
@@ -7,10 +8,12 @@ import { publicPage } from "./public-pages.mjs";
 import { developerRequest } from "./developer-service.mjs";
 import { automationRequest, tickAutomations, processAutomationInput, hasMatchingKeywordRule } from "./automation-service.mjs";
 import { soundRequest } from "./sound-service.mjs";
+import { experienceRequest } from './experience-service.mjs';
+import { cardGameRequest } from './card-game-service.mjs';
 import { getTriggerConnection, ensureTriggerSubscription, disconnectTriggerSubscription, handleChatWebhook, cleanupChatTriggerReceipts } from "./chat-triggers.mjs";
 import { hasShoutoutCandidate } from "./shoutout-service.mjs";
 import { tickArrivals, getArrivalStatus } from "./presence-service.mjs";
-import { getActivityConnection, ensureActivitySubscriptions, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "./twitch-events.mjs";
+import { getActivityConnection, ensureActivitySubscriptions, queueActivitySubscriptions, tickActivityConnections, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "./twitch-events.mjs";
 const MAX_IMAGE = 200_000;
 export const MAX_IMAGES = 48;
 export const MAX_TOTAL_IMAGES = 1000;
@@ -144,11 +147,17 @@ export function validatePng(data) {
   return { width, height };
 }
 
-export default {
+const worker = {
   async scheduled(controller, env, ctx) {
+    if(controller.cron === "*/2 * * * *") {
+      ctx.waitUntil(tickActivityConnections(env).catch(() => console.warn("Twitch event connection recovery deferred.")));
+      return;
+    }
     // No credentials, callback queries, or provider responses enter logs.
     ctx.waitUntil((async () => {
+      if(env.STUDIO_ENABLED === "true") await env.IMAGES.prepare("DELETE FROM studio_auth WHERE expires<=?1").bind(Date.now()).run();
       await env.IMAGES.prepare("DELETE FROM party_attempts WHERE expires<=?1").bind(Date.now()).run();
+      if(env.CARD_GAMES_ENABLED==='true') await env.IMAGES.prepare('DELETE FROM card_games WHERE expires<=?1').bind(Date.now()).run();
       if (env.AUTOMATIONS_ENABLED === "true")
         await env.IMAGES.prepare("DELETE FROM automation_receipts WHERE expires<=?1").bind(Date.now()).run();
       if (env.CHAT_TRIGGERS_ENABLED === "true") await cleanupChatTriggerReceipts(env);
@@ -163,6 +172,10 @@ export default {
       ctx.waitUntil(tickArrivals(env,{processInput:processAutomationInput}).catch(() => console.warn("Chat arrival checks unavailable.")));
   },
   async fetch(request, env, ctx) {
+    const authResponse = await studioAuth(request, env);
+    if (authResponse) return authResponse;
+    const studioResponse = await studioGateway(request, env, next => worker.fetch(next, env, ctx));
+    if (studioResponse) return studioResponse;
     const origin = request.headers.get("origin");
     const headers = new Headers({
       "X-Content-Type-Options": "nosniff",
@@ -182,6 +195,29 @@ export default {
       });
     try {
       const url = new URL(request.url);
+      const sceneRoute = url.pathname.match(/^\/v1\/channel\/([1-9][0-9]{0,19})\/(scene|history|rollback)$/);
+      if(sceneRoute && env.STUDIO_ENABLED === 'true') {
+        if(origin !== env.EXTENSION_ORIGIN) return json({error:'Open the official player or studio.'},403);
+        if(request.method === 'OPTIONS') return new Response(null,{status:204,headers:{...Object.fromEntries(headers),'Access-Control-Allow-Methods':'GET, POST','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
+        try {
+          const claims = await extensionClaims(request,env.EXTENSION_SECRET,sceneRoute[1]);
+          return await channelSceneRequest(request,env,{channel:sceneRoute[1],route:sceneRoute[2],claims},json);
+        } catch(e) { return json({error:e.status ? e.message : 'The published scene is temporarily unavailable.'},e.status || 503); }
+      }
+      const cardRoute=url.pathname.match(/^\/v1\/cards\/([1-9][0-9]{0,19})\/(catalog|game|shard-(?:[0-9]|[12][0-9]|3[01]))$/);
+      if(cardRoute) {
+        if(origin!==env.EXTENSION_ORIGIN) return json({error:'Open card games through the Twitch extension.'},403);
+        if(request.method==='OPTIONS') return new Response(null,{status:204,headers:{...Object.fromEntries(headers),'Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
+        const claims=await extensionClaims(request,env.EXTENSION_SECRET,cardRoute[1]);
+        return cardGameRequest(request,env,{channel:cardRoute[1],route:cardRoute[2],claims},json);
+      }
+      const experienceRoute = url.pathname.match(/^\/(media|experiences)\/([1-9][0-9]{0,19})(?:\/([a-f0-9]{64})\.(png|mp4|webm|json))?$/);
+      if (experienceRoute) {
+        const [, collection, channel, hash, extension] = experienceRoute;
+        if (hash && (collection === 'experiences' ? extension !== 'json' : extension === 'json')) return json({ error: 'Not found.' }, 404);
+        const claims = request.method === 'POST' && !hash && origin === env.EXTENSION_ORIGIN ? await broadcaster(request, env.EXTENSION_SECRET, channel) : undefined;
+        return experienceRequest(request, env, { collection, channel, hash, extension, claims, validatePng });
+      }
       const activityWebhook = url.pathname.match(/^\/eventsub\/activity\/([1-9][0-9]{0,19})\/(subscribe|resubscribe|gift|hype_begin|hype_progress|hype_end)$/);
       if (activityWebhook) {
         if (env.TWITCH_ACTIVITY_ENABLED !== "true") return json({error:"Twitch activity events are not enabled."},404);
@@ -227,12 +263,14 @@ export default {
         // Never echo OAuth query parameters or provider errors into HTML/logs.
         let message = "Chat is connected. Return to Scene Studio and choose Check connection.";
         let status = 200;
+        let authorizationSaved = false;
         try {
           const connected = await completeConnect(env, request.url);
+          authorizationSaved = true;
+          if (connected.activityAccess) await queueActivitySubscriptions(env,connected.channel);
           if (connected.triggerAccess) await ensureTriggerSubscription(env,connected.channel);
           if (connected.activityAccess) {
-            const activity = await ensureActivitySubscriptions(env,connected.channel);
-            message = activity.connected ? "Subscription and Hype Train events are connected. Return to Scene Studio and refresh event status." : "Event access is authorized. Return to Scene Studio and refresh event status to confirm Twitch has enabled the listeners.";
+            message = "Twitch access is authorized. Subscription and Hype Train listeners are connecting automatically; setup may take a few minutes. Return to Scene Studio to check event status.";
           }
           if (connected.triggerAccess && !connected.activityAccess) {
             const trigger = await getTriggerConnection(env,connected.channel);
@@ -243,7 +281,12 @@ export default {
             message = "Chat arrival access is connected. Return to Scene Studio, refresh arrival status and publish a joins-chat shoutout rule. The first check quietly records who is already present.";
           }
         }
-        catch { message = "Chat could not be connected. Return to Scene Studio and start Connect chat again."; status = 400; }
+        catch {
+          message = authorizationSaved
+            ? "Twitch authorization was saved, but listener setup has not finished. Return to Scene Studio and refresh connection status; do not authorize again."
+            : "Chat could not be connected. Return to Scene Studio and start Connect chat again.";
+          status = authorizationSaved ? 200 : 400;
+        }
         return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Scene Studio chat</title><h1>Scene Studio</h1><p>${message}</p></html>`, {status, headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; frame-ancestors 'none'","X-Content-Type-Options":"nosniff"}});
       }
       const chat = url.pathname.match(/^\/v1\/chat\/([1-9][0-9]{0,19})\/(connection|connect|triggers|trigger-connect|activity|activity-connect|presence|presence-connect)$/);
@@ -259,7 +302,7 @@ export default {
         if (chat[2] === "presence" && request.method === "GET") return json(await getArrivalStatus(env,chat[1]));
         if (chat[2] === "activity-connect" && request.method === "POST") return json(await startActivityConnect(env,chat[1],origin,claims));
         if (chat[2] === "activity" && request.method === "GET") return json(await getActivityConnection(env,chat[1]));
-        if (chat[2] === "activity" && request.method === "POST") return json(await ensureActivitySubscriptions(env,chat[1]));
+        if (chat[2] === "activity" && request.method === "POST") return json(await ensureActivitySubscriptions(env,chat[1],{maxRegistrations:2}));
         if (chat[2] === "activity" && request.method === "DELETE") return json(await disconnectActivitySubscriptions(env,chat[1]));
         if (chat[2] === "trigger-connect" && request.method === "POST") return json(await startTriggerConnect(env,chat[1],origin,claims));
         if (chat[2] === "triggers" && request.method === "GET") return json(await getTriggerConnection(env,chat[1]));
@@ -410,3 +453,5 @@ export default {
     }
   },
 };
+
+export default worker;

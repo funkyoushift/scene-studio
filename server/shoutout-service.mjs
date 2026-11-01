@@ -195,6 +195,14 @@ export async function processShoutoutChat(env, channel, input, {
   const rule = candidates.find(item => matchesProfile(item.trigger, mode, person));
   if (!rule) return { status: "no_match" };
   if (!await recheck()) return { status: "denied" };
-  return processInput(env, channel, { type: "shoutout", id: input.messageId, mode,
+  const outcome = await processInput(env, channel, { type: "shoutout", id: input.messageId, mode,
     ruleId: rule.id, profile: person, ...(streamId ? { streamId } : {}) }, { now, fetcher });
+  // A competing overlay can win after the arrival poll's cooldown check.
+  // Only an explicit pre-send rejection releases this attempt; uncertain or
+  // failed outbound sends retain their claim and must never be replayed.
+  if (mode === "automatic" && outcome?.status === "cooldown") {
+    await stmt(env, "DELETE FROM shoutout_first_messages WHERE channel=?1 AND stream_id=?2 AND user_id=?3 AND created=?4",
+      channel, streamId, input.chatterId, now).run();
+  }
+  return outcome;
 }

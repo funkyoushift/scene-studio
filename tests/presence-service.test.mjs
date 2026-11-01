@@ -4,6 +4,8 @@ import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { pollArrivalChannel, readChatMembers } from "../server/presence-service.mjs";
 import { createAutomationState, validateAutomations } from "../src/automations.mjs";
+import { processShoutoutChat } from "../server/shoutout-service.mjs";
+import { processAutomationInput } from "../server/automation-service.mjs";
 
 const now = 1800000000000;
 function fixture(t, { arrival = "presence", cooldownSeconds = 0 } = {}) {
@@ -30,7 +32,7 @@ function fixture(t, { arrival = "presence", cooldownSeconds = 0 } = {}) {
   const members = async () => [...state.current];
   const attempt = async (_env, _channel, _mode, id) => { state.calls.push(["attempt", id]); return state.attempt; };
   const shoutout = async (_env, _channel, input) => { state.sent.push(input); return { status: state.outcome }; };
-  const poll = (at = now) => pollArrivalChannel(env, "123", { now: at, authorize, moderate, stream, members, attempt, shoutout });
+  const poll = (at = now, extra = {}) => pollArrivalChannel(env, "123", { now: at, authorize, moderate, stream, members, attempt, shoutout, ...extra });
   const presence = () => db.prepare("SELECT * FROM shoutout_presence WHERE channel='123'").get();
   return { db, env, state, poll, presence };
 }
@@ -124,6 +126,58 @@ test("only explicit presence rules are polled; disabled or malformed channel val
   const disabled = fixture(t); disabled.env.TWITCH_PRESENCE_ENABLED = "false";
   assert.equal((await disabled.poll()).status, "disabled");
   assert.equal((await pollArrivalChannel(disabled.env, "bad/id")).status, "disabled");
+});
+
+test("a timer winning the send race defers an arrival, then sends it exactly once", async t => {
+  const s = fixture(t);
+  Object.assign(s.env, { EXTENSION_SECRET: Buffer.alloc(32, 5).toString("base64"),
+    EXTENSION_CLIENT_ID: "testclient", EXTENSION_OWNER: "999", TWITCH_CHAT_CLIENT_SECRET: "testsecret" });
+  const design = JSON.parse(s.db.prepare("SELECT design FROM automation_configs").get().design);
+  design.carousels.push({ id: "merch", title: "Merch", displaySeconds: 20,
+    slides: [{ id: "mug", title: "Mug", caption: "", image: "", url: "" }] });
+  design.rules.push({ id: "timer", name: "Merch timer", enabled: true,
+    trigger: { type: "interval", everySeconds: 60 }, effect: { type: "carousel", carouselId: "merch" }, cooldownSeconds: 60 });
+  s.db.prepare("UPDATE automation_configs SET design=?").run(JSON.stringify(validateAutomations(design)));
+  const broadcasts = [];
+  let raceTimer = true;
+  const fetcher = async (address, options) => {
+    const url = new URL(address);
+    if (url.pathname === "/oauth2/token") return Response.json({ access_token: "test", token_type: "bearer" });
+    if (url.pathname === "/helix/streams") return Response.json({ data: [{ id: "stream-1", user_id: "123", type: "live" }] });
+    if (url.pathname === "/helix/users") {
+      if (raceTimer) {
+        raceTimer = false;
+        assert.equal((await processAutomationInput(s.env, "123", { type: "tick" }, { now: now + 60000, fetcher })).status, "sent");
+      }
+      return Response.json({ data: [{ id: "456", login: "arriving", display_name: "Arriving",
+        broadcaster_type: "partner", profile_image_url: "" }] });
+    }
+    assert.equal(url.pathname, "/helix/extensions/pubsub");
+    broadcasts.push(JSON.parse(JSON.parse(options.body).message));
+    return new Response(null, { status: 204 });
+  };
+  const actual = { fetcher, shoutout: processShoutoutChat, processInput: processAutomationInput };
+  await s.poll(now, actual);
+  s.state.current.push("456");
+  assert.equal((await s.poll(now + 60000, actual)).status, "cooldown");
+  assert.equal(broadcasts.length, 1);
+  assert.equal(broadcasts[0].effect.type, "carousel");
+  assert.deepEqual(JSON.parse(s.presence().pending).map(x => x.id), ["456"]);
+  assert.equal(s.db.prepare("SELECT count(*) AS n FROM shoutout_first_messages").get().n, 0);
+  assert.equal((await s.poll(now + 120000, actual)).status, "sent");
+  assert.equal(broadcasts.length, 2);
+  assert.equal(broadcasts[1].shoutout.login, "arriving");
+  assert.equal((await s.poll(now + 180000, actual)).status, "watching");
+  assert.equal(broadcasts.length, 2);
+});
+
+test("uncertain outbound arrival is consumed and never requeued", async t => {
+  const s = fixture(t); await s.poll(); s.state.current.push("456");
+  s.state.outcome = "uncertain";
+  assert.equal((await s.poll(now + 60000)).status, "uncertain");
+  assert.deepEqual(JSON.parse(s.presence().pending), []);
+  await s.poll(now + 120000);
+  assert.equal(s.state.sent.length, 1);
 });
 
 test("readChatMembers merges two bounded pages and rejects malformed or oversized responses", async () => {

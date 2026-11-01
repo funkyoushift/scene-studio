@@ -8,7 +8,6 @@ export default defineConfig({
     minify: false,
     rollupOptions: {
       input: {
-        editor: resolve("index.html"),
         config: resolve("config.html"),
         viewer: resolve("viewer.html"),
         automations: resolve("automations.html"),

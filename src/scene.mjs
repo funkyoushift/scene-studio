@@ -1,6 +1,7 @@
 import { hostedImage } from "./image-address.mjs";
 import { PARTY_PRESETS } from "./party.mjs";
 import { TRIVIA_CATEGORIES } from "./trivia-categories.mjs";
+import { validateExperienceSlot } from './experience.mjs';
 export const STORAGE_KEY = "scene-studio-draft-v1";
 export const MAX_OBJECTS = 12;
 export const MAX_IMPORT_BYTES = 2_000_000;
@@ -178,6 +179,7 @@ export function validateScene(input) {
   const scene = {
     version: 1,
     name: string(input.name, 80, "Scene name"),
+    ...(input.experience ? { experience: validateExperienceSlot(input.experience) } : {}),
     objects: input.objects.map((o) => {
       if (!o || typeof o !== "object") fail("Invalid object.");
       const key = string(o.id, 64, "Object ID");
@@ -256,6 +258,8 @@ export function moveObject(object, x, y) {
 }
 export function twitchContent(scene) {
   const clean = validateScene(scene);
+  if (clean.experience && clean.experience.kind !== 'experience-ref')
+    fail('Save your overlay to upload the experience first.');
   if (clean.objects.some((o) => o.image && !hostedImage(o.image)))
     fail("Save your overlay to upload these images to image hosting first.");
   const missingLink = clean.objects.find((o) => o.action === "link" && !o.url);

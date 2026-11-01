@@ -128,11 +128,12 @@ test("state uses scoped reads/writes and optimistic revisions without changing a
   const put = (state, revision, options = {}) => s.call("state", { method: "PUT", token: key.token, input: { state, expectedRevision: revision }, ...options });
   assert.equal((await put({ boss: "alive" }, 0)).body.revision, 1);
   assert.equal((await put({ boss: "stale" }, 0)).status, 409);
-  const race = await Promise.all([put({ boss: "won" }, 1), put({ boss: "lost" }, 1)]);
+  const competingStates = [{ boss: "won" }, { boss: "lost" }];
+  const race = await Promise.all(competingStates.map(state => put(state, 1)));
   assert.deepEqual(race.map(result => result.status).sort(), [200, 409]);
   const current = await s.call("state", { token: key.token });
   assert.equal(current.body.revision, 2);
-  assert.deepEqual(current.body.state, { boss: "won" });
+  assert.deepEqual(current.body.state, competingStates[race.findIndex(result => result.status === 200)]);
   assert.equal(current.body.delivered, false);
   assert.deepEqual((await s.call("state", { token: other.token, channel: "456" })).body.state, {});
   assert.equal((await put({ huge: "x".repeat(8192) }, 2)).status, 413);

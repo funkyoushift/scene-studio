@@ -10,7 +10,7 @@ await build({
   build: {
     outDir: 'site-dist',
     minify: false,
-    rollupOptions: { input: { editor: 'index.html', automations: 'automations.html' } },
+    rollupOptions: { input: { editor: 'index.html' } },
   },
 });
 await writeFile('site-dist/.nojekyll', '');

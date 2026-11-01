@@ -1,4 +1,5 @@
-// Martin Wenn approved this exact page copy for publication on October 25, 2026.
+// Original page copy approved October 25, 2026; card-game disclosure added
+// November 1, 2026 alongside the requested optional shared card-game feature.
 // Optional moderation/OAuth copy is conditional on that feature being enabled
 // and qualified. This module does not register routes or enable any feature.
 
@@ -29,6 +30,10 @@ const pages = {
         "The editor can keep a draft in your browser's local storage so you can return to it. Clearing the site's browser storage removes that local draft; it does not delete a published Twitch configuration or uploaded images.",
         "Scene Studio does not use an AI API or an analytics SDK. Its copy-and-paste AI workflow lets you choose whether to share a design prompt with a separate AI service; that service's policies apply to anything you send there.",
         "Cloudflare and Twitch provide hosting and platform services. They may process IP addresses and other technical request information under their own policies.",
+      ]],
+      ["Optional shared card games", [
+        "Joining a card table uses your linked Twitch user ID to return your private hand and reconnect you to your seat. The service stores the channel ID, player IDs, hands, submissions, scores, selected cards and game rules on Cloudflare. Other viewers receive seat labels and scores, not your Twitch user ID or unplayed hand. Submitted answers become visible during judging; the winning seat is revealed after the judge chooses.",
+        "Each table expires 12 hours after it is opened and is removed by scheduled cleanup, which may be delayed during a service outage. Ending the table immediately hides it from viewers; opening another table replaces its stored game. Card sources receive no player identities through this feature. This game mode does not post messages to Twitch chat.",
       ]],
       ["Contact and deletion requests", [
         "Contact Martin Wenn at m0dmacks@gmail.com for privacy questions, deletion requests, or a problem with public content. Include the channel name and the relevant page or image URL so the request can be located. Never send passwords, access tokens, or other account secrets. Requests involving content retained by Twitch may also require Twitch's own tools or support.",

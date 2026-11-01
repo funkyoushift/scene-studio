@@ -2,6 +2,25 @@
 
 One Twitch extension. A different interactive experience for every channel.
 
+## External studio and stable player (November 1, 2026)
+
+Setup, Build with AI, uploads, deck selection and game controls now live on this
+GitHub Pages website. Sign in with the channel owner's Twitch account. The
+Cloudflare service imports the existing saved scene and stores revisioned
+publications with a 20-revision rollback history. The viewer package fetches
+validated channel data; supported scene, media, maze and rule changes do not
+require a new Twitch package. New rendering capabilities still require a package
+update. OAuth credentials never enter this public repository or viewer package.
+
+The next test package is 0.8.0. Historical test notes below are not verification
+of this migration. Hosted Test still requires approved viewer testers.
+
+Build the website with `npm run build:pages`; build only the Twitch player and
+small setup link with `npm run build`. Server setup additionally requires the
+SQL schemas in server/, private R2 storage, the extension secret and the Twitch
+OAuth client secret. The checked-in Worker config is a disabled template.
+
+
 [Open the hosted builder](https://funkyoushift.github.io/scene-studio/)
 
 Scene Studio lets streamers place their own images, words, and clickable objects

@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
 import { CHAT_AUTH_SCHEMA, ACTIVITY_SCOPES, TRIGGER_SCOPES, startConnect, startTriggerConnect, startActivityConnect, completeConnect, getActivityAuthorization, getChatConnection, checkViewerModeration, validateIdleChatGrants } from "../server/chat-authorization.mjs";
-import { deriveActivityWebhookSecret, ensureActivitySubscriptions, getActivityConnection, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "../server/twitch-events.mjs";
+import { deriveActivityWebhookSecret, ensureActivitySubscriptions, queueActivitySubscriptions, tickActivityConnections, getActivityConnection, disconnectActivitySubscriptions, handleActivityWebhook, cleanupActivityReceipts } from "../server/twitch-events.mjs";
 import { automationRequest, processAutomationInput } from "../server/automation-service.mjs";
+import worker from "../server/image-worker.mjs";
 
 const now=Date.now(),origin="https://example.ext-twitch.tv",claims={role:"broadcaster",user_id:"123",channel_id:"123"};
 function fixture(t) {
@@ -186,4 +187,55 @@ test("activity receipt cleanup removes expired IDs and retains current delivery 
  s.db.prepare("INSERT INTO twitch_activity_receipts(channel,message_id,created,status) VALUES (?,?,?,?)").run("123","current",now-1000,"sent");
  await cleanupActivityReceipts(s.env,now);
  assert.deepEqual(s.db.prepare("SELECT message_id FROM twitch_activity_receipts").all().map(r=>r.message_id),["current"]);
+});
+
+test("interrupted consent recovers two listeners per invocation within the free request budget",async t=>{
+ const s=fixture(t);await s.consent("activity");
+ await ensureActivitySubscriptions(s.env,"123",{fetcher:s.fetcher,now});
+ s.db.exec("UPDATE twitch_activity_subscriptions SET status='enabled'");
+ // A new consent changes the authorization epoch, matching the interrupted live setup.
+ await s.consent("trigger");
+ await ensureActivitySubscriptions(s.env,"123",{fetcher:s.fetcher,now:now+1,maxRegistrations:2});
+ s.db.exec("UPDATE twitch_activity_subscriptions SET status='enabled' WHERE event IN ('subscribe','resubscribe')");
+ s.db.prepare("UPDATE twitch_activity_subscriptions SET status='registering',lock_until=? WHERE event='gift'").run(now+60001);
+ const prepare=s.env.IMAGES.prepare.bind(s.env.IMAGES);let requests=0;
+ s.env.IMAGES.prepare=query=>({bind(...args){const bound=prepare(query).bind(...args);return Object.fromEntries(Object.entries(bound).map(([method,fn])=>[method,async()=>{requests++;assert.ok(requests<=50,'free invocation limit');return fn();}]));}});
+ const countedFetch=(...args)=>{requests++;assert.ok(requests<=50,'free invocation limit');return s.fetcher(...args);};
+ for(let round=1;round<=2;round++) {
+   requests=0;const before=s.calls.filter(c=>c.init.method==='POST'&&new URL(c.address).pathname==='/helix/eventsub/subscriptions').length;
+   await tickActivityConnections(s.env,{fetcher:countedFetch,now:now+round*180000});
+   const after=s.calls.filter(c=>c.init.method==='POST'&&new URL(c.address).pathname==='/helix/eventsub/subscriptions').length;
+   assert.equal(after-before,2);assert.ok(requests<40,`headroom: ${requests}`);
+   s.db.exec("UPDATE twitch_activity_subscriptions SET status='enabled' WHERE status='pending'");
+ }
+ assert.equal((await getActivityConnection(s.env,"123")).connected,true);
+ requests=0;await tickActivityConnections(s.env,{fetcher:countedFetch,now:now+600000});assert.equal(requests,1,'completed channels do no provider work');
+});
+
+test("queued activity setup survives closing the browser and does not undo disconnect",async t=>{
+ const s=fixture(t);await s.consent('activity');
+ await queueActivitySubscriptions(s.env,'123',{now});
+ assert.equal(s.db.prepare("SELECT count(*) n FROM twitch_activity_subscriptions WHERE status='reconnect_pending'").get().n,6);
+ await tickActivityConnections(s.env,{fetcher:s.fetcher,now:now+1});assert.equal(s.subscriptions.length,2);
+ await disconnectActivitySubscriptions(s.env,'123',{fetcher:s.fetcher,now:now+2});
+ await queueActivitySubscriptions(s.env,'123',{now:now+1});
+ assert.equal(s.db.prepare("SELECT count(*) n FROM twitch_activity_subscriptions WHERE status='disabled'").get().n,6,'a delayed queue cannot undo disconnect');
+ const before=s.calls.length;
+ await tickActivityConnections(s.env,{fetcher:s.fetcher,now:now+300000});assert.equal(s.calls.length,before);
+ assert.equal((await getActivityConnection(s.env,'123')).connected,false);
+});
+
+test("OAuth callback saves consent and queues activity instead of exhausting one invocation",async t=>{
+ const s=fixture(t);s.db.exec(readFileSync(new URL('../server/chat-triggers-schema.sql',import.meta.url),'utf8'));
+ await s.consent('activity');await s.consent('trigger');
+ const started=await startActivityConnect(s.env,'123',origin,claims,now+1);
+ const state=new URL(started.authorizeUrl).searchParams.get('state');
+ let requests=0;const prepare=s.env.IMAGES.prepare.bind(s.env.IMAGES);
+ s.env.IMAGES.prepare=query=>({bind(...args){const bound=prepare(query).bind(...args);return Object.fromEntries(Object.entries(bound).map(([method,fn])=>[method,async()=>{requests++;assert.ok(requests<=50,'free invocation limit');return fn();}]));}});
+ t.mock.method(globalThis,'fetch',(...args)=>{requests++;assert.ok(requests<=50,'free invocation limit');return s.fetcher(...args);});
+ const response=await worker.fetch(new Request(`https://service.example/chat/callback?state=${state}&code=authorization-code`),s.env,{});
+ assert.equal(response.status,200);assert.match(await response.text(),/authorized/);
+ assert.ok(requests<40,`callback headroom: ${requests}`);
+ assert.equal(s.db.prepare("SELECT count(*) n FROM twitch_activity_subscriptions WHERE status='reconnect_pending'").get().n,6);
+ assert.equal(s.subscriptions.filter(x=>x.type==='channel.chat.message').length,1);
 });
