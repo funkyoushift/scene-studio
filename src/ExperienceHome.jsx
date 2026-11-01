@@ -135,7 +135,7 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
       <div className="eh-brand"><span className="eh-brand-mark">✦</span><span>Scene Studio</span><span className="eh-brand-label">HOME</span></div>
       <div className="eh-top-actions">
         {channelName && <span className="eh-channel">{channelName}</span>}
-        <span className={`eh-live ${live ? "is-live" : ""}`}><i />{live ? "Twitch configuration" : "Local draft"}</span>
+        <span className={`eh-live ${live ? "is-live" : ""}`}><i />{live ? "Connected studio" : "Local draft"}</span>
         <ThemeToggle />
       </div>
     </header>

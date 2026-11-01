@@ -8,6 +8,10 @@ const pages = {
     title: "Privacy",
     intro: "Scene Studio is a Twitch extension operated by Martin Wenn. This page explains the information used by the extension and its optional shared-chat feature.",
     sections: [
+      ["External studio and publication history", [
+        "The Scene Studio editor is hosted on GitHub Pages. Signing in uses Twitch to confirm your channel ID and public login. Twitch access tokens used only for studio sign-in are discarded after validation. Your browser tab stores a revocable studio session for up to one hour; the server stores its hash and channel identity. Sign out removes that session. Expired sign-in records are removed automatically.",
+        "Published channel scenes are stored on Cloudflare and delivered to the Twitch player. The latest 20 revisions are retained for rollback. Uploaded experience manifests, images and videos are accessible through their published addresses. Treat all published content as public. Local drafts and recovery copies stay in browser storage on your device.",
+      ]],
       ["Your scene and images", [
         "A broadcaster's saved configuration contains the scene's text, layout, actions, and image addresses. Twitch stores and distributes that configuration so viewers can use the overlay. Treat published scene content as public.",
         "Uploaded images are stored on Cloudflare and are publicly accessible at their image addresses. Do not upload private information. Images remain stored until the broadcaster deletes them from the image library; an image still used by the saved scene must be removed from that scene first.",

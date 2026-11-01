@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-11-01T18:01:06.141Z",
+  "createdUtc": "2026-11-01T18:05:16.110Z",
   "snapshot": "Current 0.5 development source; separate from the queued Twitch 0.4.0 package. Portal status last verified October 27, 2026.",
   "generated": [
     "wrangler.jsonc",
@@ -271,8 +271,8 @@
     },
     {
       "path": "server/public-pages.mjs",
-      "bytes": 14033,
-      "sha256": "8227a61051db835a50ac388e7f906fb0d7a5e2b73f3683a54ff1b95e3dc1ecf1"
+      "bytes": 14978,
+      "sha256": "270df8f58125016b7dbd37c352260d4f2b32aba63cb7f75f2d942e58e06a8bde"
     },
     {
       "path": "server/schema.sql",
@@ -451,8 +451,8 @@
     },
     {
       "path": "src/ExperienceHome.jsx",
-      "bytes": 25170,
-      "sha256": "de0622db3b9e9ec8847334f3d6da74385d82bd56cb1ab22b921c8ece76b053a9"
+      "bytes": 25166,
+      "sha256": "6e1f3a79661147c454d2ad0d4ee1caaf8367dcb7e5619ce72c7857762f7d87e0"
     },
     {
       "path": "src/ExperiencePlayer.jsx",
@@ -521,8 +521,8 @@
     },
     {
       "path": "src/main.jsx",
-      "bytes": 76807,
-      "sha256": "cde50d7cef8ca3b46235dc07ed13b8dde22e1f7c22b78b62fbd26f7cc91fe563"
+      "bytes": 77480,
+      "sha256": "402e8488aacb5bffdc2b0f0d65c6f72664f95215b7f5ec5132dabe9fe17cb5f8"
     },
     {
       "path": "src/mobile-entry.jsx",
@@ -621,8 +621,8 @@
     },
     {
       "path": "src/studio-entry.jsx",
-      "bytes": 3677,
-      "sha256": "a96a240d09ad7f35d304bb57e119179ba765cdf3e4d714c0969108413515ff0a"
+      "bytes": 3813,
+      "sha256": "f8f06eb2b07e8a81545243d51a13e6c2cdd125e60ba8e4f9d07a56d52faddf13"
     },
     {
       "path": "src/studio.css",
@@ -916,8 +916,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 2026,
-      "sha256": "2fad6952a103ea903abe8092001afa1b0dcc859fd60f69f236353db750a52edc"
+      "bytes": 2032,
+      "sha256": "2217fb80f607b546b76bfdef3c59fcf9b8815bbcc65dfbe16efc5a4ed1136727"
     }
   ],
   "scan": {

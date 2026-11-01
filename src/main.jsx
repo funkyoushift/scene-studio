@@ -358,7 +358,7 @@ function Editor() {
   },[selected]);
   useEffect(() => {
     if (isConfig) {
-      if(helper?.studio && configReady) { try {localStorage.setItem(`scene-studio-recovery-${authRef.current?.channelId}`,JSON.stringify(scene));} catch {} }
+      if(helper?.studio && configReady && edited.current) { try {localStorage.setItem(`scene-studio-recovery-${authRef.current?.channelId}`,JSON.stringify(scene));} catch {} }
       setSaveStatus(
         !configReady ? "Loading your channel’s overlay…"
           : JSON.stringify(scene) === JSON.stringify(lastSentScene.current) ? "Sent to Twitch"
@@ -427,6 +427,15 @@ function Editor() {
     });
     return () => { active = false; profileRequest.current += 1; authRef.current = null; };
   }, []);
+  useEffect(()=>{
+    if(!helper?.studio)return;
+    const recover=()=>{try{
+      const saved=localStorage.getItem(`scene-studio-recovery-${authRef.current?.channelId}`);
+      if(!saved){setNotice('No recovery draft is saved for this channel.');return;}
+      commit(parseScene(saved));setHomeOpen(false);setNotice('Recovered your local draft. Review it before publishing.');
+    }catch{setNotice('The recovery draft could not be read. Your current editor is unchanged.');}};
+    window.addEventListener('studio-recover',recover);return()=>window.removeEventListener('studio-recover',recover);
+  },[]);
   function commit(next, complete = true) {
     edited.current = true;
     if (next) setScene(next);
@@ -683,7 +692,7 @@ function Editor() {
     <div hidden={automationOpen || homeOpen}>
     <div className={`app-shell editor-refresh${isConfig ? ' is-twitch-config' : ''}`} style={publishBarHeight == null ? undefined : { "--publish-bar-height": `${publishBarHeight}px` }}>
       <header className="topbar">
-        <a className="brand" href={isConfig ? "./config.html" : "./"}>
+        <a className="brand" href={isConfig && !helper?.studio ? "./config.html" : "./"}>
           <span>✳</span> scene<span className="brand-light">studio</span>
           <sup>EARLY BUILD</sup>
         </a>
@@ -1193,8 +1202,8 @@ function Editor() {
       )}
       <section ref={publishBarRef} className={`publish-bar${publishProblem ? ' publish-blocked' : ''}`} aria-label="Publish your overlay">
         <div className="publish-summary">
-          <strong>{publishProblem ? 'This draft is not ready to publish' : busy ? 'Publishing your overlay…' : isConfig ? saveStatus === 'Sent to Twitch' ? 'Update sent to Twitch' : saveStatus === 'Loaded from Twitch' ? 'Current Twitch configuration' : 'You have unpublished changes' : 'Your draft is not on Twitch yet'}</strong>
-          <p>{publishProblem || (isConfig ? !configReady ? 'Loading the channel’s saved configuration.' : !authorized ? 'Open this editor as the channel’s broadcaster on Twitch.' : scene.objects.length && !linked ? 'Connect your Twitch identity, then publish your changes.' : scene.objects.length && !profile ? profileStatus === 'failed' ? 'Twitch could not confirm this channel. Retry the channel connection; your draft is safe.' : profileStatus === 'retrying' ? 'Retrying the channel connection…' : 'Waiting for Twitch to confirm the channel.' : saveStatus === 'Sent to Twitch' ? 'Reopen configuration to verify the saved design. New edits need another publish.' : `Publishing updates ${profile?.login || 'this channel'} and sends the overlay to connected viewers.` : 'Open the publishing steps to move this draft into your channel’s Twitch configuration.')}</p>
+          <strong>{publishProblem ? 'This draft is not ready to publish' : busy ? 'Publishing your overlay…' : isConfig ? saveStatus === 'Sent to Twitch' ? 'Published to your player' : saveStatus === 'Loaded from Twitch' ? 'Current published design' : 'You have unpublished changes' : 'Your draft is not on Twitch yet'}</strong>
+          <p>{publishProblem || (isConfig ? !configReady ? 'Loading the channel’s saved configuration.' : !authorized ? 'Open this editor as the channel’s broadcaster on Twitch.' : scene.objects.length && !linked ? 'Connect your Twitch identity, then publish your changes.' : scene.objects.length && !profile ? profileStatus === 'failed' ? 'Twitch could not confirm this channel. Retry the channel connection; your draft is safe.' : profileStatus === 'retrying' ? 'Retrying the channel connection…' : 'Waiting for Twitch to confirm the channel.' : saveStatus === 'Sent to Twitch' ? 'Your published design is saved. Connected players update automatically; new edits need another publish.' : `Publishing updates ${profile?.login || 'this channel'} and sends the overlay to connected viewers.` : 'Open the publishing steps to move this draft into your channel’s Twitch configuration.')}</p>
           {websiteLinks.length > 0 && !publishProblem && <small>{websiteLinks.length} HTTPS link{websiteLinks.length===1?'':'s'} · test configuration. Social and commerce links still need Twitch policy review for release.</small>}
         </div>
         <div className="publish-bar-actions">
