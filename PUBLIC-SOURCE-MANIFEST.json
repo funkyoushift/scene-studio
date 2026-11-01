@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "createdUtc": "2026-11-01T01:01:23.277Z",
+  "createdUtc": "2026-11-01T01:04:52.299Z",
   "snapshot": "Current 0.5 development source; separate from the queued Twitch 0.4.0 package. Portal status last verified October 27, 2026.",
   "generated": [
     "wrangler.jsonc",
@@ -221,8 +221,8 @@
     },
     {
       "path": "server/image-worker.mjs",
-      "bytes": 21461,
-      "sha256": "8af1760cf98d3de28040049e1de92ba07d2d877f6e23b18f5ab22a488896841a"
+      "bytes": 21617,
+      "sha256": "8dbcab9e507ff9eeeaf8a753257c375be0ae4dddd7849d52c9ea952c1400cc24"
     },
     {
       "path": "server/party-service.mjs",
@@ -736,8 +736,8 @@
     },
     {
       "path": "wrangler.jsonc",
-      "bytes": 1455,
-      "sha256": "dd0a59029effa1758ee92cb5fb05755b0551be0a003dc3085f89023b8a30e948"
+      "bytes": 1461,
+      "sha256": "3c4c8699bc423392dbe6a590f586b9bf9abe9379aa3ee6af7b1454c941c77ca8"
     }
   ],
   "scan": {

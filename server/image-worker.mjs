@@ -238,7 +238,10 @@ export default {
             const trigger = await getTriggerConnection(env,connected.channel);
             message = trigger.connected ? "Chat triggers are connected. Return to Scene Studio and choose Check connection." : "Chat access is connected. Return to Scene Studio and choose Check connection to confirm Twitch has enabled the chat listener.";
           }
-          if (connected.presenceAccess) message = "Chat arrival access is connected. Return to Scene Studio, refresh arrival status and publish a joins-chat shoutout rule. The first check quietly records who is already present.";
+          if (connected.presenceAccess) {
+            await env.IMAGES.prepare("UPDATE shoutout_presence SET next_check=0 WHERE channel=?1").bind(connected.channel).run();
+            message = "Chat arrival access is connected. Return to Scene Studio, refresh arrival status and publish a joins-chat shoutout rule. The first check quietly records who is already present.";
+          }
         }
         catch { message = "Chat could not be connected. Return to Scene Studio and start Connect chat again."; status = 400; }
         return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Scene Studio chat</title><h1>Scene Studio</h1><p>${message}</p></html>`, {status, headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Referrer-Policy":"no-referrer","Content-Security-Policy":"default-src 'none'; frame-ancestors 'none'","X-Content-Type-Options":"nosniff"}});
