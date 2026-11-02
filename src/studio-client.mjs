@@ -61,6 +61,7 @@ export function studioHelper(auth, initial) {
   return helper;
 }
 export const loadPublishedScene = auth => request(`/v1/channel/${auth.channelId}/scene`,auth);
+export const publishStudioScene = (auth, scene, revision) => request(`/v1/channel/${auth.channelId}/scene`,auth,{scene,revision});
 export const loadPublishHistory = auth => request(`/v1/channel/${auth.channelId}/history`,auth);
 export const restorePublishedScene = (auth, revision, targetRevision) => request(`/v1/channel/${auth.channelId}/rollback`,auth,{revision,targetRevision});
 
