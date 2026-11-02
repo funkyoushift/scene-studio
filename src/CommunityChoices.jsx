@@ -1,0 +1,5 @@
+import React from 'react';
+export function CommunityChoices({onGo}){return <div className="community-choices">
+  <button className="community-choice" onClick={()=>onGo('room')}><div className="community-art room-art" aria-hidden="true"><div className="room-screen"><span>YOUR STREAM</span><i>▶</i><div>◉　◉　◉　＋</div></div><span className="art-label">ONE LINK. EVERYONE PLAYS.</span></div><div className="community-choice-copy"><h2>Viewer rooms</h2><p>Invite viewers to your interactive stream. Create, copy and preview your room link.</p><strong>Invite your viewers →</strong></div></button>
+  <button className="community-choice" onClick={()=>onGo('cards')}><div className="community-art cards-art" aria-hidden="true"><div className="sample-card black-card">Cards<br/>Against<br/>Humanity.<small>THE PROMPT</small></div><div className="sample-card white-card">Your community’s<br/>questionable<br/>sense of humor.<small>THE ANSWER</small></div></div><div className="community-choice-copy"><h2>Cards Against Humanity</h2><p>Browse expansions, choose house rules and run a shared table with private hands.</p><strong>Set up game night →</strong></div></button>
+</div>;}

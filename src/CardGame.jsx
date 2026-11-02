@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { IMAGE_ORIGIN } from "./image-address.mjs";
 import {performCardAction} from './card-actions.mjs';
-import { DEFAULT_CARD_RULES } from "./card-game.mjs";
+import { DEFAULT_CARD_RULES,cardRules } from "./card-game.mjs";
 import { prepareCardDeck } from "./card-decks.mjs";
 import "./card-game.css";
 
@@ -91,7 +91,9 @@ function Rules({ value, onChange, disabled }) {
     </fieldset>
   );
 }
-function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate, browseOnly = false }) {
+function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate, browseOnly = false, guided=false }) {
+  const [step,setStep]=useState(0);
+  let ruleError='';try{if(!browseOnly)cardRules(rules);}catch(e){ruleError=e.message;}
   const [search, setSearch] = useState(""),
     [source, setSource] = useState(""),
     [official, setOfficial] = useState(false),
@@ -109,8 +111,9 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate, brow
   const toggle = (id) =>
     setPacks(selected.has(id) ? packs.filter((x) => x !== id) : [...packs, id]);
   return (
-    <div className={browseOnly ? "cg-catalog" : "cg-setup"}>
-      <section>
+    <div className={browseOnly ? "cg-catalog" : `cg-setup${guided?' cg-guided':''}`}>
+      {guided&&<ol className="cg-steps" aria-label="Game setup progress">{['Choose decks','Set house rules','Review & open'].map((label,i)=><li key={label} aria-current={step===i?'step':undefined}>{i+1} · {label}</li>)}</ol>}
+      <section hidden={guided&&step!==0}>
         <h3>{browseOnly ? "Full card catalog" : "Choose your decks"}</h3>
         <p>
           {catalog.packs.length.toLocaleString()} packs ·{" "}
@@ -239,14 +242,14 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate, brow
           </p>
         </details>
       </section>
-      {!browseOnly && <section>
+      {!browseOnly && <section hidden={guided&&step!==1}>
         <Rules value={rules} onChange={setRules} disabled={busy} />
         <p>
           Default play: ten-card hands, ordered answers, anonymous judging, one
           point per win, and a rotating judge. The score, timer, and round limit
           are adjustable house rules.
         </p>
-        <button
+        {!guided&&<button
           className="cg-primary"
           disabled={busy || !packs.length}
           onClick={onCreate}
@@ -254,12 +257,14 @@ function Setup({ catalog, rules, setRules, packs, setPacks, busy, onCreate, brow
           {busy
             ? "Preparing the table…"
             : "Open lobby with these decks and rules"}
-        </button>
+        </button>}
         <p className="cg-note">
           Opening a lobby makes the game available to viewers. It does not post
           to chat or change your other overlay objects.
         </p>
       </section>}
+      {guided&&step===2&&<section className="cg-review"><h3>Ready for your viewers?</h3><p>Your lobby opens only when you choose Open lobby below. You start the round after at least three players join.</p><h4>Selected decks · {packs.length}</h4><ul>{catalog.packs.filter(p=>selected.has(p.id)).map(p=><li key={p.id}>{p.name}</li>)}</ul><dl><dt>Cards per hand</dt><dd>{rules.handSize}</dd><dt>Players</dt><dd>Up to {rules.maxPlayers}, including you</dd><dt>Match ends</dt><dd>{rules.winningScore?`${rules.winningScore} points or `:''}{rules.roundLimit} rounds</dd><dt>Answer timer</dt><dd>{rules.seconds?`${rules.seconds} seconds`:'No timer'}</dd><dt>Judge</dt><dd>{{rotate:'Rotate through the players',host:'Streamer always judges',winner:'Previous winner judges'}[rules.judgeMode]}</dd><dt>Packing Heat</dt><dd>{rules.packingHeat?'On':'Off'}</dd><dt>Hand redraw</dt><dd>{rules.redraw?'Allowed for one point':'Off'}</dd><dt>Late joining</dt><dd>{rules.lateJoin?'Between rounds':'Off'}</dd></dl><p>Your current scene stays in place. Opening the lobby does not post to chat.</p></section>}
+      {guided&&<>{step===1&&ruleError&&<p className="cg-error" role="alert">{ruleError}</p>}<div className="cg-guided-actions"><button disabled={busy||step===0} onClick={()=>setStep(step-1)}>Back</button>{step<2?<button className="cg-primary" disabled={busy||(step===0&&!packs.length)||(step===1&&!!ruleError)} onClick={()=>setStep(step+1)}>{step===0?'Next: house rules →':'Review game setup →'}</button>:<button className="cg-primary" disabled={busy||!packs.length||!!ruleError} onClick={onCreate}>{busy?'Preparing the table…':'Open lobby'}</button>}</div></>}
     </div>
   );
 }
@@ -558,8 +563,11 @@ export default function CardGame({
   helper,
   onClose,
   request = cardRequest,
+  inline = false,
+  guided = false,
 }) {
   const [open, setOpen] = useState(host),
+    [loaded,setLoaded]=useState(false),
     [game, setGame] = useState(null),
     [catalog, setCatalog] = useState(null),
     [error, setError] = useState(""),
@@ -577,6 +585,7 @@ export default function CardGame({
   useEffect(() => {
     generation.current++;
     setGame(null);
+    setLoaded(false);
     setCatalog(null);
     setError("");
     setPacks([]);
@@ -604,7 +613,7 @@ export default function CardGame({
       try {
         if (!document.hidden && !locked.current) {
           const data = await request(auth, "game");
-          if (!stopped && epoch === actionEpoch.current) accept(data);
+          if (!stopped && epoch === actionEpoch.current) {accept(data);setLoaded(true);}
         }
       } catch (e) {
         if (!stopped && open && epoch === actionEpoch.current)
@@ -634,9 +643,9 @@ export default function CardGame({
     };
   }, [host, auth?.channelId, auth?.token, request]);
   useEffect(() => {
-    if (open && dialog.current && !dialog.current.open)
+    if (!inline && open && dialog.current && !dialog.current.open)
       dialog.current.showModal();
-  }, [open]);
+  }, [open,inline]);
   const close = () => {
     setOpen(false);
     onClose?.();
@@ -696,27 +705,28 @@ export default function CardGame({
     }
   };
   if (!host && !game && !open) return null;
+  const Container=inline?'section':'dialog';
   return (
     <>
       {!open && game && (
         <button className="cg-launcher" onClick={() => setOpen(true)}>
-          ♠ Card table · {game.players.length} players
+          ♠ Cards Against Humanity · {game.players.length} players
         </button>
       )}
       {open && (
-        <dialog
-          className="cg-dialog"
+        <Container
+          className={`cg-dialog${inline?' cg-inline':''}`}
           ref={dialog}
           onCancel={(e) => {
             e.preventDefault();
             close();
           }}
-          aria-label="Stream card game"
+          aria-label="Cards Against Humanity"
         >
           <header>
             <div>
               <small>SCENE STUDIO · GAME NIGHT</small>
-              <h2>Cards with your community</h2>
+              <h2>Cards Against Humanity</h2>
             </div>
             <button onClick={close} aria-label="Close card game window">
               ×
@@ -735,7 +745,7 @@ export default function CardGame({
                 load the deck catalog and host a game.
               </p>
             )}
-            {game ? (
+            {!loaded&&auth?.token?<p role="status">Checking your current table…</p>:game ? (
               <>
               {host && game.isHost && catalog && <section aria-label="Available card packs">
                 <p>This match uses {game.deck.packs.length} selected packs. The full catalog has {catalog.packs.length.toLocaleString()} packs.</p>
@@ -756,6 +766,7 @@ export default function CardGame({
                 packs={packs}
                 setPacks={setPacks}
                 busy={busy}
+                guided={guided}
                 onCreate={() =>
                   act({
                     type: "create",
@@ -777,7 +788,7 @@ export default function CardGame({
               authors. No purchases, paid entries, or paid advantages.
             </footer>
           </div>
-        </dialog>
+        </Container>
       )}
     </>
   );

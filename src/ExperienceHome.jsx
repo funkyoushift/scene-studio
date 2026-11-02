@@ -176,7 +176,7 @@ export default function ExperienceHome({ objects = [], flows = [], onChooseWidge
     </section>
 
     <nav className="eh-discovery-paths" aria-label="Other ways to start">
-      <button type="button" className="eh-discovery-card" onClick={() => onOpenCards?.()}><span aria-hidden="true">♠</span><b>Host a card game</b><small>Choose expansions, change the rules, and play together with private hands.</small></button>
+      <button type="button" className="eh-discovery-card" onClick={() => onOpenCards?.()}><span aria-hidden="true">♠</span><b>Host Cards Against Humanity</b><small>Choose expansions, change the rules, and play together with private hands.</small></button>
       <button type="button" className="eh-discovery-card" onClick={revealLibrary}><span aria-hidden="true">⌕</span><b>Browse all ideas</b><small>Find a starter by category or search by name.</small></button>
       <button type="button" className="eh-discovery-card" onClick={() => onOpenCanvas?.()}><span aria-hidden="true">＋</span><b>Create my own</b><small>Add and arrange your own interactive elements.</small></button>
       <button type="button" className="eh-discovery-card" onClick={() => onOpenAI?.()}><span aria-hidden="true">✧</span><b>Build with AI</b><small>Use your AI account to create and review a design.</small></button>

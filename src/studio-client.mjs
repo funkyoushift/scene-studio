@@ -1,4 +1,5 @@
 import { IMAGE_ORIGIN } from './image-address.mjs';
+import {rememberCommunityReturn} from './community-navigation.mjs';
 
 export const STUDIO_URL = 'https://www.funkyoushift.com/scene-studio/';
 const KEY = 'scene-studio-session-v1';
@@ -9,7 +10,8 @@ async function request(path, auth, body, method = body ? 'POST' : 'GET') {
   if(!res.ok) throw Object.assign(Error(data.error || 'Scene Studio could not connect.'),{status:res.status});
   return data;
 }
-export async function startStudioSignIn() {
+export async function startStudioSignIn(options={}) {
+  if(options.community)rememberCommunityReturn(sessionStorage,options.section);
   const verifier = encode(crypto.getRandomValues(new Uint8Array(32)));
   const challenge = encode(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier))));
   sessionStorage.setItem('studio-proof',verifier);
