@@ -18,3 +18,10 @@ export function expectedRevision(workspace,kind) {
   if(!Number.isSafeInteger(revision)||revision<0)throw Error('This draft has no saved revision. Export it, then load the published workspace before importing your changes.');
   return revision;
 }
+export function applySceneReceipt(current,submitted,result) {
+  const unchanged=JSON.stringify(current.scene)===JSON.stringify(submitted.scene)&&JSON.stringify(current.hidden)===JSON.stringify(submitted.hidden);
+  // Keep hidden objects editable after publishing. Only visible objects appear
+  // in the receipt; merge their hosted media back without deleting the others.
+  const scene=unchanged ? {...result.scene,objects:current.scene.objects.map(o=>result.scene.objects.find(saved=>saved.id===o.id)||o)} : current.scene;
+  return {...current,scene,sceneRevision:result.revision};
+}

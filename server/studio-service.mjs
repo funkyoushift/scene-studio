@@ -121,7 +121,7 @@ export async function studioGateway(request, env, forward) {
   // Public immutable asset reads do not require a session.
   if(request.method==='GET' && /\/[a-f0-9]{64}\./.test(new URL(request.url).pathname)) return null;
   try {
-    if(request.method === 'OPTIONS') return new Response(null, {status:204, headers:{'Access-Control-Allow-Origin':env.STUDIO_ORIGIN,Vary:'Origin','Access-Control-Allow-Methods':'GET, POST, DELETE','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
+    if(request.method === 'OPTIONS') return new Response(null, {status:204, headers:{'Access-Control-Allow-Origin':env.STUDIO_ORIGIN,Vary:'Origin','Access-Control-Allow-Methods':'GET, POST, PUT, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
     const identity = await studioSession(request, env);
     if (identity.channelId !== channel) fail(403, 'You can only manage your own channel.');
     const headers = new Headers(request.headers);

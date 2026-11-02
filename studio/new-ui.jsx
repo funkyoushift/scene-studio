@@ -67,7 +67,7 @@ const tools = [
     id: "overview",
     name: "Scene overview",
     text: "Arrange the whole scene and try viewer interactions.",
-    words: "preview scene layer layout live published draft",
+    words: "preview scene layer layout live publish published draft",
   },
   {
     id: "room",
@@ -291,7 +291,9 @@ function App() {
       );
     }
   }, [draft]);
+  const templateLoad = useRef(0);
   const go = (next) => {
+    templateLoad.current++;
     setPreviewGame(false);
     setRoute(next);
     setQuery("");
@@ -445,6 +447,7 @@ function App() {
     setPreviewItem({ type: "object", id });
   };
   const choose = async (item) => {
+    const ticket=++templateLoad.current;
     try {
       setChosen(item);
       setNotice('Preparing template…');
@@ -452,6 +455,7 @@ function App() {
       if(item.type==='maze') {
         maze=await loadMazeTemplate(setNotice);
       }
+      if(ticket!==templateLoad.current)return;
       setSample(makeTemplate(item, maze));
       go("template");
     } catch (e) {
@@ -1708,7 +1712,7 @@ function App() {
             </div>
           )}
           {content}
-          <PublishPanel workspace={draft} setWorkspace={setDraft} onPreview={()=>go('overview')} onPublished={()=>setResetKey(n=>n+1)}/>
+          {(route==='overview'||route==='controls')&&<PublishPanel workspace={draft} setWorkspace={setDraft} onPreview={()=>go('overview')} onPublished={()=>setResetKey(n=>n+1)}/>}
           <p className="prototype-footer">
             Your draft stays on this device. Publishing updates your channel’s connected players. The preview simulates interactions; open your viewer room to check the published experience.
           </p>

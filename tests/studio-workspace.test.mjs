@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {workspaceKeys,publishedWorkspace,publicationScene,expectedRevision} from '../studio/workspace.mjs';
+import {workspaceKeys,publishedWorkspace,publicationScene,expectedRevision,applySceneReceipt} from '../studio/workspace.mjs';
 import {catalog,makeTemplate,emptyScene,emptyAutomation,findTemplates} from '../studio/catalog.mjs';
 import {buildMazeExperience} from '../scripts/build-brb-maze.mjs';
 import {preflightPublish} from '../src/images.mjs';
@@ -25,4 +25,8 @@ test('full gallery has 47 source-backed usable templates and portable maze',()=>
 test('publication respects hidden scene objects without deleting the editable draft',()=>{
   const item=catalog.find(c=>c.type==='widget');const ws=makeTemplate(item);ws.hidden=[ws.scene.objects[0].id];
   const before=JSON.stringify(ws);assert.equal(publicationScene(ws).objects.length,ws.scene.objects.length-1);assert.equal(JSON.stringify(ws),before);
+  const receipt={scene:publicationScene(ws),revision:7};
+  const next=applySceneReceipt(ws,ws,receipt);assert.deepEqual(next.scene,ws.scene);assert.deepEqual(next.hidden,ws.hidden);assert.equal(next.sceneRevision,7);
+  const edited={...ws,scene:{...ws.scene,name:'Edited during upload'}};
+  assert.equal(applySceneReceipt(edited,ws,receipt).scene.name,'Edited during upload');
 });

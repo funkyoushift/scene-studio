@@ -10,6 +10,13 @@ import {signOutStudio} from '../src/studio-client.mjs';
 const host={role:'broadcaster',user_id:'123',channel_id:'123'};
 const scene={...starterScene(),objects:[]};
 const json=(data,status=200)=>Response.json(data,{status});
+test('studio moment-save preflight permits PUT only from the configured website',async()=>{
+  const e=env();let forwarded=false;
+  const res=await studioGateway(request('/v1/automations/123/config',null,'OPTIONS'),e,()=>{forwarded=true;});
+  assert.equal(res.status,204);assert.equal(res.headers.get('Access-Control-Allow-Origin'),e.STUDIO_ORIGIN);
+  assert.ok(res.headers.get('Access-Control-Allow-Methods').split(', ').includes('PUT'));assert.equal(forwarded,false);
+  assert.equal(await studioGateway(request('/v1/automations/123/config',null,'OPTIONS','https://other.test'),e,()=>{}),null);
+});
 function env(){
   const db=new DatabaseSync(':memory:');db.exec(readFileSync(new URL('../server/studio-schema.sql',import.meta.url),'utf8'));
   return {db,STUDIO_ENABLED:'true',STUDIO_ORIGIN:'https://studio.test',STUDIO_URL:'https://studio.test/project/',PUBLIC_SERVICE_URL:'https://api.test',TEST_CHANNELS:'123',TWITCH_CHAT_CLIENT_ID:'client',TWITCH_CHAT_CLIENT_SECRET:'fixture',EXTENSION_SECRET:Buffer.from('fixture secret only').toString('base64'),EXTENSION_ORIGIN:'https://test.ext-twitch.tv',IMAGES:{prepare(sql){return{bind(...args){const query=db.prepare(sql),values=Object.fromEntries(args.map((v,i)=>[i+1,v]));return{async first(){return query.get(values);},async all(){return{results:query.all(values)};},async run(){return{meta:query.run(values)};}};}};}}};
