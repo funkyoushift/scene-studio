@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import {testRoomRequest,TEST_ROOM_OPEN_ENDED,extendOpenTestRooms} from '../server/test-room-service.mjs';
-import {digest,studioSession} from '../server/studio-service.mjs';
+import {digest,studioSession,studioAuth,studioGateway,channelSceneRequest} from '../server/studio-service.mjs';
+import worker,{extensionClaims} from '../server/image-worker.mjs';
 import {testChannelEnv,registerTester,requestTestChannelEnv} from '../server/tester-access.mjs';
 import {newCardGame,cardTransition} from '../src/card-game.mjs';
 import {starterScene} from '../src/scene.mjs';
@@ -98,4 +99,80 @@ test('website request adapter admits only the room channel and read-only moment 
   await adapter(`${base}/v1/automations/123/active`);
   for(const url of [`${base}/v1/automations/456/active`,`${base}/v1/automations/123/fire`,'https://evil.test/v1/automations/123/active'])await assert.rejects(()=>adapter(url));
   assert.equal(count,1);assert.match(twitchVideoUrl('tester','studio.test'),/parent=studio.test/);assert.throws(()=>twitchVideoUrl('bad/name','studio.test'));
+});
+
+test('two newly approved streamers sign in, bootstrap independent rooms, and host isolated games through the website gateway',async()=>{
+  const {env,db}=await fixture();
+  Object.assign(env,{TEST_STREAMER_LOGINS:'scootermagoo,x_bella_beast_x',TWITCH_CHAT_CLIENT_ID:'fixture-client',TWITCH_CHAT_CLIENT_SECRET:'fixture-only',EXTENSION_SECRET:Buffer.from('fixture-only-secret').toString('base64')});
+  const catalog={version:'0123456789abcdef',shards:1,packs:[{id:'cah:0',name:'Original fixture cards'}]};
+  const deck={catalogVersion:catalog.version,packs:catalog.packs,available:{white:150,black:12},white:Array.from({length:150},(_,i)=>({text:`Answer ${i}`})),black:Array.from({length:12},(_,i)=>({text:`Prompt ${i}: _`,pick:1,draw:0}))};
+  env.EXPERIENCE_MEDIA={get:async key=>key.endsWith('catalog.json')?{json:async()=>catalog}:null};
+  const req=(path,token,body,method=body?'POST':'GET')=>new Request(`https://api.test${path}`,{method,headers:{Origin:env.STUDIO_ORIGIN,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+  const call=(path,token,body,method)=>worker.fetch(req(path,token,body,method),env);
+  async function okay(response){const data=await response.json();assert.equal(response.status,200,JSON.stringify(data));return data;}
+  async function signIn(id,login){
+    const verifier='v'.repeat(43),challenge=await digest(verifier);
+    const start=await okay(await studioAuth(req('/studio/auth/start','',{challenge}),env));
+    const state=new URL(start.authorizeUrl).searchParams.get('state');
+    const callback=await studioAuth(req(`/chat/callback?state=${state}&code=fixture`),env,{fetcher:async url=>Response.json(url.endsWith('/token')?{access_token:'fixture-server-only'}:{client_id:env.TWITCH_CHAT_CLIENT_ID,user_id:id,login})});
+    if(callback.status!==303)return callback;
+    const code=new URL(callback.headers.get('location')).hash.slice('#studio_code='.length);
+    return okay(await call('/studio/auth/exchange','',{code,verifier}));
+  }
+  // Synthetic IDs only: no use of or sign-in to anybody's real account.
+  assert.equal((await signIn('9003','unapproved')).status,403);
+  const hosts=[await signIn('9001','scootermagoo'),await signIn('9002','x_bella_beast_x')];
+  const rooms=[],guests=[];
+  for(const [i,host] of hosts.entries()){
+    assert.equal(host.channelId,`900${i+1}`);
+    assert.equal(env.TEST_CHANNELS,'123','dynamic enablement must not mutate the shared environment');
+    const sceneRequest=req(`/v1/channel/${host.channelId}/scene`,host.token);
+    const initial=await studioGateway(sceneRequest,env,async(internal,scoped)=>{
+      const claims=await extensionClaims(internal,scoped.EXTENSION_SECRET,host.channelId);
+      return channelSceneRequest(internal,scoped,{channel:host.channelId,route:'scene',claims},(data,status=200)=>Response.json(data,{status}),{fetcher:async()=>Response.json({data:[]})});
+    });
+    assert.equal((await okay(initial)).revision,1,'a streamer with no old extension setup gets an initial scene');
+    assert.deepEqual((await okay(await call(`/v1/cards/${host.channelId}/catalog`,host.token))).packs,catalog.packs);
+    rooms.push(await okay(await call('/test-room/manage',host.token,{})));
+    assert.equal(rooms[i].expiresAt,null);
+    guests.push(await Promise.all([1,2].map(async()=>okay(await call('/test-room/join',rooms[i].invite,{})))));
+    assert.ok(guests[i].every(g=>g.channelId===host.channelId&&g.profile.login===host.profile.login));
+    await okay(await call(`/v1/channel/${host.channelId}/scene`,host.token,{revision:1,scene:{...starterScene(),objects:[],name:`${host.profile.login}'s scene`}}));
+    assert.equal((await okay(await call('/test-room/play/scene',guests[i][0].token))).scene.name,`${host.profile.login}'s scene`);
+    const created=await okay(await call(`/v1/cards/${host.channelId}/game`,host.token,{type:'create',catalogVersion:catalog.version,deck,rules:{handSize:i?7:5,winningScore:0,roundLimit:1,seconds:0}}));
+    assert.equal(created.game.isHost,true);assert.equal(created.game.rules.handSize,i?7:5);
+  }
+  assert.notEqual(rooms[0].roomId,rooms[1].roomId);
+  async function hostAction(i,action){const host=hosts[i],path=`/v1/cards/${host.channelId}/game`,state=await okay(await call(path,host.token));return okay(await call(path,host.token,{...action,gameId:state.game.id,revision:state.game.revision}));}
+  async function guestAction(i,j,action){const token=guests[i][j].token,state=await okay(await call('/test-room/play/cards',token));return okay(await call('/test-room/play/cards',token,{...action,gameId:state.game.id,revision:state.game.revision}));}
+  for(let i=0;i<2;i++){
+    for(let j=0;j<2;j++)await guestAction(i,j,{type:'join'});
+    await hostAction(i,{type:'start'});
+  }
+  const a=(await okay(await call('/test-room/play/cards',guests[0][0].token))).game;
+  const b=(await okay(await call('/test-room/play/cards',guests[1][0].token))).game;
+  assert.notEqual(a.id,b.id);assert.equal(a.hand.length,5);assert.equal(b.hand.length,7);
+  assert.equal((await call(`/v1/cards/${hosts[1].channelId}/game`,hosts[0].token)).status,403);
+  assert.equal((await call('/test-room/play/cards',guests[0][0].token,{type:'submit',gameId:b.id,revision:b.revision,cards:[b.hand[0].id],channelId:hosts[1].channelId})).status,409);
+  assert.equal((await call('/test-room/play/cards',guests[0][0].token,{type:'close'})).status,403);
+  for(let i=0;i<2;i++){
+    for(let j=0;j<2;j++){
+      const state=(await okay(await call('/test-room/play/cards',guests[i][j].token))).game;
+      await guestAction(i,j,{type:'submit',cards:[state.hand[0].id]});
+    }
+    const host=hosts[i],state=(await okay(await call(`/v1/cards/${host.channelId}/game`,host.token))).game;
+    assert.equal(state.phase,'judging');assert.equal(state.submissions.length,2);
+    assert.ok(state.submissions.every(s=>!('player' in s)&&!('user' in s)));
+    await hostAction(i,{type:'judge',submission:state.submissions[0].id});
+    const final=(await hostAction(i,{type:'next'})).game;
+    assert.equal(final.phase,'finished');assert.equal(final.players.reduce((n,p)=>n+p.score,0),1);
+    for(const guest of guests[i])assert.deepEqual((await okay(await call('/test-room/play/cards',guest.token))).game.players,final.players);
+  }
+  await okay(await call('/test-room/manage',hosts[0].token,undefined,'DELETE'));
+  assert.equal((await call('/test-room/play/cards',guests[0][0].token)).status,410);
+  assert.equal((await call('/test-room/play/cards',guests[1][0].token)).status,200);
+  env.TEST_STREAMER_LOGINS='scootermagoo';
+  assert.equal((await call('/test-room/manage',hosts[1].token)).status,403);
+  assert.equal((await call('/test-room/play/cards',guests[1][0].token)).status,403);
+  db.close();
 });
