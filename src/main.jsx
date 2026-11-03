@@ -85,6 +85,9 @@ const descriptions = {
 const isViewer = false;
 const isConfig = Boolean(window.SceneStudioHelper) || location.pathname.endsWith("/config.html");
 const draftSlug = draftSlugFromSearch(location.search, { isViewer, isConfig });
+const studioQuery = new URLSearchParams(location.search);
+const studioTool = draftSlug && !isConfig && ['experience','ai','object','events','advanced'].includes(studioQuery.get('studioTool')) ? studioQuery.get('studioTool') : '';
+const studioFocus = /^[A-Za-z0-9_-]{1,64}$/.test(studioQuery.get('focus') || '') ? studioQuery.get('focus') : '';
 const sceneStorageKey = sceneDraftStorageKey(draftSlug);
 const draftQuery = draftSlug ? `?draft=${encodeURIComponent(draftSlug)}` : "";
 const helper = window.Twitch?.ext;
@@ -257,13 +260,13 @@ function Presentation({scene,onClose,viewport,onViewportChange}) {
 
 function Editor() {
   const [cardsOpen,setCardsOpen]=useState(false);
-  const [experienceOpen, setExperienceOpen] = useState(false);
+  const [experienceOpen, setExperienceOpen] = useState(studioTool === "experience");
   const bundleApi = useRef(null);
   const [flowDraft, setFlowDraft] = useState(null);
-  const [homeOpen, setHomeOpen] = useState(true),
-    [flowRequest, setFlowRequest] = useState(null),
+  const [homeOpen, setHomeOpen] = useState(!studioTool || studioTool === 'experience'),
+    [flowRequest, setFlowRequest] = useState(studioTool==='events'&&studioFocus?{pageId:studioFocus,requestId:crypto.randomUUID()}:null),
     [flowPages, setFlowPages] = useState([]);
-  const [automationOpen, setAutomationOpen] = useState(false),
+  const [automationOpen, setAutomationOpen] = useState(studioTool === "events"),
     [automationSession, setAutomationSession] = useState(null);
   const [scene, setScene] = useState(() => {
     if (isConfig) return starterScene();
@@ -281,13 +284,13 @@ function Editor() {
       return starterScene();
     }
   });
-  const [selected, setSelected] = useState(scene.objects[0]?.id),
+  const [selected, setSelected] = useState(scene.objects.some(o=>o.id===studioFocus)?studioFocus:scene.objects[0]?.id),
     [preview, setPreview] = useState(false),
     [guided, setGuided] = useState(true),
     [guideStep, setGuideStep] = useState(1),
     [viewport, setViewport] = useState({ shape: "desktop", width: 960 }),
     [notice, setNotice] = useState(""),
-    [modal, setModal] = useState(null),
+    [modal, setModal] = useState(studioTool==="ai"?"ai":studioTool==="advanced"?"advanced":null),
     [json, setJson] = useState(""),
     [authorized, setAuthorized] = useState(false),
     [linked, setLinked] = useState(false),
@@ -673,7 +676,7 @@ function Editor() {
   }
   return (
     <>
-    {experienceOpen && <ExperienceStudio draftKey={sceneStorageKey + '-experience-' + (authRef.current?.channelId || 'local')} slot={scene.experience} onClose={() => setExperienceOpen(false)} onSave={experience => { commit({ ...sceneRef.current, experience }); setExperienceOpen(false); setNotice('Experience added to your overlay draft. Open viewer preview to play it. Publish when you are ready.'); }} onRemove={() => { const next = { ...sceneRef.current }; delete next.experience; commit(next); setExperienceOpen(false); setNotice('Experience removed from the draft. Publish to change Twitch.'); }} />}
+    {experienceOpen && <ExperienceStudio draftKey={sceneStorageKey + '-experience-' + (authRef.current?.channelId || 'local')} slot={scene.experience} onPreviewScene={draftSlug ? experience=>{try{const next=validateScene({...sceneRef.current,experience});localStorage.setItem(sceneStorageKey,JSON.stringify(next));commit(next);window.dispatchEvent(new Event('scene-studio-preview-ready'));}catch(error){setNotice(error.message);}}:undefined} onClose={() => setExperienceOpen(false)} onSave={experience => { commit({ ...sceneRef.current, experience }); setExperienceOpen(false); setNotice('Experience added to your overlay draft. Open viewer preview to play it. Publish when you are ready.'); }} onRemove={() => { const next = { ...sceneRef.current }; delete next.experience; commit(next); setExperienceOpen(false); setNotice('Experience removed from the draft. Publish to change Twitch.'); }} />}
     {cardsOpen&&<CardGame auth={authRef.current} helper={helper} host onClose={()=>setCardsOpen(false)}/>}
     <div hidden={experienceOpen}>
     {homeOpen && draftSlug && <p className="hint" role="status">Local draft “{draftSlug}” · this workspace has its own scene and automation saves.</p>}
@@ -856,6 +859,7 @@ function Editor() {
             <PreviewViewport value={viewport} onChange={setViewport}><Scene
               scene={scene}
               editing={!preview}
+              isConfig={isConfig}
               selected={selected}
               onSelect={setSelected}
               onChange={change}
