@@ -2,13 +2,13 @@ import {studioSession, digest, channelSceneRequest} from './studio-service.mjs';
 import {readExperienceBody} from './experience-service.mjs';
 import {automationRequest} from './automation-service.mjs';
 import {cardGameRequest} from './card-game-service.mjs';
-import {testChannelEnv} from './tester-access.mjs';
+import {testChannelEnv,studioChannelEnabled} from './tester-access.mjs';
 
 const fail=(status,message)=>{throw Object.assign(Error(message),{status});};
 const random=()=>btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 const bearer=request=>request.headers.get('authorization')?.slice(7) || '';
 async function body(request){try{return JSON.parse(new TextDecoder().decode(await readExperienceBody(request,4096)));}catch(e){fail(e.status||400,'Invalid test-room request.');}}
-const enabled=(env,channel)=>(env.TEST_CHANNELS||'').split(',').includes(channel);
+const enabled=studioChannelEnabled;
 // Rooms are explicitly revoked, or retired with the production release switch.
 // Guest credentials retain their separate eight-hour lifetime.
 export const TEST_ROOM_OPEN_ENDED = Number.MAX_SAFE_INTEGER;

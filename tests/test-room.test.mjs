@@ -101,7 +101,7 @@ test('website request adapter admits only the room channel and read-only moment 
   assert.equal(count,1);assert.match(twitchVideoUrl('tester','studio.test'),/parent=studio.test/);assert.throws(()=>twitchVideoUrl('bad/name','studio.test'));
 });
 
-test('two newly approved streamers sign in, bootstrap independent rooms, and host isolated games through the website gateway',async()=>{
+for(const publicAccess of [false,true]) test(`${publicAccess?'two unlisted public streamers':'two newly approved streamers'} sign in, bootstrap independent rooms, and host isolated games through the website gateway`,async()=>{
   const {env,db}=await fixture();
   Object.assign(env,{TEST_STREAMER_LOGINS:'scootermagoo,x_bella_beast_x',TWITCH_CHAT_CLIENT_ID:'fixture-client',TWITCH_CHAT_CLIENT_SECRET:'fixture-only',EXTENSION_SECRET:Buffer.from('fixture-only-secret').toString('base64')});
   const catalog={version:'0123456789abcdef',shards:1,packs:[{id:'cah:0',name:'Original fixture cards'}]};
@@ -121,6 +121,7 @@ test('two newly approved streamers sign in, bootstrap independent rooms, and hos
   }
   // Synthetic IDs only: no use of or sign-in to anybody's real account.
   assert.equal((await signIn('9003','unapproved')).status,403);
+  if(publicAccess){env.STUDIO_PUBLIC_ENABLED='true';env.TEST_STREAMER_LOGINS='';}
   const hosts=[await signIn('9001','scootermagoo'),await signIn('9002','x_bella_beast_x')];
   const rooms=[],guests=[];
   for(const [i,host] of hosts.entries()){
@@ -171,7 +172,8 @@ test('two newly approved streamers sign in, bootstrap independent rooms, and hos
   await okay(await call('/test-room/manage',hosts[0].token,undefined,'DELETE'));
   assert.equal((await call('/test-room/play/cards',guests[0][0].token)).status,410);
   assert.equal((await call('/test-room/play/cards',guests[1][0].token)).status,200);
-  env.TEST_STREAMER_LOGINS='scootermagoo';
+  if(publicAccess)env.STUDIO_BLOCKED_CHANNELS=hosts[1].channelId;
+  else env.TEST_STREAMER_LOGINS='scootermagoo';
   assert.equal((await call('/test-room/manage',hosts[1].token)).status,403);
   assert.equal((await call('/test-room/play/cards',guests[1][0].token)).status,403);
   db.close();

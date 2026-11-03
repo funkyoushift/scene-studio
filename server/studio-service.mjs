@@ -4,7 +4,7 @@ import { readExperienceBody } from './experience-service.mjs';
 import { parseScene, twitchContent, starterScene } from '../src/scene.mjs';
 import { hostedImage } from '../src/image-address.mjs';
 import { signPartyToken } from './party-service.mjs';
-import {approvedTester,registerTester,testChannelEnv} from './tester-access.mjs';
+import {approvedTester,registerTester,testChannelEnv,studioChannelEnabled,studioLoginAllowed,registerStudioChannel,channelBlocked} from './tester-access.mjs';
 
 const encoder = new TextEncoder();
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
@@ -15,7 +15,12 @@ const jsonBody = async request => {
   try { return JSON.parse(new TextDecoder().decode(await readExperienceBody(request, 12000))); }
   catch (e) { if(e.status) throw e; fail(400, 'Invalid request.'); }
 };
-const allowedChannel = (env, channel) => (env.TEST_CHANNELS || '').split(',').includes(channel);
+const allowedChannel = studioChannelEnabled;
+async function requireStudioIdentity(env,identity){
+  const channel=identity?.channelId,login=identity?.profile?.login;
+  if(channelBlocked(env,channel)||(!approvedTester(env,login)&&!allowedChannel(await testChannelEnv(env,channel),channel)))
+    fail(403,'This channel is not enabled for Scene Studio.');
+}
 function response(data, status = 200, origin) {
   return new Response(JSON.stringify(data), { status, headers: {
     'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
@@ -28,7 +33,7 @@ export async function studioSession(request, env, now = Date.now()) {
   const row = await env.IMAGES.prepare("SELECT identity FROM studio_auth WHERE hash=?1 AND kind='session' AND expires>?2").bind(await digest(token), now).first();
   if (!row) fail(401, 'Your studio sign-in expired. Sign in again; your work is kept.');
   const identity = JSON.parse(row.identity);
-  if (!allowedChannel(env, identity.channelId) && !approvedTester(env,identity.profile?.login)) fail(403, 'This channel is not enabled for the current test.');
+  await requireStudioIdentity(env,identity);
   return identity;
 }
 async function remember(env, value, kind, proof, identity, expires) {
@@ -67,8 +72,9 @@ export async function studioAuth(request, env, { now = Date.now(), fetcher = fet
       if (!validation.ok) fail(401, 'Twitch sign-in could not be verified.');
       const user = await validation.json();
       if (user.client_id !== env.TWITCH_CHAT_CLIENT_ID || !/^[1-9][0-9]{0,19}$/.test(user.user_id) || !/^[a-z0-9_]{1,25}$/.test(user.login)) fail(401, 'Twitch identity did not match.');
-      if (!allowedChannel(env, user.user_id) && !approvedTester(env,user.login)) fail(403, 'This channel is not enabled for the current test.');
+      if (!studioLoginAllowed(env,user.user_id,user.login)) fail(403, 'This channel is not enabled for Scene Studio.');
       await registerTester(env,{id:user.user_id,login:user.login});
+      await registerStudioChannel(env,{id:user.user_id,login:user.login});
       const code = random();
       await remember(env, code, 'grant', row.proof, { channelId: user.user_id, profile: { id: user.user_id, login: user.login } }, now + 120000);
       return new Response(null, { status: 303, headers: { Location: `${env.STUDIO_URL}#studio_code=${code}`, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
@@ -96,7 +102,9 @@ export async function studioAuth(request, env, { now = Date.now(), fetcher = fet
       if (!/^[A-Za-z0-9_-]{43}$/.test(body.code) || !/^[A-Za-z0-9_-]{43}$/.test(body.verifier)) fail(400, 'Invalid sign-in proof.');
       const row = await consume(env, body.code, 'grant', await digest(body.verifier), now);
       if(!row) fail(401, 'Sign-in expired or belongs to another browser tab. Sign in again.');
-      const identity = JSON.parse(row.identity), token = `ss_${random()}`, expiresAt = now + 3600000;
+      const identity = JSON.parse(row.identity);
+      await requireStudioIdentity(env,identity);
+      const token = `ss_${random()}`, expiresAt = now + 3600000;
       await remember(env, token, 'session', '', identity, expiresAt);
       return response({ ...identity, token, expiresAt, studio:true }, 200, cors);
     }
@@ -147,7 +155,7 @@ export async function channelScene(env, channel) {
 }
 export async function channelSceneRequest(request,env,{channel,route,claims},json,{fetcher=fetch,now=Date.now()}={}) {
   const host = claims.role === 'broadcaster' && claims.user_id === channel;
-  if(!allowedChannel(env,channel)) return json({error:'This channel is not enabled for the current test.'},403);
+  if(!allowedChannel(env,channel)) return json({error:'This channel is not enabled for Scene Studio.'},403);
   if(route !== 'scene' || request.method !== 'GET') {if(!host) return json({error:'Only the channel owner can change this scene.'},403);}
   if(request.method === 'GET' && route === 'history') {
     const rows = await env.IMAGES.prepare('SELECT revision,updated,scene FROM channel_scene_history WHERE channel=?1 ORDER BY revision DESC LIMIT 20').bind(channel).all();

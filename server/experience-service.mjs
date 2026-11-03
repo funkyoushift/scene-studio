@@ -1,5 +1,6 @@
 import { EXPERIENCE_LIMITS, validateExperience } from "../src/experience.mjs";
 import { IMAGE_ORIGIN } from "../src/image-address.mjs";
+import {studioChannelEnabled,channelBlocked} from './tester-access.mjs';
 
 class ExperienceError extends Error {
   constructor(status, message) {
@@ -230,11 +231,8 @@ export async function experienceRequest(
         401,
       );
     if (
-      env.PUBLIC_EXPERIENCES !== "true" &&
-      !(env.TEST_CHANNELS || "")
-        .split(",")
-        .map((s) => s.trim())
-        .includes(channel)
+      channelBlocked(env,channel) ||
+      (env.PUBLIC_EXPERIENCES !== "true" && !studioChannelEnabled(env,channel))
     )
       return json({ error: "Uploads are not enabled for this channel." }, 403);
     const type = request.headers.get("content-type");

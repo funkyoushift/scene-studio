@@ -12,6 +12,7 @@ import {
 } from "./card-catalog.mjs";
 import { validateMatchDeck } from "../src/card-decks.mjs";
 import { readExperienceBody } from "./experience-service.mjs";
+import {studioChannelEnabled} from './tester-access.mjs';
 
 export async function cardGameRequest(
   request,
@@ -23,7 +24,7 @@ export async function cardGameRequest(
   try {
     if (
       env.CARD_GAMES_ENABLED !== "true" ||
-      !(env.TEST_CHANNELS || "").split(",").includes(channel)
+      !studioChannelEnabled(env,channel)
     )
       throw new CardGameError(
         "Card games are not enabled for this channel.",

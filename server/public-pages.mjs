@@ -10,6 +10,7 @@ const pages = {
     sections: [
       ["External studio and publication history", [
         "The Scene Studio editor is hosted on GitHub Pages. Signing in uses Twitch to confirm your channel ID and public login. Twitch access tokens used only for studio sign-in are discarded after validation. Your browser tab stores a revocable studio session for up to one hour; the server stores its hash and channel identity. Sign out removes that session. Expired sign-in records are removed automatically.",
+        "If public streamer sign-up is enabled, Scene Studio also stores your verified channel ID and public login as a channel enrollment until it is removed. This lets your channel's players receive published content without keeping the editor open. Signing out ends your studio session, but does not remove the enrollment, published content or viewer room. Contact support to request removal.",
         "Published channel scenes are stored on Cloudflare and delivered to the Twitch player. The latest 20 revisions are retained for rollback. Uploaded experience manifests, images and videos are accessible through their published addresses. Treat all published content as public. Local drafts and recovery copies stay in browser storage on your device.",
       ]],
       ["Your scene and images", [

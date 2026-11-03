@@ -84,6 +84,7 @@ const required = [
   "tests/fixtures/experience-browser.html",
   "tests/fixtures/experience-browser.jsx",
   "tests/studio.test.mjs",
+  "tests/studio-public.test.mjs",
   "scripts/sync-card-catalog.mjs",
 
   "server/presence-service.mjs", "server/presence-schema.sql", "tests/presence-service.test.mjs",
