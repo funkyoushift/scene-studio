@@ -6,7 +6,7 @@
 const pages = {
   "/privacy": {
     title: "Privacy",
-    intro: "Scene Studio is a Twitch extension operated by Martin Wenn. This page explains the information used by the extension and its optional shared-chat feature.",
+    intro: "Scene Studio is a Twitch extension and external editor operated by Martin Wenn. This page explains information used by published scenes, optional chat connections, card games and viewer test rooms.",
     sections: [
       ["External studio and publication history", [
         "The Scene Studio editor is hosted on GitHub Pages. Signing in uses Twitch to confirm your channel ID and public login. Twitch access tokens used only for studio sign-in are discarded after validation. Your browser tab stores a revocable studio session for up to one hour; the server stores its hash and channel identity. Sign out removes that session. Expired sign-in records are removed automatically.",
@@ -34,6 +34,11 @@ const pages = {
         "The editor can keep a draft in your browser's local storage so you can return to it. Clearing the site's browser storage removes that local draft; it does not delete a published Twitch configuration or uploaded images.",
         "Scene Studio does not use an AI API or an analytics SDK. Its copy-and-paste AI workflow lets you choose whether to share a design prompt with a separate AI service; that service's policies apply to anything you send there.",
         "Cloudflare and Twitch provide hosting and platform services. They may process IP addresses and other technical request information under their own policies.",
+      ]],
+      ["Viewer test rooms", [
+        "An approved streamer can create a shareable viewer-room link. Anyone with that link can join as a guest without Twitch sign-in. Treat the link as an invitation to your published scene and current card table; do not share it with people you do not want to invite.",
+        "The service stores a hash of the invitation, its owning channel and a randomly generated identity for each guest session. Guest credentials expire after eight hours. Room links remain valid until the streamer closes the room or the testing period ends. Each guest request checks that the room remains open. Closing a room stops access; expired records are removed by cleanup, which can be delayed during an outage.",
+        "Guest card play stores the same hands, answers and scores as other card play, associated with a generated guest identity instead of a linked Twitch user ID. Your browser stores the credentials needed to rejoin your session. Never send room credentials or account tokens in a support report.",
       ]],
       ["Optional shared card games", [
         "Joining a card table uses your linked Twitch user ID to return your private hand and reconnect you to your seat. The service stores the channel ID, player IDs, hands, submissions, scores, selected cards and game rules on Cloudflare. Other viewers receive seat labels and scores, not your Twitch user ID or unplayed hand. Submitted answers become visible during judging; the winning seat is revealed after the judge chooses.",
@@ -67,8 +72,14 @@ const pages = {
     intro: "Scene Studio is operated by Martin Wenn. For help, contact m0dmacks@gmail.com.",
     sections: [
       ["Set up an overlay", [
-        "Install Scene Studio from the Twitch extension page, open its configuration, and choose or import a design. Edit the objects, preview the result, and select Save overlay. In Twitch's extension manager, activate Scene Studio in the video-overlay slot for that channel. Each channel keeps its own configuration.",
+        "Open https://www.funkyoushift.com/scene-studio/ and choose Sign in with Twitch. During testing, your account must be approved for Scene Studio access. Check that the studio shows your own channel before publishing. The Twitch extension configuration also opens this external studio.",
+        "Choose a template or edit your scene, then use Preview scene. In the publish panel choose Review scene to publish, check the channel and contents, then Publish now. Popups, timers and event rules have a separate Review moments to publish action. A preview or saved draft is not a live publication.",
+        "Install the authorized Scene Studio test version and activate it in the video-overlay slot in Twitch's extension manager. Each channel keeps its own published scene. Website test rooms work separately from the native Twitch overlay and do not prove that the overlay is active.",
         "During private testing, Twitch may show a test disclosure before the extension can appear. Accept that disclosure when it is shown. It is a testing requirement, not part of the ordinary approved release experience.",
+      ]],
+      ["Viewer rooms and Cards Against Humanity", [
+        "Open Viewer rooms in the studio to create or recover your saved invitation link. Share that link with your testers. They can join the website room as guests without being added to Twitch's native extension tester list. Keep using the same room until release or until you intentionally close it.",
+        "Choose Set up Cards Against Humanity, select the decks and rules, and open the table. Viewers join through your room link. Start after at least three players, including the host, are seated. Each streamer has a separate room and table. The native Twitch player has its own identity-link and tester requirements during testing.",
       ]],
       ["Images and clicks", [
         "Choose an object in the editor, then use Choose image to select your own image. Review the preview and save the overlay. Uploaded images are public. The image library lets the broadcaster remove images that are no longer used by the saved scene.",
