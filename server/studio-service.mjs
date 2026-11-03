@@ -1,4 +1,5 @@
 import {PLAYER_CONTRACT} from "../src/player-contract.mjs";
+import {EXPERIENCE_LIMITS, validateExperience} from '../src/experience.mjs';
 import { readExperienceBody } from './experience-service.mjs';
 import { parseScene, twitchContent, starterScene } from '../src/scene.mjs';
 import { hostedImage } from '../src/image-address.mjs';
@@ -179,6 +180,19 @@ export async function channelSceneRequest(request,env,{channel,route,claims},jso
     scene=JSON.parse(older.scene);
   }
   const content=publishedScene(scene,channel);
+  const experience=JSON.parse(content).experience;
+  if(experience) {
+    if(!env.EXPERIENCE_MEDIA) return json({error:'Experience hosting is unavailable. Your published scene was not changed.'},503);
+    const key=new URL(experience.url).pathname.slice(1);
+    const file=await env.EXPERIENCE_MEDIA.get(key);
+    if(!file) return json({error:'This hosted game is missing. Upload it again before publishing. Your published scene was not changed.'},400);
+    try {
+      const data=await readExperienceBody(new Response(file.body),EXPERIENCE_LIMITS.bytes);
+      validateExperience(JSON.parse(new TextDecoder().decode(data)),{published:true,channel});
+    } catch(error) {
+      return json({error:`This hosted game is not compatible: ${error.message.slice(0,180)}`},400);
+    }
+  }
   const result=await env.IMAGES.prepare('UPDATE channel_scenes SET scene=?1,revision=revision+1,updated=?2 WHERE channel=?3 AND revision=?4').bind(content,now,channel,body.revision).run();
   if(!result.meta.changes) return json({error:'The published design changed. Reload before publishing.'},409);
   return json({schema:1,requires:PLAYER_CONTRACT,revision:body.revision+1,scene:JSON.parse(content)});

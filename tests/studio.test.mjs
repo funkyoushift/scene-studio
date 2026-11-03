@@ -1,4 +1,5 @@
 import {PLAYER_CONTRACT} from "../src/player-contract.mjs";
+import {experienceExample} from '../src/experience-examples.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -73,6 +74,23 @@ test('channel migration preserves Twitch scene, rejects stale writes and isolate
 test('failed Twitch import leaves no channel scene and never starts blank',async()=>{
   const e=env();const res=await channelSceneRequest(request('/v1/channel/123/scene'),e,{channel:'123',route:'scene',claims:host},json,{fetcher:async()=>new Response('',{status:503})});
   assert.equal(res.status,503);assert.equal(e.db.prepare('SELECT count(*) AS n FROM channel_scenes').get().n,0);
+});
+test('publication validates hosted game contents before replacing the working revision',async()=>{
+  const e=env();
+  const fetcher=async()=>Response.json({data:[{segment:'broadcaster',broadcaster_id:'123',content:JSON.stringify(scene)}]});
+  const call=body=>channelSceneRequest(request('/v1/channel/123/scene',body),e,{channel:'123',route:'scene',claims:host},json,{fetcher});
+  await call();
+  const experience={kind:'experience-ref',name:'Remote game',enabled:true,url:'https://scene-studio-images.scene-studio-free-prototype.workers.dev/experiences/123/'+ 'a'.repeat(64)+'.json'};
+  const publish=()=>call({revision:1,scene:{...scene,experience}});
+  e.EXPERIENCE_MEDIA={get:async()=>null};
+  assert.equal((await publish()).status,400);
+  const design=experienceExample('story','hosted-game');
+  e.EXPERIENCE_MEDIA={get:async()=>({body:JSON.stringify({...design,requires:{protocol:2,capabilities:[]}})})};
+  assert.equal((await publish()).status,400);
+  assert.equal((await(await call()).json()).revision,1);
+  e.EXPERIENCE_MEDIA={get:async()=>({body:JSON.stringify(design)})};
+  assert.equal((await publish()).status,200);
+  assert.equal((await(await call()).json()).revision,2);
 });
 test('same player accepts new revisions, keeps valid scene after bad data and ignores disposed replies',async()=>{
   let next,answer={schema:1,revision:1,scene},auth={channelId:'123',token:'fixture'},seen=[];
