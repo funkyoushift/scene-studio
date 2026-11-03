@@ -59,9 +59,9 @@ test("malformed imports cannot add code, remote media, broken links, invalid rul
   const source = experienceExample("story", "story");
   source.code = "alert(1)";
   source.scenes[0].onclick = "alert(1)";
-  const clean = validateExperience(source);
-  assert.equal(clean.code, undefined);
-  assert.equal(clean.scenes[0].onclick, undefined);
+  assert.throws(() => validateExperience(source), /unsupported setting/);
+  delete source.code;
+  delete source.scenes[0].onclick;
   for (const mutate of [
     (d) => {
       d.scenes[0].elements[0].actions = [{ type: "eval", code: "alert(1)" }];

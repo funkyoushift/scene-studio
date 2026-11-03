@@ -1,3 +1,4 @@
+import {PLAYER_CONTRACT} from "../src/player-contract.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -58,7 +59,7 @@ test('channel migration preserves Twitch scene, rejects stale writes and isolate
   const e=env();let imports=0;
   const fetcher=async()=>{imports++;return Response.json({data:[{segment:'broadcaster',broadcaster_id:'123',content:JSON.stringify({...scene,name:'Original Twitch design'})}]});};
   const call=(route,body,claims=host)=>channelSceneRequest(request(`/v1/channel/123/${route}`,body),e,{channel:'123',route,claims},json,{fetcher});
-  assert.deepEqual(await(await call('scene',null,{role:'viewer'})).json(),{schema:1,revision:0,scene:null});assert.equal(imports,0);
+  assert.deepEqual(await(await call('scene',null,{role:'viewer'})).json(),{schema:1,requires:PLAYER_CONTRACT,revision:0,scene:null});assert.equal(imports,0);
   assert.equal((await(await call('scene')).json()).scene.name,'Original Twitch design');await call('scene');assert.equal(imports,1);
   assert.equal((await call('scene',{revision:1,scene:{...scene,name:'New maze'}})).status,200);
   assert.equal((await call('scene',{revision:1,scene})).status,409);

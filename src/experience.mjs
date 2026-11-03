@@ -1,3 +1,4 @@
+import { checkPlayerRequirements, knownFields, experienceRequirements } from "./player-contract.mjs";
 import { IMAGE_ORIGIN } from "./image-address.mjs";
 
 export const EXPERIENCE_LIMITS = {
@@ -71,6 +72,8 @@ export function validateExperience(input, { published = false, channel } = {}) {
     EXPERIENCE_LIMITS.bytes
   )
     fail("This experience is too large. Split it into smaller chapters.");
+  knownFields(input, ['kind','version','id','name','start','enabled','saveProgress','variables','assets','scenes','requires'], 'Experience');
+  checkPlayerRequirements(input.requires);
   const sceneRows = list(input.scenes, EXPERIENCE_LIMITS.scenes, "Scenes");
   if (!sceneRows.length) fail("Add at least one scene.");
   const sceneIds = unique(sceneRows, "Scene");
@@ -80,6 +83,7 @@ export function validateExperience(input, { published = false, channel } = {}) {
     "Variables",
   );
   unique(variableRows, "Variable");
+  variableRows.forEach(v => knownFields(v, ['id','initial'], 'Variable'));
   const variables = variableRows.map((v) => ({
     id: key(v.id),
     initial: scalar(v.initial),
@@ -88,6 +92,7 @@ export function validateExperience(input, { published = false, channel } = {}) {
   const assetRows = list(input.assets ?? [], EXPERIENCE_LIMITS.assets, "Media");
   const assetIds = unique(assetRows, "Media");
   const assets = assetRows.map((a) => {
+    knownFields(a, ["id","kind","name","source"], "Media");
     if (!["image", "video"].includes(a.kind))
       fail("Media must be an image or video.");
     const source = text(a.source, 500, "Media address");
@@ -112,6 +117,7 @@ export function validateExperience(input, { published = false, channel } = {}) {
   });
   function conditions(rows = []) {
     return list(rows, 12, "Conditions").map((c) => {
+      knownFields(c, ["variable","op","value"], "Condition");
       if (
         !types.has(c.variable) ||
         !["eq", "ne", "gt", "gte", "lt", "lte"].includes(c.op)
@@ -129,6 +135,7 @@ export function validateExperience(input, { published = false, channel } = {}) {
   function actions(rows = []) {
     let transitions = 0;
     return list(rows, EXPERIENCE_LIMITS.actions, "Actions").map((a, index) => {
+      knownFields(a, ['type','scene','scenes','variable','value'], 'Action');
       if (["goto", "random", "restart"].includes(a.type)) {
         if (++transitions > 1 || index !== rows.length - 1)
           fail(
@@ -163,6 +170,9 @@ export function validateExperience(input, { published = false, channel } = {}) {
     });
   }
   const scenes = sceneRows.map((s) => {
+    knownFields(s, ['id','title','description','background','media','fit','loop','videoEnd','timer','elements'], 'Scene');
+    if (s.timer) knownFields(s.timer, ['seconds','actions'], 'Timer');
+    if (s.fit !== undefined && !['contain','cover'].includes(s.fit)) fail('Choose contain or cover for scene media.');
     const media = s.media ?? "";
     if (media && !assetIds.has(media))
       fail("Scene media must refer to an uploaded asset.");
@@ -190,6 +200,7 @@ export function validateExperience(input, { published = false, channel } = {}) {
           }
         : {}),
       elements: elements.map((e) => {
+        knownFields(e, ['id','kind','label','x','y','width','height','color','background','transparent','fontSize','motion','when','actions','asset'], 'Element');
         if (!["button", "text", "image"].includes(e.kind))
           fail("Choose button, text, or image.");
         const width = number(e.width, 2, 100),
@@ -225,7 +236,7 @@ export function validateExperience(input, { published = false, channel } = {}) {
     };
   });
   if (!sceneIds.has(input.start)) fail("Choose an existing starting scene.");
-  return {
+  const result = {
     kind: "experience",
     version: 1,
     id: key(input.id),
@@ -237,6 +248,7 @@ export function validateExperience(input, { published = false, channel } = {}) {
     assets,
     scenes,
   };
+  return {...result, requires: experienceRequirements(result)};
 }
 export function validateExperienceSlot(value) {
   if (value?.kind === "experience-ref" && hostedExperience(value.url))

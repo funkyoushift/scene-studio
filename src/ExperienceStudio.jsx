@@ -281,6 +281,7 @@ function Conditions({ value = [], onChange, design }) {
 export default function ExperienceStudio({
   slot,
   onSave,
+  onPreviewScene,
   onClose,
   onRemove,
   draftKey = "scene-studio-experience-workspace",
@@ -420,6 +421,7 @@ export default function ExperienceStudio({
         </div>
         <div className="experience-tools">
           <button onClick={onClose}>Back without applying</button>
+          {onPreviewScene && <button className="primary" disabled={busy || !!problem} onClick={()=>onPreviewScene(clean)}>Save & return to scene preview</button>}
           <button
             disabled={busy || !!problem}
             className="primary"
@@ -509,6 +511,7 @@ export default function ExperienceStudio({
           {problem}
         </p>
       )}
+      {!problem && <p className="experience-notice">Compatible with the stable Twitch player. Publish new scenes, media and supported rules from this website without replacing the extension. Progress is separate for each viewer.</p>}
       <details className="experience-examples">
         <summary>Explore examples you can remix</summary>
         <p>

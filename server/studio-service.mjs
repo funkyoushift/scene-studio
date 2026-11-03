@@ -1,3 +1,4 @@
+import {PLAYER_CONTRACT} from "../src/player-contract.mjs";
 import { readExperienceBody } from './experience-service.mjs';
 import { parseScene, twitchContent, starterScene } from '../src/scene.mjs';
 import { hostedImage } from '../src/image-address.mjs';
@@ -165,7 +166,7 @@ export async function channelSceneRequest(request,env,{channel,route,claims},jso
       await env.IMAGES.prepare('INSERT OR IGNORE INTO channel_scenes(channel,revision,scene,updated) VALUES(?1,1,?2,?3)').bind(channel,scene,now).run();
       current=await channelScene(env,channel);
     }
-    return json({schema:1,revision:current?.revision || 0,scene:current ? JSON.parse(current.scene) : null});
+    return json({schema:1,requires:PLAYER_CONTRACT,revision:current?.revision || 0,scene:current ? JSON.parse(current.scene) : null});
   }
   if(request.method !== 'POST' || !['scene','rollback'].includes(route)) return json({error:'Method not allowed.'},405);
   const body=await jsonBody(request);
@@ -180,5 +181,5 @@ export async function channelSceneRequest(request,env,{channel,route,claims},jso
   const content=publishedScene(scene,channel);
   const result=await env.IMAGES.prepare('UPDATE channel_scenes SET scene=?1,revision=revision+1,updated=?2 WHERE channel=?3 AND revision=?4').bind(content,now,channel,body.revision).run();
   if(!result.meta.changes) return json({error:'The published design changed. Reload before publishing.'},409);
-  return json({schema:1,revision:body.revision+1,scene:JSON.parse(content)});
+  return json({schema:1,requires:PLAYER_CONTRACT,revision:body.revision+1,scene:JSON.parse(content)});
 }

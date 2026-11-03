@@ -68,6 +68,8 @@ const required = [
   "src/experience-media.mjs",
   "src/experience.mjs",
   "src/player-channel.mjs",
+  "src/player-contract.mjs",
+  "tests/player-contract.test.mjs",
   "src/studio-client.mjs",
   "src/studio-entry.jsx",
   "src/studio.css",
