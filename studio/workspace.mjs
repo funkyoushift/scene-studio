@@ -25,3 +25,12 @@ export function applySceneReceipt(current,submitted,result) {
   const scene=unchanged ? {...result.scene,objects:current.scene.objects.map(o=>result.scene.objects.find(saved=>saved.id===o.id)||o)} : current.scene;
   return {...current,scene,sceneRevision:result.revision};
 }
+
+// Recovery is a replacement, not a merge. Never discard edits made while the
+// published workspace was loading, and require a successful backup first.
+export function recoverPublishedDraft(started,current,published,saveBackup) {
+  if(JSON.stringify(started)!==JSON.stringify(current))return {replaced:false,workspace:current};
+  const replacement=structuredClone(published);
+  saveBackup(JSON.stringify(current));
+  return {replaced:true,workspace:replacement};
+}

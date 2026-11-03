@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {workspaceKeys,publishedWorkspace,publicationScene,expectedRevision,applySceneReceipt} from '../studio/workspace.mjs';
+import {workspaceKeys,publishedWorkspace,publicationScene,expectedRevision,applySceneReceipt,recoverPublishedDraft} from '../studio/workspace.mjs';
 import {catalog,makeTemplate,emptyScene,emptyAutomation,findTemplates} from '../studio/catalog.mjs';
 import {buildMazeExperience} from '../scripts/build-brb-maze.mjs';
 import {preflightPublish} from '../src/images.mjs';
@@ -29,4 +29,32 @@ test('publication respects hidden scene objects without deleting the editable dr
   const next=applySceneReceipt(ws,ws,receipt);assert.deepEqual(next.scene,ws.scene);assert.deepEqual(next.hidden,ws.hidden);assert.equal(next.sceneRevision,7);
   const edited={...ws,scene:{...ws.scene,name:'Edited during upload'}};
   assert.equal(applySceneReceipt(edited,ws,receipt).scene.name,'Edited during upload');
+});
+
+test('loading a published workspace preserves edits made while the request was pending',async()=>{
+  const started=publishedWorkspace({scene:emptyScene(),revision:6},{design:emptyAutomation(),revision:9});
+  let current=structuredClone(started),release;
+  const pending=new Promise(resolve=>{release=resolve;});
+  const backups=[];
+  const operation=(async()=>{const published=await pending;return recoverPublishedDraft(started,current,published,value=>backups.push(value));})();
+  // Read the latest workspace AFTER the network wait, as the UI does.
+  current={...current,scene:{...current.scene,name:'New unsaved game title'},automation:{...current.automation,rules:[{id:'new-rule'}]}};
+  const published={...structuredClone(started),sceneRevision:10};release(published);
+  const result=await operation;
+  assert.equal(result.replaced,false);assert.equal(result.workspace,current);
+  assert.equal(result.workspace.scene.name,'New unsaved game title');
+  assert.equal(result.workspace.automation.rules.length,1);assert.deepEqual(backups,[]);
+  assert.equal(result.workspace.sceneRevision,6);
+});
+
+test('recovery backs up the complete draft before replacement and aborts on storage failure',()=>{
+  const draft=publishedWorkspace({scene:emptyScene(),revision:6},{design:emptyAutomation(),revision:9});
+  draft.hidden=['hidden-object'];
+  const published={...structuredClone(draft),sceneRevision:10,hidden:[]};
+  const before=JSON.stringify(draft);let saved;
+  const result=recoverPublishedDraft(draft,draft,published,value=>{saved=value;});
+  assert.equal(result.replaced,true);assert.equal(saved,before);
+  assert.deepEqual(result.workspace,published);assert.notEqual(result.workspace,published);
+  assert.throws(()=>recoverPublishedDraft(draft,draft,published,()=>{throw Error('Storage full');}),/Storage full/);
+  assert.equal(JSON.stringify(draft),before);
 });

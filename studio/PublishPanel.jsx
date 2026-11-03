@@ -1,6 +1,6 @@
 import React,{useState,useRef} from 'react';
 import {runtime} from './runtime.mjs';
-import {publicationScene,publishedWorkspace,expectedRevision,applySceneReceipt} from './workspace.mjs';
+import {publicationScene,publishedWorkspace,expectedRevision,applySceneReceipt,recoverPublishedDraft} from './workspace.mjs';
 import {loadPublishedScene,publishStudioScene,startStudioSignIn} from '../src/studio-client.mjs';
 import {publishImages} from '../src/images.mjs';
 import {getAutomationConfig,publishAutomationImages,saveAutomationConfig} from '../src/automation-twitch.mjs';
@@ -9,12 +9,16 @@ export default function PublishPanel({workspace,setWorkspace,onPublished,onPrevi
   const {auth,snapshot,automationSnapshot,base,BACKUP}=runtime;
   const [busy,setBusy]=useState(false),[message,setMessage]=useState(''),[review,setReview]=useState(null),[owned,setOwned]=useState(automationSnapshot.ownedMerch===true);
   const lock=useRef(false),[uncertain,setUncertain]=useState(false);
+  const latestWorkspace=useRef(workspace);latestWorkspace.current=workspace;
   async function run(fn){if(lock.current)return;lock.current=true;setBusy(true);setMessage('');try{await fn();}catch(e){setMessage(e.message);}finally{lock.current=false;setBusy(false);}}
   async function refresh(replace=false){
+    const started=structuredClone(latestWorkspace.current);
     const [scene,moments]=await Promise.all([loadPublishedScene(auth),getAutomationConfig(auth)]);
-    Object.assign(snapshot,scene,{capturedAt:new Date().toISOString()});Object.assign(automationSnapshot,moments);Object.assign(base,publishedWorkspace(scene,moments));
-    if(replace){localStorage.setItem(BACKUP,JSON.stringify(workspace));setWorkspace(structuredClone(base));setOwned(moments.ownedMerch);}
-    setUncertain(false);setReview(null);onPublished();setMessage(replace?'Published scene and moments loaded into your draft. The previous draft is backed up.':'Published view refreshed. Your draft is unchanged.');
+    const published=publishedWorkspace(scene,moments);
+    const recovery=replace?recoverPublishedDraft(started,latestWorkspace.current,published,value=>localStorage.setItem(BACKUP,value)):null;
+    Object.assign(snapshot,scene,{capturedAt:new Date().toISOString()});Object.assign(automationSnapshot,moments);Object.assign(base,published);
+    if(recovery?.replaced){setWorkspace(recovery.workspace);setOwned(moments.ownedMerch);}
+    setUncertain(false);setReview(null);onPublished();setMessage(replace?(recovery.replaced?'Published scene and moments loaded into your draft. The previous draft is backed up.':'You edited the draft while the published scene was loading. Your new edits are preserved; nothing was replaced. Choose load published again only when you are ready to replace them.'):'Published view refreshed. Your draft is unchanged.');
   }
   async function publish(){
     const copy=structuredClone(review.workspace),kind=review.kind;
