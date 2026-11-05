@@ -44,7 +44,12 @@ const required = [
   "tests/studio-workspace.test.mjs",
   'community.html','src/community-entry.jsx','src/community-navigation.mjs','src/CommunityChoices.jsx','src/community.css','src/room-invitation.mjs','tests/community-navigation.test.mjs',
   'src/card-actions.mjs','tests/card-actions.test.mjs',
-  'test-room.html','src/TestRoom.jsx','src/TestRoomControls.jsx','src/test-room-entry.jsx','src/test-room-client.mjs','src/test-room.css','server/test-room-service.mjs','server/tester-access.mjs','tests/test-room.test.mjs',
+  'server/tester-access.mjs',
+  'server/outbound-policy.mjs', 'tests/outbound-policy.test.mjs',
+  'server/ordinary-links.mjs','tests/ordinary-links.test.mjs',
+  'tests/merch-backend.test.mjs','tests/fixtures/merch-approval.mjs',
+  'server/link-review-workflow.mjs','tests/link-review-workflow.test.mjs',
+  'test-room.html','src/TestRoom.jsx','src/TestRoomControls.jsx','src/test-room-entry.jsx','src/test-room-client.mjs','src/test-room.css','server/test-room-service.mjs','tests/test-room.test.mjs',
   // Reviewed external studio and stable player sources. No outputs or credentials.
   "server/card-catalog.mjs",
   "server/card-game-schema.sql",
@@ -540,7 +545,7 @@ for (const [file, content] of source) {
 }
 const manifest = {
   format: 1, createdUtc: new Date().toISOString(),
-  snapshot: "Current 0.5 development source; separate from the queued Twitch 0.4.0 package. Portal status last verified October 27, 2026.",
+  snapshot: "Website/backend source candidate; frozen Twitch 0.8.1 assets are separate and unchanged. This export is not a deployment or a Twitch submission.",
   generated: [...generated.keys()],
   files: [...outputFiles].sort(([a], [b]) => a.localeCompare(b)).map(([file, content]) => ({
     path: file, bytes: content.length, sha256: createHash("sha256").update(content).digest("hex"),

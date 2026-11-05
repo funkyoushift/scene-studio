@@ -116,7 +116,11 @@ test('existing native player credentials read an enrolled public channel but can
   const native=(path,body)=>worker.fetch(new Request('https://api.test'+path,{method:body?'POST':'GET',headers:{Origin:env.EXTENSION_ORIGIN,Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})}),env);
   const response=await native('/v1/channel/9001/scene');assert.equal(response.status,200);
   const scene=await response.json();assert.equal(scene.schema,1);assert.equal(scene.requires.protocol,1);
-  assert.equal((await native('/v1/cards/9001/game')).status,200);
+  assert.equal((await native('/v1/cards/9001/game')).status,404,'public enrollment does not grant catalog rights');
+  env.CARD_TEST_CHANNELS='9001';
+  assert.equal((await native('/v1/cards/9001/game')).status,200,'separate explicit card pilot');
+  env.CARD_TEST_CHANNELS='';
+  assert.equal((await native('/v1/cards/9001/game')).status,404,'pilot revocation applies to existing credentials');
   assert.equal((await native('/v1/channel/9001/history')).status,403);
   assert.equal((await native('/v1/channel/9001/scene',{revision:1,scene:{}})).status,403);
   assert.equal((await native('/experiences/9001',experienceExample('story'))).status,401);

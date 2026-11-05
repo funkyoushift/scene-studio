@@ -19,7 +19,7 @@ function fixture(t, { arrival = "presence", cooldownSeconds = 0 } = {}) {
     effect: { type: "shoutout", message: "Visit {name}", color: "#11AAFF", durationSeconds: 12 }, cooldownSeconds }] });
   db.prepare("INSERT INTO automation_configs(channel,design,revision,owned_merch,updated,engine_state,next_tick,last_event_at) VALUES(?,?,?,?,?,?,?,?)")
     .run("123", JSON.stringify(design), 1, 0, now, JSON.stringify(createAutomationState(now)), now + 60000, now - 60000);
-  const env = { AUTOMATIONS_ENABLED: "true", TWITCH_PRESENCE_ENABLED: "true", TWITCH_CHAT_CLIENT_ID: "testclient",
+  const env = { TEST_CHANNELS:'123,456',AUTOMATIONS_ENABLED: "true", TWITCH_PRESENCE_ENABLED: "true", TWITCH_CHAT_CLIENT_ID: "testclient",
     IMAGES: { prepare(sql) { return { bind(...args) {
       const stmt = db.prepare(sql), values = Object.fromEntries(args.map((value, index) => [String(index + 1), value]));
       return { first: async () => stmt.get(values) ?? null, run: async () => ({ meta: stmt.run(values) }), all: async () => ({ results: stmt.all(values) }) };

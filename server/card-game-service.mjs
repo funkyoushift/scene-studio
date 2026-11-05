@@ -13,6 +13,7 @@ import {
 import { validateMatchDeck } from "../src/card-decks.mjs";
 import { readExperienceBody } from "./experience-service.mjs";
 import {studioChannelEnabled} from './tester-access.mjs';
+import {privateTestChannel} from './outbound-policy.mjs';
 
 export async function cardGameRequest(
   request,
@@ -24,7 +25,8 @@ export async function cardGameRequest(
   try {
     if (
       env.CARD_GAMES_ENABLED !== "true" ||
-      !studioChannelEnabled(env,channel)
+      !studioChannelEnabled(env,channel) ||
+      (!privateTestChannel(env,channel) && !(env.CARD_TEST_CHANNELS||'').split(',').map(s=>s.trim()).includes(channel))
     )
       throw new CardGameError(
         "Card games are not enabled for this channel.",
@@ -41,9 +43,15 @@ export async function cardGameRequest(
         throw new CardGameError("Only the streamer can prepare decks.", 403);
       if (request.method !== "GET")
         throw new CardGameError("Method not allowed.", 405);
+      if(!/^shard-(?:0|[1-9][0-9]?)$/.test(route))
+        throw new CardGameError('Invalid catalog shard.',400);
       const version = new URL(request.url).searchParams.get("v");
       if (!/^[a-f0-9]{16}$/.test(version || ""))
         throw new CardGameError("Invalid catalog version.");
+      const catalog=await getCardCatalog(cardStore(env));
+      if(version!==catalog.version)throw new CardGameError('Refresh the card catalog.',409);
+      if(!Number.isInteger(catalog.shards)||catalog.shards<1||catalog.shards>32||Number(route.slice(6))>=catalog.shards)
+        throw new CardGameError('Invalid catalog shard.',400);
       const file = await cardStore(env).get(
         CARD_CATALOG_PREFIX + version + `/${route}.json`,
       );

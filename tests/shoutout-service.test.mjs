@@ -15,7 +15,7 @@ function fixture(t, trigger = { type: "shoutout", mode: "both", users: ["selecte
     enabled: true, trigger, effect: { type: "shoutout", message: "Visit {name}", color: "#11AAFF", durationSeconds: 12 }, cooldownSeconds: 0 }] });
   db.prepare("INSERT INTO automation_configs(channel,design,revision,owned_merch,updated,engine_state,next_tick) VALUES(?,?,?,?,?,?,?)")
     .run("123", JSON.stringify(design), 1, 0, now, JSON.stringify(createAutomationState(now)), now + 60000);
-  const env = { AUTOMATIONS_ENABLED: "true", TWITCH_CHAT_CLIENT_ID: "testclient", TWITCH_CHAT_CLIENT_SECRET: "testsecret",
+  const env = { TEST_CHANNELS:'123,456',AUTOMATIONS_ENABLED: "true", TWITCH_CHAT_CLIENT_ID: "testclient", TWITCH_CHAT_CLIENT_SECRET: "testsecret",
     IMAGES: { prepare(sql) { return { bind(...args) {
       const stmt = db.prepare(sql), values = Object.fromEntries(args.map((value, index) => [String(index + 1), value]));
       return { first: async () => stmt.get(values) ?? null, run: async () => ({ meta: stmt.run(values) }) };

@@ -310,11 +310,12 @@ export function ExperiencePlayer({ design, storageKey, onClose }) {
     </section>
   );
 }
-export default function ExperienceLauncher({ slot }) {
-  const [open, setOpen] = useState(false),
+export default function ExperienceLauncher({ slot, onOpenChange, initiallyOpen = false }) {
+  const [open, setOpen] = useState(initiallyOpen),
     [design, setDesign] = useState(null),
     [error, setError] = useState(""),
     [retry, setRetry] = useState(0);
+  useEffect(() => { onOpenChange?.(open); }, [open, onOpenChange]);
   useEffect(() => {
     if (!open || !slot) return;
     const controller = new AbortController();

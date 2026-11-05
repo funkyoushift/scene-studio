@@ -51,6 +51,7 @@ function SceneObjectControl({ widget, children, ...props }) {
 function Scene({
   scene,
   editing = false,
+  isConfig = false,
   selected,
   onSelect,
   onChange,
@@ -58,6 +59,8 @@ function Scene({
   sharedEvent = null,
   onParty,
   beforeParty,
+  onExperienceOpen,
+  experienceInitiallyOpen = false,
 }) {
   const stage = useRef(null),
     drag = useRef(null);
@@ -131,7 +134,7 @@ function Scene({
       ref={stage}
       aria-label="Interactive scene"
     >
-      {!editing && scene.experience && <ExperienceLauncher slot={scene.experience} />}
+      {!editing && scene.experience && <ExperienceLauncher slot={scene.experience} onOpenChange={onExperienceOpen} initiallyOpen={experienceInitiallyOpen} />}
       {backdrop && (
         <div className="stage-art" aria-hidden="true">
           <span className="live-dot">TWITCH PLAYER PREVIEW</span>

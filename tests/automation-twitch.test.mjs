@@ -100,7 +100,7 @@ test("live preflight rejects other-channel images, undeclared links and short ti
   const other = design(); other.carousels[0].slides[0].image = `${IMAGE_ORIGIN}/images/999/${"a".repeat(64)}.png`;
   assert.throws(() => automationPreflight(other, "123", true), /another channel/);
   const linked = design(); linked.carousels[0].slides[0].url = "https://streamlabs.com/funkyoushift/merch";
-  assert.throws(() => automationPreflight(linked, "123", false), /own branded/);
+  assert.doesNotThrow(() => automationPreflight(linked, "123", false), 'server policy, not a checkbox, decides link eligibility');
   const timed = design(); timed.rules[0].trigger = { type: "interval", everySeconds: 5 };
   assert.throws(() => automationPreflight(timed, "123", false), /60 seconds/);
   timed.rules[0].enabled = false;
@@ -370,4 +370,15 @@ test('Hype lifecycle watcher admits saved snapshots, keeps end terminal, and rej
   await send(h,snapshot({created:2500,hype:{...begin.hype,updatedAt:2500}}));
   assert.equal(received.filter(Boolean).length,2,'late active snapshot cannot reopen an ended train');
   assert.equal(received.at(-1).hype.phase,'ended');
+});
+
+test('website can prepare and save an ordinary linked popup without a merchandise declaration',async()=>{
+  const input=design();input.carousels[0].slides[0].url='https://creator.example/resources';
+  const prepared=await publishAutomationImages(input,auth,false,async()=>{throw Error('No upload needed');});
+  const saved=await saveAutomationConfig(auth,prepared,0,false,async(url,options)=>{
+    const body=JSON.parse(options.body);
+    assert.equal(body.ownedMerch,false);assert.equal(body.design.carousels[0].slides[0].url,input.carousels[0].slides[0].url);
+    return reply({...config(),design:body.design,ownedMerch:false});
+  });
+  assert.equal(saved.ownedMerch,false);assert.equal(saved.design.carousels[0].slides[0].url,input.carousels[0].slides[0].url);
 });

@@ -39,7 +39,7 @@ function designAtBytes(target) {
   if (utf8Length(clean) !== target) throw Error("Generated automation design did not reach the requested byte count.");
   return clean;
 }
-const claims = (channel = "123") => ({ role: "broadcaster", user_id: channel, channel_id: channel, exp: now / 1000 + 3 * 86400 });
+const claims = (channel = "123") => ({ role: "broadcaster", studio_editor:true, user_id: channel, channel_id: channel, exp: now / 1000 + 3 * 86400 });
 function design() {
   return { version: 1, carousels: [{ id: "merch", title: "My collection", displaySeconds: 20, slides: [{ id: "shirt", title: "My shirt", caption: "", image: "", url: "" }] }], rules: [
     { id: "chat", name: "Chat celebration", enabled: true, trigger: { type: "keyword", phrase: "party", match: "word" }, effect: { type: "celebrate", message: "The party is here" }, cooldownSeconds: 20 },
@@ -51,7 +51,7 @@ function fixture(t) {
   t.mock.method(Date, "now", () => now);
   const db = new DatabaseSync(":memory:"); db.exec(readFileSync(new URL("../server/automation-schema.sql", import.meta.url), "utf8")); db.exec(readFileSync(new URL("../server/hype-schema.sql", import.meta.url), "utf8")); t.after(() => db.close());
   let queries = 0;
-  const env = { AUTOMATIONS_ENABLED: "true", EXTENSION_ORIGIN: origin, EXTENSION_SECRET: Buffer.alloc(32, 5).toString("base64"), EXTENSION_CLIENT_ID: "testclient", EXTENSION_OWNER: "999", MERCH_TEST_STORES: '{"123":"https://streamlabs.com/FunkYouSHiFT/merch"}',
+  const env = { TEST_CHANNELS:'123,124,125,126,127,456', AUTOMATIONS_ENABLED: "true", EXTENSION_ORIGIN: origin, EXTENSION_SECRET: Buffer.alloc(32, 5).toString("base64"), EXTENSION_CLIENT_ID: "testclient", EXTENSION_OWNER: "999", MERCH_TEST_STORES: '{"123":"https://streamlabs.com/FunkYouSHiFT/merch"}',
     IMAGES: { prepare(sql) { return { bind(...args) { const query = db.prepare(sql), values = Object.fromEntries(args.map((value, index) => [String(index + 1), value]));
       return { first: async () => { queries++; const row = query.get(values) ?? null; env.afterFirst?.(sql); return row; }, run: async () => { queries++; env.beforeRun?.(sql); return { meta: query.run(values) }; }, all: async () => { queries++; return { results: query.all(values) }; } };
     } }; } },
@@ -381,23 +381,51 @@ test("hosted designs require same-channel hosted images, minute timers, and expl
   }
   const valid = design(); valid.carousels[0].slides[0].url = "https://streamlabs.com/funkyoushift/merch/5469633";
   valid.carousels[0].slides[0].image = `${IMAGE_ORIGIN}/images/123/${"b".repeat(64)}.png`;
-  assert.equal((await s.save(valid)).body.error, "store_not_allowed");
-  assert.equal((await s.save(valid, { input: { design: valid, expectedRevision: 0, ownedMerch: true } })).status, 200);
+  assert.equal((await s.save(valid)).body.error, "link_not_approved");
+  assert.equal((await s.save(valid, { input: { design: valid, expectedRevision: 0, ownedMerch: true } })).status, 400,'legacy mapped stores stay blocked');
   const other = design(); other.carousels[0].slides[0].url = valid.carousels[0].slides[0].url;
   assert.equal((await s.save(other, { channel: "456", input: { design: other, expectedRevision: 0, ownedMerch: true } })).status, 400);
 });
 
-test("popup destinations require an exact channel mapping and ownership", async t => {
-  const s=fixture(t), candidate=design();
-  candidate.carousels[0].slides[0].url='https://discord.gg/funksbth';
-  s.env.POPUP_TEST_LINKS=JSON.stringify({'123':['https://discord.gg/funksbth']});
-  assert.equal((await s.save(candidate)).status,400);
-  for(const url of ['https://discord.gg/another','https://discord.gg/funksbth?ref=other','https://discord.gg/funksbth#other']) {
-    const wrong=structuredClone(candidate);wrong.carousels[0].slides[0].url=url;
-    assert.equal((await s.save(wrong,{input:{design:wrong,expectedRevision:0,ownedMerch:true}})).status,400);
+test("ordinary popup links do not require a merch checkbox or manual mapping", async t => {
+  const s=fixture(t);
+  for(const [index,url] of ['https://discord.gg/funksbth','https://discord.gg/another','https://discord.gg/funksbth?ref=other','https://discord.gg/funksbth#other'].entries()) {
+    const candidate=design();candidate.carousels[0].slides[0].url=url;
+    assert.equal((await s.save(candidate,{input:{design:candidate,expectedRevision:index,ownedMerch:false}})).status,200);
   }
-  assert.equal((await s.save(candidate,{channel:'456',input:{design:candidate,expectedRevision:0,ownedMerch:true}})).status,400);
+});
+
+test('strict popup publication ignores merch mapping as permission and revocation strips viewer links while owner can edit',async t=>{
+  const s=fixture(t),candidate=design(),url='https://creator.example/about';
+  s.env.LINK_POLICY_CHANNELS='123';candidate.carousels[0].slides[0].url='https://streamlabs.com/FunkYouSHiFT/merch/123';
+  assert.equal((await s.save(candidate,{input:{design:candidate,expectedRevision:0,ownedMerch:true}})).body.error,'link_not_approved');
+  candidate.carousels[0].slides[0].url=url;
+  const record={id:'fixture_review_0001',channel:'123',url,status:'approved',kind:'noncommercial',reviewedBy:'fixture',evidence:'fixture',reviewedAt:now-1,redirectsCheckedAt:now-1,expiresAt:now+10000};
+  s.env.OUTBOUND_LINK_REVIEWS=JSON.stringify([record]);
   assert.equal((await s.save(candidate,{input:{design:candidate,expectedRevision:0,ownedMerch:true}})).status,200);
+  assert.equal((await s.call()).body.design.carousels[0].slides[0].url,url);
+  const viewer={role:'viewer',channel_id:'123',exp:claims().exp};
+  assert.match((await s.call('config',{auth:viewer})).body.design.carousels[0].slides[0].url,/\/outbound\/123\//);
+  s.env.OUTBOUND_LINK_REVIEWS=JSON.stringify([{...record,status:'revoked'}]);
+  assert.equal((await s.call('config',{auth:viewer})).body.design.carousels[0].slides[0].url,'');
+  const nativeOwner={...claims()};delete nativeOwner.studio_editor;
+  assert.equal((await s.call('config',{auth:nativeOwner})).body.design.carousels[0].slides[0].title,'Unavailable','native broadcaster view cannot retrieve original blocked listing');
+  assert.equal((await s.call()).body.design.carousels[0].slides[0].url,url);
+  assert.equal((await s.save(candidate,{input:{design:candidate,expectedRevision:1,ownedMerch:true}})).status,400);
+});
+
+test('background events resolve an explicitly registered tester without granting public links',async t=>{
+  const s=fixture(t);s.env.TEST_CHANNELS='123';s.db.exec(readFileSync(new URL('../server/studio-schema.sql',import.meta.url),'utf8'));
+  s.env.TEST_STREAMER_LOGINS='fixture_tester';
+  s.db.prepare('INSERT INTO studio_auth VALUES (?,?,?,?,?)').run('test-channel:456','test_channel','456',JSON.stringify({id:'456',login:'fixture_tester'}),Number.MAX_SAFE_INTEGER);
+  s.env.MERCH_TEST_STORES=JSON.stringify({'456':'https://streamlabs.com/fixture_tester/merch'});
+  const candidate=design();candidate.carousels[0].slides[0].url='https://fixture.example/community';
+  s.env.OUTBOUND_LINK_REVIEWS=JSON.stringify([{id:'fixture_review_0001',channel:'456',url:candidate.carousels[0].slides[0].url,status:'approved',kind:'noncommercial',reviewedBy:'fixture',evidence:'fixture',reviewedAt:now-1,redirectsCheckedAt:now-1,expiresAt:now+300000}]);
+  assert.equal((await s.save(candidate,{channel:'456',input:{design:candidate,expectedRevision:0,ownedMerch:true}})).status,200);
+  const result=await processAutomationInput(s.env,'456',{type:'tick'},{now:now+60000,fetcher:s.fetcher});
+  assert.equal(result.status,'sent');assert.equal(result.event.channelId,'456');
+  s.env.TEST_STREAMER_LOGINS='';
+  await assert.rejects(processAutomationInput(s.env,'456',{type:'tick'},{now:now+120000,fetcher:s.fetcher}),/not enabled/);
 });
 test("manual actions only broadcast saved effects and duplicates never resend", async t => {
   const s = fixture(t); await s.save(); s.sent.length = 0;

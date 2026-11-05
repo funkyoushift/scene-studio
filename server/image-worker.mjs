@@ -1,4 +1,5 @@
 import { studioAuth, studioGateway, channelSceneRequest } from './studio-service.mjs';
+import {outboundRequest} from './outbound-policy.mjs';
 import {testRoomRequest} from './test-room-service.mjs';
 import {requestTestChannelEnv} from './tester-access.mjs';
 // Dedicated Workers Free account. Bind IMAGES (D1),
@@ -174,6 +175,8 @@ const worker = {
       ctx.waitUntil(tickArrivals(env,{processInput:processAutomationInput}).catch(() => console.warn("Chat arrival checks unavailable.")));
   },
   async fetch(request, env, ctx) {
+    const outbound = await outboundRequest(request, env);
+    if(outbound)return outbound;
     env = await requestTestChannelEnv(request, env);
     const roomResponse = await testRoomRequest(request, env);
     if (roomResponse) return roomResponse;

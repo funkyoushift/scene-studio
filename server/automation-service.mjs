@@ -1,5 +1,7 @@
 import { AUTOMATION_DESIGN_BYTES, validateAutomations, evaluateAutomations, createAutomationState, keywordMatches, TWITCH_AUTOMATION_EVENTS, CELEBRATION_STYLES } from "../src/automations.mjs";
 import { hostedImage } from "../src/image-address.mjs";
+import {popupLinkPolicy} from './outbound-policy.mjs';
+import {testChannelEnv,studioChannelEnabled} from './tester-access.mjs';
 import { validateCelebrationSound, validateHypeLevelAudio } from "../src/sound-contract.mjs";
 import { normalizeShoutoutEffect, safeShoutoutProfile } from "../src/shoutout-contract.mjs";
 import { signPartyToken } from "./party-service.mjs";
@@ -40,6 +42,7 @@ function cleanCelebrationAppearance(value, channel) {
 function enabled(env, channel) {
   if (env.AUTOMATIONS_ENABLED !== "true") fail(404, "not_enabled", "Hosted automations are not enabled.");
   if (typeof channel !== "string" || !numericId.test(channel)) fail(400, "invalid_channel", "Invalid channel.");
+  if(!studioChannelEnabled(env,channel))fail(403,'channel_not_enabled','This channel is not enabled for Scene Studio.');
 }
 function clock(now) {
   if (!Number.isSafeInteger(now) || now < 0) fail(400, "invalid_time", "Invalid automation clock.");
@@ -67,30 +70,10 @@ async function jsonBody(request, max = 20000, tooLargeMessage = "The request bod
   try { const value = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(data)); if (!value || typeof value !== "object" || Array.isArray(value)) throw Error(); return value; }
   catch { fail(400, "invalid_body", "Use a valid JSON object."); }
 }
-function allowedStore(env, channel, value) {
-  let mapping; try { mapping = JSON.parse(env.MERCH_TEST_STORES || "{}"); } catch { return false; }
-  if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) return false;
-  if (!Object.hasOwn(mapping, channel) || typeof mapping[channel] !== "string") return false;
-  let base, url; try { base = new URL(mapping[channel]); url = new URL(value); } catch { return false; }
-  const basePath = base.pathname.match(/^\/([A-Za-z0-9_]{1,25})\/merch\/?$/);
-  // This test path accepts only the mapped store or numeric product listings.
-  // No arbitrary suffix, redirect route, query, fragment, or affiliate code.
-  const product = url.pathname.match(/^\/([A-Za-z0-9_]{1,25})\/merch(?:\/([0-9]+))?\/?$/);
-  return Boolean(basePath && product && base.origin === "https://streamlabs.com" && !base.username && !base.password && !base.search && !base.hash &&
-    url.origin === base.origin && !url.username && !url.password && !url.search && !url.hash &&
-    basePath[1].toLowerCase() === product[1].toLowerCase());
-}
-function allowedChannelLink(env, channel, value) {
-  try {
-    const mapping=JSON.parse(env.POPUP_TEST_LINKS || '{}');
-    if(!mapping || Array.isArray(mapping) || !Object.hasOwn(mapping,channel) || !Array.isArray(mapping[channel]) || mapping[channel].length>12) return false;
-    const url=new URL(value);
-    if(url.protocol!=='https:' || url.username || url.password || url.search || url.hash) return false;
-    return mapping[channel].some(entry=>typeof entry==='string' && new URL(entry).href===url.href);
-  } catch { return false; }
-}
-function hostedDesign(env, channel, raw, ownedMerch) {
+function hostedDesign(env, channel, raw, ownedMerch, {delivery=false,editing=false,now=Date.now(),revision}={}) {
   let design; try { design = validateAutomations(raw); } catch (error) { fail(400, "invalid_design", error.message); }
+  try { if(!editing)design=popupLinkPolicy(env,channel,design,{delivery,now,revision}); }
+  catch(error){fail(400,'link_not_approved',error.message);}
   for (const rule of design.rules) for (const effect of ruleEffects(rule)) {
     if (effect.type === "celebrate" && effect.appearance?.sound) {
       try { validateCelebrationSound(effect.appearance.sound, { allowInline: false, channel }); }
@@ -99,8 +82,6 @@ function hostedDesign(env, channel, raw, ownedMerch) {
   }
   for (const carousel of design.carousels) for (const slide of carousel.slides) {
     if (slide.image && !hostedImage(slide.image, channel)) fail(400, "image_not_owned", "Upload every image to this channel before saving automations.");
-    if (slide.url && (ownedMerch !== true || (!allowedStore(env, channel, slide.url) && !allowedChannelLink(env,channel,slide.url))))
-      fail(400, "store_not_allowed", "Confirm ownership and use this channel’s configured popup destinations or Streamlabs store; sponsor and affiliate links are excluded.");
   }
   if (design.rules.some(rule => rule.trigger.type === "interval" && rule.trigger.everySeconds < 60)) fail(400, "interval_too_short", "Hosted timers must be at least 60 seconds.");
   if (utf8.encode(JSON.stringify(design)).length > HOSTED_AUTOMATION_LIMITS.designBytes) fail(413, "design_too_large", "Keep the hosted automation design within 64 KiB.");
@@ -164,7 +145,7 @@ async function activeMoment(env, channel, currentTime) {
       profile = safeShoutoutProfile(event.shoutout);
       const savedRow = await stmt(env, "SELECT design,owned_merch FROM automation_configs WHERE channel=?1 AND revision=?2", channel, row.revision).first();
       if (!savedRow) return result;
-      saved = hostedDesign(env, channel, JSON.parse(savedRow.design), savedRow.owned_merch === 1);
+      saved = hostedDesign(env, channel, JSON.parse(savedRow.design), savedRow.owned_merch === 1,{delivery:true,revision:row.revision,now:checkedAt});
     } catch { return result; }
     const rule = saved.rules.find(item => item.id === event.ruleId && item.enabled && item.trigger.type === "shoutout");
     if (!profile || !rule || JSON.stringify(rule.effect) !== JSON.stringify(effect) ||
@@ -215,7 +196,7 @@ async function hypeMoment(env, channel, currentTime) {
   let event;
   try { event = safeHypeState(JSON.parse(row.event)); } catch { return result; }
   if (!event || event.channelId !== channel || event.revision !== row.revision || event.created > now || event.expires <= now) return result;
-  const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
+  const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1,{delivery:true,revision:row.revision});
   const anchor = beginEffect(design);
   if (!anchor) return result;
   const options = [anchor, lifecycleEffect(design, event.hype.phase)].filter(Boolean);
@@ -319,6 +300,7 @@ async function admittedEffect(env, channel, row, inputId, inputHash, effect, nex
 // Caller is trusted server code (verified webhook or authenticated API adapter).
 // Message text is used transiently for matching; it is never stored or broadcast.
 export async function processAutomationInput(env, channel, event, { now = Date.now(), fetcher = fetch } = {}) {
+  env=await testChannelEnv(env,channel);
   enabled(env, channel); clock(now);
   if (!event || !["message", "external", "tick", "twitch", "shoutout"].includes(event.type)) fail(400, "invalid_event", "Unsupported automation input.");
   if (event.type !== "tick" && (typeof event.id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(event.id))) fail(400, "event_id_required", "Pass a stable source event ID.");
@@ -330,7 +312,7 @@ export async function processAutomationInput(env, channel, event, { now = Date.n
       !safeShoutoutProfile(event.profile))) fail(400, "invalid_event", "Use a verified shoutout source and profile.");
   const row = await load(env, channel);
   if (!row) return { status: "no_match" };
-  const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
+  const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1,{delivery:true,revision:row.revision});
   if (event.type === "twitch" && event.event.startsWith("hype_") && event.hype) {
     const lifecycle = await processHypeLifecycle(env, channel, event, row, design, { now, fetcher });
     if (lifecycle) return lifecycle;
@@ -355,10 +337,11 @@ export async function processAutomationInput(env, channel, event, { now = Date.n
 }
 
 export async function hasMatchingKeywordRule(env, channel, text) {
+  env=await testChannelEnv(env,channel);
   enabled(env, channel);
   if (typeof text !== "string" || text.length > 2000) return false;
   const row = await load(env, channel); if (!row) return false;
-  const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
+  const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1,{delivery:true,revision:row.revision});
   return design.rules.some(rule => rule.enabled && rule.trigger.type === "keyword" && keywordMatches(text, rule.trigger.phrase, rule.trigger.match));
 }
 
@@ -387,6 +370,7 @@ export async function automationRequest(request, env, channel, { claims, now = D
   const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers });
   const started = Date.now(), currentTime = () => now + Math.max(0, Date.now() - started);
   try {
+    env=await testChannelEnv(env,channel);
     enabled(env, channel); clock(now);
     const path = new URL(request.url).pathname;
     if (!["config", "fire", "active", "hype"].some(name => path === `/v1/automations/${channel}/${name}`)) fail(404, "not_found", "Endpoint not found.");
@@ -407,15 +391,21 @@ export async function automationRequest(request, env, channel, { claims, now = D
     }
     if (config && request.method === "GET") {
       const row = await load(env, channel);
-      return json(view(row, channel, row ? hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1) : undefined));
+      const owner=claims.role==='broadcaster'&&claims.user_id===channel&&claims.studio_editor===true;
+      // Owner sees original URLs so edits remain possible after revocation.
+      // The viewer receives only reviewed broker links or non-clickable slides.
+      const design=row?hostedDesign(env,channel,JSON.parse(row.design),row.owned_merch===1,{editing:owner,delivery:!owner,now:currentTime(),revision:row.revision}):undefined;
+      return json(view(row, channel, design));
     }
     const input = await jsonBody(request, config ? AUTOMATION_DESIGN_BYTES + 1024 : 1024,
       config ? "The automation request must fit a 64 KiB design plus metadata." : "The action request is too large.");
     authorize(request, env, channel, claims, currentTime(), true);
     if (config) {
-      const design = hostedDesign(env, channel, input.design, input.ownedMerch);
       const revision = input.expectedRevision;
       if (!Number.isSafeInteger(revision) || revision < 0 || revision >= Number.MAX_SAFE_INTEGER) fail(400, "invalid_revision", "Supply the last saved revision (0 for a new design).");
+      const design = hostedDesign(env, channel, input.design, input.ownedMerch,{now:currentTime(),revision:revision+1});
+      // Validate delivered broker URLs against the frozen viewer's size budget.
+      hostedDesign(env,channel,design,input.ownedMerch,{delivery:true,now:currentTime(),revision:revision+1});
       const hasTimers = design.rules.some(rule => rule.enabled && rule.trigger.type === "interval") ? 1 : 0;
       const savedAt = currentTime();
       const values = [channel, JSON.stringify(design), input.ownedMerch === true ? 1 : 0, savedAt, JSON.stringify(createAutomationState(savedAt)), hasTimers, savedAt + 60000];
@@ -431,7 +421,7 @@ export async function automationRequest(request, env, channel, { claims, now = D
     }
     if (!uuid.test(input.eventId ?? "")) fail(400, "event_id_required", "Use a stable UUID for this manual action.");
     const row = await load(env, channel); if (!row) fail(409, "config_required", "Save this channel’s automation design first.");
-    const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1);
+    const design = hostedDesign(env, channel, JSON.parse(row.design), row.owned_merch === 1,{delivery:true,revision:row.revision});
     let effect;
     if (input.type === "carousel" && design.carousels.some(item => item.id === input.carouselId)) effect = { type: "carousel", carouselId: input.carouselId };
     else if (input.type === "celebrate" && typeof input.message === "string") {

@@ -112,7 +112,8 @@ export async function getAutomationConfig(auth, fetcher = fetch) {
 export function automationPreflight(input, channelId, ownedMerch) {
   const design = validateAutomations(input);
   if (design.rules.some(rule => rule.trigger.type === "interval" && rule.trigger.everySeconds < 60)) throw Error("Live timer rules, including disabled rules, need at least 60 seconds between appearances.");
-  if (design.carousels.some(c => c.slides.some(s => s.url)) && ownedMerch !== true) throw Error("Confirm that all linked carousels are your own branded merchandise before saving.");
+  // Ordinary links are not merchandise declarations. The server determines
+  // destination eligibility; this legacy checkbox is never approval evidence.
   if (design.carousels.some(c => c.slides.some(s => s.image && !s.image.startsWith("data:") && !hostedImage(s.image, channelId)))) throw Error("Replace images that belong to another channel before saving.");
   checkSoundChannels(design, channelId, true);
   const estimate = { ...design, carousels: design.carousels.map(c => ({ ...c, slides: c.slides.map(s => ({ ...s, image: s.image ? `${IMAGE_ORIGIN}/images/${channelId}/${"0".repeat(64)}.png` : "" })) })) };

@@ -123,6 +123,11 @@ for(const publicAccess of [false,true]) test(`${publicAccess?'two unlisted publi
   assert.equal((await signIn('9003','unapproved')).status,403);
   if(publicAccess){env.STUDIO_PUBLIC_ENABLED='true';env.TEST_STREAMER_LOGINS='';}
   const hosts=[await signIn('9001','scootermagoo'),await signIn('9002','x_bella_beast_x')];
+  if(publicAccess){
+    for(const host of hosts)assert.equal((await call(`/v1/cards/${host.channelId}/catalog`,host.token)).status,404,'public signup does not grant uncleared card catalog access');
+    // Explicit fixture-only card pilot, not a public catalog license grant.
+    env.CARD_TEST_CHANNELS=hosts.map(host=>host.channelId).join(',');
+  }
   const rooms=[],guests=[];
   for(const [i,host] of hosts.entries()){
     assert.equal(host.channelId,`900${i+1}`);

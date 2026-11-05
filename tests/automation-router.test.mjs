@@ -40,7 +40,7 @@ test('chat webhook route is closed by default without interpreting a notificatio
 test('active catch-up route requires signed same-channel viewer proof and exact origin',async()=>{
   const url='https://service.test/v1/automations/123/active';
   let reads=0;
-  const enabled={...env,AUTOMATIONS_ENABLED:'true',IMAGES:{prepare(){return {bind(){return {async first(){reads++;return null;}};}};}}};
+  const enabled={...env,TEST_CHANNELS:'123',AUTOMATIONS_ENABLED:'true',IMAGES:{prepare(){return {bind(){return {async first(){reads++;return null;}};}};}}};
   const request=async(overrides={},from=origin)=>new Request(url,{headers:{Origin:from,Authorization:`Bearer ${await token(overrides)}`}});
   assert.equal((await worker.fetch(await request(),env)).status,404);
   assert.equal((await worker.fetch(await request({},'null'),enabled)).status,403);

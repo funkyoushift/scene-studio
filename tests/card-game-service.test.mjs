@@ -98,6 +98,31 @@ const actionFor = (game, type, extra = {}) => ({
   revision: game.revision,
   ...extra,
 });
+
+test('public enrollment alone never opens catalog or tables; explicit pilot access is revocable',async t=>{
+  const env=environment();t.after(()=>env.db.close());
+  env.TEST_CHANNELS='';env.STUDIO_ENABLED='true';env.STUDIO_PUBLIC_ENABLED='true';env.STUDIO_CHANNEL=channel;
+  for(const route of ['catalog','game','shard-0'])assert.equal((await call(env,channel,null,'broadcaster',route)).status,404);
+  env.CARD_TEST_CHANNELS=channel;
+  assert.equal((await call(env,channel,null,'broadcaster','catalog')).status,200);
+  const created=await call(env,channel,{type:'create',catalogVersion:catalog.version,deck,rules:{}});
+  assert.equal(created.status,200);
+  env.CARD_TEST_CHANNELS='';
+  assert.equal((await call(env,channel,null)).status,404);
+  assert.equal(env.db.prepare('SELECT count(*) AS n FROM card_games').get().n,1,'revocation retains saved table');
+});
+test('catalog shards reject traversal, out-of-range and stale versions before reading a shard',async t=>{
+  const env=environment();t.after(()=>env.db.close());const reads=[];
+  env.EXPERIENCE_MEDIA={get:async key=>{reads.push(key);return key.endsWith('catalog.json')?{json:async()=>catalog}:{body:'[]'};}};
+  async function shard(route,version=catalog.version){
+    return cardGameRequest(new Request(`https://service.test/?v=${version}`),env,{channel,route,claims:{role:'broadcaster',user_id:channel}},(body,status=200)=>Response.json(body,{status}),now);
+  }
+  for(const route of ['shard-../other','shard-%2e%2e','shard-00','shard-1','shard-32','shard-999'])assert.equal((await shard(route)).status,400);
+  assert.equal((await shard('shard-0','ffffffffffffffff')).status,409);
+  assert.ok(reads.every(key=>key.endsWith('catalog.json')),'invalid paths cannot select arbitrary storage keys');
+  assert.equal((await shard('shard-0')).status,200);
+  assert.equal(reads.at(-1),`card-catalog/v1/${catalog.version}/shard-0.json`);
+});
 async function table(env) {
   let r = await call(env, channel, {
     type: "create",

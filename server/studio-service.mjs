@@ -1,4 +1,5 @@
 import {PLAYER_CONTRACT} from "../src/player-contract.mjs";
+import {sceneLinkPolicy} from './outbound-policy.mjs';
 import {EXPERIENCE_LIMITS, validateExperience} from '../src/experience.mjs';
 import { readExperienceBody } from './experience-service.mjs';
 import { parseScene, twitchContent, starterScene } from '../src/scene.mjs';
@@ -120,7 +121,7 @@ export function studioRouteChannel(path) {
 }
 async function internalToken(env, channel, now) {
   const part = obj => encode(encoder.encode(JSON.stringify(obj)));
-  const input = `${part({alg:'HS256',typ:'JWT'})}.${part({ role:'broadcaster', user_id:channel, channel_id:channel, opaque_user_id:`U${channel}`, exp:Math.floor(now/1000)+60 })}`;
+  const input = `${part({alg:'HS256',typ:'JWT'})}.${part({ role:'broadcaster', studio_editor:true, user_id:channel, channel_id:channel, opaque_user_id:`U${channel}`, exp:Math.floor(now/1000)+60 })}`;
   const key = await crypto.subtle.importKey('raw', Uint8Array.from(atob(env.EXTENSION_SECRET), c=>c.charCodeAt(0)), {name:'HMAC',hash:'SHA-256'}, false, ['sign']);
   return `${input}.${encode(new Uint8Array(await crypto.subtle.sign('HMAC', key, encoder.encode(input))))}`;
 }
@@ -175,7 +176,7 @@ export async function channelSceneRequest(request,env,{channel,route,claims},jso
       await env.IMAGES.prepare('INSERT OR IGNORE INTO channel_scenes(channel,revision,scene,updated) VALUES(?1,1,?2,?3)').bind(channel,scene,now).run();
       current=await channelScene(env,channel);
     }
-    return json({schema:1,requires:PLAYER_CONTRACT,revision:current?.revision || 0,scene:current ? JSON.parse(current.scene) : null});
+    return json({schema:1,requires:PLAYER_CONTRACT,revision:current?.revision || 0,scene:current ? (host&&claims.studio_editor===true?JSON.parse(current.scene):sceneLinkPolicy(env,channel,JSON.parse(current.scene),{delivery:true,now,revision:current.revision})) : null});
   }
   if(request.method !== 'POST' || !['scene','rollback'].includes(route)) return json({error:'Method not allowed.'},405);
   const body=await jsonBody(request);
@@ -188,6 +189,9 @@ export async function channelSceneRequest(request,env,{channel,route,claims},jso
     scene=JSON.parse(older.scene);
   }
   const content=publishedScene(scene,channel);
+  sceneLinkPolicy(env,channel,scene,{now,revision:body.revision+1});
+  // Rewritten links/notice must still fit the frozen player's config budget.
+  publishedScene(sceneLinkPolicy(env,channel,JSON.parse(content),{delivery:true,now,revision:body.revision+1}),channel);
   const experience=JSON.parse(content).experience;
   if(experience) {
     if(!env.EXPERIENCE_MEDIA) return json({error:'Experience hosting is unavailable. Your published scene was not changed.'},503);
